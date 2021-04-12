@@ -28,3 +28,7 @@ REK number | The REK number under which the data is collected. The REK will also
 Project start date | Start date of the projects data collection.
 Project end date | End date of the projects data collection.
 What is supposed to happen at the end of the project? | Supported are two options: "Delete data" and "Full anonymization and make data available"
+
+This information is captured in a web-form and entered after manual review into a REDCap project "DataTransferProjects". See the complete data dictionary for this project at
+
+ - [components/CreateProject/DataTransferProjects.csv](components/CreateProject/DataTransferProjects.csv)

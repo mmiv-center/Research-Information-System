@@ -1,0 +1,24 @@
+"Variable / Field Name","Form Name","Section Header","Field Type","Field Label","Choices, Calculations, OR Slider Labels","Field Note","Text Validation Type OR Show Slider Number","Text Validation Min","Text Validation Max",Identifier?,"Branching Logic (Show field only if...)","Required Field?","Custom Alignment","Question Number (surveys only)","Matrix Group Name","Matrix Ranking?","Field Annotation"
+record_id,leave_alone_do_not_touch,,text,"Record ID",,,,,,,,,,,,,
+leave_alone_notes,leave_alone_do_not_touch,,notes,"Information about this project",,,,,,,,,,,,,
+leave_alone_current_rek,leave_alone_do_not_touch,,file,"Current REK approval document for this project",,,,,,,,,,,,,
+leave_alone_mrn,leave_alone_do_not_touch,,text,"Test field, can be deleted again!",,,mrn_11d,,,y,,,,,,,
+project_name,projects,,text,"Project Name (use the same name on FIONA)",,,,,,,,,,,,,
+project_type,projects,,dropdown,"The research information system type of this project","0, with REK | 1, no REK with non-human subjects | 2, no REK quality control or operational support | 3, publicly available dataset (requires data use agreement)",,,,,,,,,,,,
+project_contact,projects,,text,"Contact information for the project owner",,,,,,,,,,,,,
+project_contact_email,projects,,text,"Contact information for the project owner (email)",,,,,,,,,,,,,
+project_patient_naming,projects,,text,"Rule to name patients in this project",,,,,,,,,,,,,
+project_rec_number,projects,,text,"Current REK number for this project",,,,,,,,,,,,,
+project_rec_start_date,projects,,text,"REK approval start date",,,date_ymd,,,,,,,,,,
+project_rec_end_date,projects,,text,"REK approval end date",,,date_ymd,,,,,,,,,,
+project_end_type,projects,,dropdown,"What should happen with this projects data at the end of the study?","1, Full anonymization of the data with continued use | 2, Delete data",,,,,,,,,,,,
+project_token,projects,,text,"System components with access to this project should use this token to send messages to REDCap",,,,,,,,,,,,,
+project_active,projects,,yesno,"Is the project an active imaging project?",,,,,,,,,RH,,,,
+project_import_rule_1_tag,projects,,text,"The tag for the first rule (used during import to filter values based on regular expressions).",,,,,,,,,,,,,"0032,4000"
+project_import_rule_1_regexp,projects,,text,"A regular expression that filters the tag. All named entities will be retained in import to IDS7.",,,,,,,,,,,,,
+project_use_autoid,projects,,yesno,"If auto-ID is enabled new participants will receive an automatically generated id based on the project_patient_naming regular expression (make sure that entry makes sense). This is essentially a full anonymization step as the original PatientID will not be stored in the autoid project - only a hash values derived from it.
+
+Be sure you want this as you give up the right to name participants on your own.",,,,,,,,,RH,,,,
+project_autoid_aetitle,projects,,text,"The addressed AETitle for auto-id. This is our only way to recognize that incoming data belongs to a specific project. This value has to be set if the auto-id feature is used.",,,,,,,"[project_use_autoid] = '1'",,,,,,
+rewrite_ex_tag,rewritepixelexclusions,,dropdown,"The DICOM tag that should be used in the exclusion. Image series that match will not undergo a RewriteDICOM during forwarding to research PACS.","1, 0x0020:0x4000 Image Comments | 2, 0x0008:0x103E Series Description",,,,,,,,,,,,
+rewrite_ex_reg,rewritepixelexclusions,,text,"Regular expression that should match.",,,,,,,,,,,,,
