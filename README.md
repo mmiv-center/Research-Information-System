@@ -1,6 +1,6 @@
-# A Research Information System
+# Research Information System
 
-This repository contains components developed for a research information system using clinical technology.
+This repository contains components required to setup a research information system. This setup is in use at the Helse Vest Research Information system and supports about 80 different research projects in the national health region of western Norway.
 
 ### Project description
 
