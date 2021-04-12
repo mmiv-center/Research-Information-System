@@ -1,0 +1,27 @@
+"Variable / Field Name","Form Name","Section Header","Field Type","Field Label","Choices, Calculations, OR Slider Labels","Field Note","Text Validation Type OR Show Slider Number","Text Validation Min","Text Validation Max",Identifier?,"Branching Logic (Show field only if...)","Required Field?","Custom Alignment","Question Number (surveys only)","Matrix Group Name","Matrix Ranking?","Field Annotation"
+study_instance_uid,incoming_studies,,text,"Study Instance UID",,,,,,,,,,,,,
+study_institution_name,incoming_studies,,text,"Institution name in the incoming DICOM",,,,,,,,,,,,,
+study_aetitle_sender,incoming_studies,,text,"AETitle of the sending DICOM node",,,,,,,,,,,,,
+study_aetitle_addressed,incoming_studies,,text,"AETitle the sending node addressed on FIONA",,,,,,,,,,,,,
+study_patient_name,incoming_studies,,text,"Patient name",,,,,,,,,,,,,
+study_patient_id,incoming_studies,,text,"Patient ID",,,,,,,,,,,,,
+study_description,incoming_studies,,text,"Study Description",,,,,,,,,,,,,
+study_date,incoming_studies,,text,"Study Date",,,,,,,,,,,,,
+study_time,incoming_studies,,text,"Study Time",,,,,,,,,,,,,
+study_accession_number,incoming_studies,,text,"Accession number of the incoming study",,,,,,,,,,,,,
+series_instance_uid,series,,text,"Series Instance UID",,,,,,,,,,,,,
+series_description,series,,text,"Series Description",,,,,,,,,,,,,
+series_date,series,,text,"Series Date",,,,,,,,,,,,,
+series_time,series,,text,"Series Time",,,,,,,,,,,,,
+series_num_files,series,,text,"Number of files for this series",,,integer,0,,,,,,,,,
+series_sequence_name,series,,text,"Sequence name of the series",,,,,,,,,,,,,
+series_classify_types,series,,text,"List of classified/detected image types for this series",,,,,,,,,,,,,
+transfer_info_text,transfers,,descriptive,"A transfer is initiated if both transfer_date and transfer_project_name are filled in. Every 5 to 10 minutes the background FIONA process will attempt to anonymize and send the marked studies. If the transfer was successful a transfer_date entry will be entered by the system. Otherwise, please check the error message provided and contact your system admin.",,,,,,,,,,,,,
+transfer_requested_date,transfers,,text,"The date on which the data transfer was requested",,,datetime_ymd,,,,,,,,,,
+transfer_project_name,transfers,,text,"Project name to which the data should be transferred",,,,,,,,,,,,,
+transfer_name,transfers,,text,"Anonymized patient name in target project",,"The anonymization process will use this for PatientID and PatientName",,,,,,,,,,,
+transfer_event_name,transfers,,text,"The name of the event assigned to this dataset.",,,,,,,,,,,,,
+transfer_date,transfers," The following fields are filled out by FIONA.",text,"Date of the transfer",,"automatically filled in",datetime_ymd,,,,,,,,,," @READONLY"
+transfer_error,transfers,,checkbox,"Transfer errors (last transfer)","1, Anonymization error | 2, Send error to rDMA | 3, Performed pixel anonymization","automatically filled in",,,,,,,,,,," @READONLY"
+transfer_mapped_uid,transfers,,text,"StudyInstanceUID in the anonymized DICOM files",,,,,,,,,,,,," @READONLY"
+transfer_error_message,transfers,,notes,"Message generated from last error (anonymize or send error)",,,,,,,,,,,,," @READONLY"
