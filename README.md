@@ -8,6 +8,26 @@ Our research information system is modeled after information systems used in cli
 
 The research information system has two components - a *research PACS* for storage and review of image data and a *research electronic record system* for the collection and storage of all tabulated data. The technical component that is used to enter data into both components is called *FIONA*.
 
+## Terms used in the following sections
+
+We are using the REDCap model to describe data we collect about a project. Here are the basic items on all our data dictionaries used in the following sections.
+
+Item | Description
+-----|------------
+Variable/Field name | Column name for spreadsheet export, only lower case characters, no spaces, underscores are allowed. Should start with instrument shortcut (3 characters) followed by underscore. Should be shorter than 36 characters (but can be longer). Should include hierarchical pattern to allow for text searches on similar variables. Should reuse some common names (e.g. anatomy terms). Should be a singelton for each project (only one AGE variable etc.). Collections of field names (such in forms) have a defined order that agrees with the order during data collection.
+Form name | The name of the instrument the variable is in. This can be either the data collection instrument displayed on screen or the name of the scoring sheet.	
+Section header | A non-value field that separates groups of items in a single form.
+Field type | Maps to the visual interface type and to the statistical format for data collection in this item (dropdown, radio button, checkboxes, text, note, calculated field, etc.). Factor level variable, ordered variable or continuous. Numeric type of Integer or Float or calculated field "calc".
+Field label | The text displayed to the user (participant or research assistent) "What is your current age (in years)?". Should include a language coding as in html: <span lang="no">.....</span><span lang="en"></lang>
+Choices, Calculations or slider label | Response options for all factor level codings with levels and labels in machine readable format "0 - Nothing | 1 - Something". The calculation formula referencing other variables in the same project (sum or values, thresholds etc., map to a numeric value). Slider level codes such as "disagree", "neutral", "strongly agree"	
+Field notes | Additional information displayed to the user during data collection (units of measurement, literature links).
+Text validation or slider number | Format for date fields, zip codes, phone numbers, email, ...	Visibility of the slider value or only slider label.
+Text validation min/max	| Acceptable range for numeric fields and date fields	
+Identifiers | Is the current item an identifier according to GDPR/HIPAA?	
+Branching logic	| Specifies when this field is shown to the user (depends on values in fields collected previously for the same participant). Machine readable format for logical tests	
+Required field | If a field is marked "required" an error message is displayed if the value is missing after the instrument is saved. Even if a value is required it must still be able to save the instrument (validation error).
+
+
 ## Data model
 
 The data model describes the information stored about each project, each projects data collection instruments and each projects collection of items.
@@ -29,7 +49,7 @@ Principal investigator email | Email of the PI.
 REK number | The REK number under which the data is collected. The REK will also contain the start and end-dates for data collection. Cristin.no for example can be used as a reference.
 Project start date | Start date of the projects data collection.
 Project end date | End date of the projects data collection.
-What is supposed to happen at the end of the project? | Two options are provided: "Delete data" and "Full anonymization and make data available"
+What is supposed to happen at the end of the project? | Two options are provided: "Delete data" and "Full anonymization and make data available". Whereas the "Delete data" option will trigger a workflow that requests confirmation and a copy of all the data stored at the end of the specified project time the "Full anonymization" option is currently undefined. It is not clear what full anonymization means in the context of every study (de-facing, removal of all DICOM header data, ...).
 
 This information is captured in a web-form and entered after manual review as a record into a REDCap project "DataTransferProjects". See the complete data dictionary for this project:
 
