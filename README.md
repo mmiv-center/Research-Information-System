@@ -10,7 +10,7 @@ The research information system has two components - a *research PACS* for stora
 
 ## Specification for terms used
 
-We are using the REDCap data dictionary model to describe how we represent all data in the research information system. This includes information on the project level and information on the series level. The first variable in a project is used as the record_id.
+We are using the REDCap data dictionary model to store structured data about projects. A small number of REDCap projects are used to organize the data in the research information system. This includes information on each research project and information on the incoming image studies and where in the research information system they should end up.
 
 Item | Description
 -----|------------
@@ -27,7 +27,7 @@ Identifiers | Is the current item an identifier according to GDPR/HIPAA?
 Branching logic	| Specifies when this field is shown to the user (depends on values in fields collected previously for the same participant). Machine readable format for logical tests	
 Required field | If a field is marked "required" an error message is displayed if the value is missing after the instrument is saved. Even if a value is required it must still be able to save the instrument (validation error).
 
-The item description above is not sufficient to document the data storage. Additionally needed is the event structure and the indication which instrument is setup as a survey or a repeating instrument.
+The item description above is not sufficient to document the full REDCap project. Additionally needed is the event structure and the indication which instrument is setup as a survey or a repeating instrument.
 
 
 ## Data model
