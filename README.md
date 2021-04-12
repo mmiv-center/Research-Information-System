@@ -27,8 +27,15 @@ Principal investigator email | Email of the PI.
 REK number | The REK number under which the data is collected. The REK will also contain the start and end-dates for data collection. Cristin.no for example can be used as a reference.
 Project start date | Start date of the projects data collection.
 Project end date | End date of the projects data collection.
-What is supposed to happen at the end of the project? | Supported are two options: "Delete data" and "Full anonymization and make data available"
+What is supposed to happen at the end of the project? | Two options are provided: "Delete data" and "Full anonymization and make data available"
 
-This information is captured in a web-form and entered after manual review into a REDCap project "DataTransferProjects". See the complete data dictionary for this project at
+This information is captured in a web-form and entered after manual review as a record into a REDCap project "DataTransferProjects". See the complete data dictionary for this project:
 
  - [components/CreateProject/DataTransferProjects.csv](components/CreateProject/DataTransferProjects.csv)
+
+This setup has three instruments. One which is used to capture the text information, correspondence with the PI. One which contains the entries from the form as well as the API link to the projects database and a list of additional *Exclusion* instruments. Those are used to configure series description pattern where the automatic removal of burned in image information is not performed.
+
+Additionally to storing the information as a DataTransferProject a separate REDCap project is created under the projects acronym that follows the event structure requested by the PI of the project. The project setup is a minimal longitudinal setup with the participant ID as the record id and the event names as specified in the project creation request. A *basic demographic form* is used to store a record of all incoming image data. Additional instruments are created based on the project needs. This includes for example measures extracted from secondary captures or structured reports.
+
+### Study data model
+
