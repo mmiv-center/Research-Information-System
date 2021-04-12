@@ -8,9 +8,9 @@ Our research information system is modeled after information systems used in cli
 
 The research information system has two components - a *research PACS* for storage and review of image data and a *research electronic record system* for the collection and storage of all tabulated data. The technical component that is used to enter data into both components is called *FIONA*.
 
-## Terms used in the following sections
+## Specification for terms used
 
-We are using the REDCap model to describe data we collect about a project. Here are the basic items on all our data dictionaries used in the following sections.
+We are using the REDCap data dictionary model to describe how we represent all data in the research information system. This includes information on the project level and information on the series level. The first variable in a project is used as the record_id.
 
 Item | Description
 -----|------------
@@ -26,6 +26,8 @@ Text validation min/max	| Acceptable range for numeric fields and date fields
 Identifiers | Is the current item an identifier according to GDPR/HIPAA?	
 Branching logic	| Specifies when this field is shown to the user (depends on values in fields collected previously for the same participant). Machine readable format for logical tests	
 Required field | If a field is marked "required" an error message is displayed if the value is missing after the instrument is saved. Even if a value is required it must still be able to save the instrument (validation error).
+
+The item description above is not sufficient to document the data storage. Additionally needed is the event structure and the indication which instrument is setup as a survey or a repeating instrument.
 
 
 ## Data model
@@ -55,13 +57,13 @@ This information is captured in a web-form and entered after manual review as a 
 
  - [components/CreateProject/DataTransferProjects.csv](components/CreateProject/DataTransferProjects.csv)
 
-This setup has three instruments. One which is used to capture the text information, correspondence with the PI. One which contains the entries from the form as well as the API link to the projects database and a list of additional *Exclusion* instruments. Those are used to configure series description pattern where the automatic removal of burned in image information is not performed.
+This setup is a cross-sectional setup (no events) with three instruments. One which is used to capture the textual information, th correspondence with the PI. One which contains the entries from the form as well as the API link to the projects database. The third instrument is a repeating instrument listing  *Exclusion* criteria for the removal of burned in image information by pattern of series descriptions.
 
-Additionally to storing the information as a DataTransferProject a separate REDCap project is created under the projects acronym that follows the event structure requested by the PI of the project. The project setup is a minimal longitudinal setup with the participant ID as the record id and the event names as specified in the project creation request. A *basic demographic form* is used to store a record of all incoming image data. Additional instruments are created based on the project needs. This includes for example measures extracted from secondary captures or structured reports.
+Additionally to storing the information as a DataTransferProject a separate REDCap project is created under the projects acronym that follows the event structure requested by the PI of the project. The project setup is a minimal longitudinal setup with the participant ID as the record id and the event names as specified in the project creation request. A *basic demographic form* is used to store the participant ID as the record id for all incoming image data by event. Additional instruments are created based on the project needs. This may include measures extracted from secondary captures or structured reports. Project may also opt to take over the REDCap project and organize data collection on their own. The only requirement is that the record_id field (participant ID) remains unchanged. This setup allows projects to structure data collection without image data.
 
-### Study data model
+### Incoming study data model
 
-A *study* or *DICOM study* refers to data collected from a participant at a point in time. The unique key used to reference a study is the StudyInstanceUID, a code that is created by the imaging device using information from the software, the time of the data collection (unix time stamp) and some random values. As such it is assumed that the StudyInstanceUID is unique in the universe.
+A *study* or *DICOM study* refers to data collected from a participant at a point in time (study event). The unique key used to reference a study is the StudyInstanceUID, a code that is created by the imaging device using information from the software, the time of the data collection (unix time stamp) and some random values. As such it is assumed that the StudyInstanceUID is unique in the universe.
 
 The research information system is using the StudyInstanceUID as record id for all incoming image data.
 
