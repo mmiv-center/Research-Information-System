@@ -1,0 +1,7 @@
+"Variable / Field Name","Form Name","Section Header","Field Type","Field Label","Choices, Calculations, OR Slider Labels","Field Note","Text Validation Type OR Show Slider Number","Text Validation Min","Text Validation Max",Identifier?,"Branching Logic (Show field only if...)","Required Field?","Custom Alignment","Question Number (surveys only)","Matrix Group Name","Matrix Ranking?","Field Annotation"
+record_id,coupling_list,,text,"Record ID",,,,,,,,,,,,,
+cl_accessionnumber,coupling_list,,text,"AccessionNumber that should be matched to the subject id and event name",,,,,,,,,,,,,
+cl_projectname,coupling_list,,text,ProjectName,,,,,,,,,,,,,
+cl_subjectid,coupling_list,,text,SubjectID,,,,,,,,,,,,,
+cl_eventname,coupling_list,,text,"Eventname to be used for import",,,,,,,,,,,,,
+cl_date,coupling_list,,text,"Date this entry was created",,,datetime_ymd,,,,,,,,,,
