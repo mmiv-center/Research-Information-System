@@ -4,3 +4,11 @@ Integration of algorithms into the research information system allows projects t
 
 Using the tools in this section you should be able to start developing a processing pipeline and to test the processing pipeline. After such tests you can upload the pipelines to the research PACS and enable it for your project.
 
+### Setup
+
+The processing pipelines are submitted as containers. This is done to ensure that pipelines running on the same underlying hardware don't interfere with each other. They can depends on different versions of python for example if each one is inside a containerized environment. Tools like conda (anaconda/minconda) can be used inside the container.
+
+In order to start a development project you can use the rpp tool by downloading it as:
+```
+wget 
+```
