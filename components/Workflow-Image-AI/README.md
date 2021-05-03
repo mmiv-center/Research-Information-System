@@ -10,5 +10,6 @@ The processing pipelines are submitted as containers. This is done to ensure tha
 
 In order to start a development project you can use the rpp tool by downloading it as:
 ```
-wget 
+wget <TBD>
 ```
+
