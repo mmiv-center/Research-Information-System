@@ -210,6 +210,32 @@ type Config struct {
 	Author AuthorInfo
 }
 
+func readConfig(path_string string) (Config, error) {
+	// todo: check directories up as well
+	if _, err := os.Stat(path_string); err != nil && os.IsNotExist(err) {
+		return Config{}, fmt.Errorf("File %s does not exist", path_string)
+	}
+	jsonFile, err := os.Open(path_string)
+	// if we os.Open returns an error then handle it
+	if err != nil {
+		fmt.Println(err)
+		return Config{}, fmt.Errorf("Could not open the file ", path_string)
+	}
+	//fmt.Println("Successfully Opened users.json")
+	// defer the closing of our jsonFile so that we can parse it later on
+	defer jsonFile.Close()
+
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+
+	// we initialize our Users array
+	var config Config
+
+	// we unmarshal our byteArray which contains our
+	// jsonFile's content into 'users' which we defined above
+	json.Unmarshal(byteValue, &config)
+	return config, nil
+}
+
 func main() {
 
 	const (
@@ -218,14 +244,18 @@ func main() {
 	)
 
 	initCommand := flag.NewFlagSet("init", flag.ContinueOnError)
+	configCommand := flag.NewFlagSet("config", flag.ContinueOnError)
 	triggerCommand := flag.NewFlagSet("trigger", flag.ContinueOnError)
+	statusCommand := flag.NewFlagSet("status", flag.ContinueOnError)
 
 	var input_dir string
 	initCommand.StringVar(&input_dir, "input_dir", ".", defaultInputDir)
 	initCommand.StringVar(&input_dir, "i", ".", defaultInputDir)
 	var author_name string
+	configCommand.StringVar(&author_name, "author_name", "", "Your name.")
 	initCommand.StringVar(&author_name, "author_name", "", "Your name.")
 	var author_email string
+	configCommand.StringVar(&author_email, "author_email", "", "Your email.")
 	initCommand.StringVar(&author_email, "author_email", "", "Your email.")
 
 	var trigger string
@@ -233,19 +263,26 @@ func main() {
 
 	// Showing useful information when the user enters the --help option
 	flag.Usage = func() {
-		fmt.Printf("Usage: %s [init|trigger] [options]\nOptions:\n", os.Args[0])
+		fmt.Printf("Usage: %s [init|trigger|status|config] [options]\nOptions:\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 
 	if len(os.Args) < 2 {
 		flag.Usage()
-		exitGracefully(errors.New("A command and maybe some options are required."))
+		exitGracefully(errors.New("A command [init|trigger|config|status] and maybe some options are required."))
 	}
 
 	switch os.Args[1] {
 	case "init":
 		if err := initCommand.Parse(os.Args[2:]); err == nil {
 			fmt.Println("Asked to init, in directory:", input_dir)
+
+			if _, err := os.Stat(input_dir); os.IsNotExist(err) {
+				if err := os.Mkdir(input_dir, 0755); os.IsExist(err) {
+					exitGracefully(errors.New("Directory exist already."))
+				}
+			}
+
 			dir_path := input_dir + "/.rpp"
 			if _, err := os.Stat(dir_path); !os.IsNotExist(err) {
 				fmt.Println("This directories has already been initialized. Delete the .rpp directory to do this again.")
@@ -280,6 +317,36 @@ func main() {
 
 				fmt.Println("Initialized this folder.")
 			}
+		}
+	case "config":
+		if err := configCommand.Parse(os.Args[2:]); err == nil {
+			fmt.Println("Status")
+			// are we init already?
+			dir_path := input_dir + "/.rpp/config"
+			config, err := readConfig(dir_path)
+			if err != nil {
+				fmt.Println("Could not read the config file")
+			}
+
+			if author_name != "" {
+				config.Author.Name = author_name
+			}
+			if author_email != "" {
+				config.Author.Email = author_email
+			}
+			// write out config again
+			file, _ := json.MarshalIndent(config, "", " ")
+			_ = ioutil.WriteFile(dir_path, file, 0644)
+		}
+	case "status":
+		if err := statusCommand.Parse(os.Args[2:]); err == nil {
+			dir_path := input_dir + "/.rpp/config"
+			config, err := readConfig(dir_path)
+			if err != nil {
+				fmt.Println("Could not read the config file")
+			}
+			file, _ := json.MarshalIndent(config, "", " ")
+			fmt.Println(string(file))
 		}
 	case "trigger":
 		if err := triggerCommand.Parse(os.Args[2:]); err == nil {

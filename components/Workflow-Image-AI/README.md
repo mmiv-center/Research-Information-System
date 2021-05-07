@@ -8,7 +8,7 @@ Using the tools in this section you should be able to start developing a process
 
 The processing pipelines are submitted as containers. This is done to ensure that pipelines running on the same underlying hardware don't interfere with each other. They can depends on different versions of python for example if each one is inside a containerized environment. Tools like conda (anaconda/minconda) can be used inside the container.
 
-In order to start a development project you can use the rpp tool by downloading it as:
+In order to start a new development project you can use the rpp tool by downloading and running it in a directory:
 ```
 wget rpp
 ./rpp init --author_name "my name" --author_email "my email" .
