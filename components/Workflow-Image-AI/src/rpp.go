@@ -269,7 +269,7 @@ func main() {
 
 	if len(os.Args) < 2 {
 		flag.Usage()
-		exitGracefully(errors.New("A command [init|trigger|config|status] and maybe some options are required."))
+		os.Exit(-1)
 	}
 
 	switch os.Args[1] {
