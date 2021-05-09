@@ -207,6 +207,7 @@ type AuthorInfo struct {
 
 type Config struct {
 	Date   string
+	Data   string
 	Author AuthorInfo
 }
 
@@ -257,6 +258,8 @@ func main() {
 	var author_email string
 	configCommand.StringVar(&author_email, "author_email", "", "Your email.")
 	initCommand.StringVar(&author_email, "author_email", "", "Your email.")
+	var data_path string
+	configCommand.StringVar(&data_path, "data", "data", "Path to a folder with folders of DICOM files.")
 
 	var trigger string
 	triggerCommand.StringVar(&trigger, "trigger", "now", defaultTriggerTime)
@@ -285,7 +288,7 @@ func main() {
 
 			dir_path := input_dir + "/.rpp"
 			if _, err := os.Stat(dir_path); !os.IsNotExist(err) {
-				fmt.Println("This directories has already been initialized. Delete the .rpp directory to do this again.")
+				exitGracefully(errors.New("This directories has already been initialized. Delete the .rpp directory to do this again."))
 			} else {
 				// do we know the author information?
 				if author_name == "" || author_email == "" {
@@ -314,18 +317,17 @@ func main() {
 					_, err = f.WriteString(readme)
 					f.Sync()
 				}
-
-				fmt.Println("Initialized this folder.")
+				//fmt.Println("Initialized this folder.")
 			}
 		}
 	case "config":
 		if err := configCommand.Parse(os.Args[2:]); err == nil {
-			fmt.Println("Status")
+			//fmt.Println("Config")
 			// are we init already?
 			dir_path := input_dir + "/.rpp/config"
 			config, err := readConfig(dir_path)
 			if err != nil {
-				fmt.Println("Could not read the config file")
+				exitGracefully(errors.New("Could not read the config file"))
 			}
 
 			if author_name != "" {
@@ -333,6 +335,12 @@ func main() {
 			}
 			if author_email != "" {
 				config.Author.Email = author_email
+			}
+			if data_path != "" {
+				if _, err := os.Stat(data_path); os.IsNotExist(err) {
+					exitGracefully(errors.New("This data path does not exist."))
+				}
+				config.Data = data_path
 			}
 			// write out config again
 			file, _ := json.MarshalIndent(config, "", " ")
@@ -343,7 +351,7 @@ func main() {
 			dir_path := input_dir + "/.rpp/config"
 			config, err := readConfig(dir_path)
 			if err != nil {
-				fmt.Println("Could not read the config file")
+				exitGracefully(errors.New("Could not read the config file"))
 			}
 			file, _ := json.MarshalIndent(config, "", " ")
 			fmt.Println(string(file))
