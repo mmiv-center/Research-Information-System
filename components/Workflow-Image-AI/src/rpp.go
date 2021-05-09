@@ -1,3 +1,7 @@
+// Code written 2021 by Hauke Bartsch.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package main
 
 import (
@@ -13,6 +17,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/suyashkumar/dicom"
+	"github.com/suyashkumar/dicom/pkg/tag"
 )
 
 //go:embed templates/README.md
@@ -211,6 +218,8 @@ type Config struct {
 	Author AuthorInfo
 }
 
+// readConfig parses a provided config file as JSON.
+// It returns the parsed code as a marshaled structure.
 func readConfig(path_string string) (Config, error) {
 	// todo: check directories up as well
 	if _, err := os.Stat(path_string); err != nil && os.IsNotExist(err) {
@@ -235,6 +244,37 @@ func readConfig(path_string string) (Config, error) {
 	// jsonFile's content into 'users' which we defined above
 	json.Unmarshal(byteValue, &config)
 	return config, nil
+}
+
+// dataSets parses the config.Data path for DICOM files.
+// It returns the detected studies and series as collections of paths.
+func dataSets(config Config) map[string]int {
+	var datasets = make(map[string]int)
+
+	err := filepath.Walk(config.Data, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return err
+		}
+		dataset, err := dicom.ParseFile(path, nil) // See also: dicom.Parse which has a generic io.Reader API.
+		if err == nil {
+			StudyInstanceUIDVal, err := dataset.FindElementByTag(tag.StudyInstanceUID)
+			if err == nil {
+				StudyInstanceUID := dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
+				if val, ok := datasets[StudyInstanceUID]; ok {
+					datasets[StudyInstanceUID] = val + 1
+				} else {
+					datasets[StudyInstanceUID] = 1
+				}
+			}
+		}
+
+		return err
+	})
+	if err != nil {
+		fmt.Println("Warning: could not walk this path")
+	}
+
+	return datasets
 }
 
 func main() {
@@ -355,6 +395,11 @@ func main() {
 			}
 			file, _ := json.MarshalIndent(config, "", " ")
 			fmt.Println(string(file))
+
+			studies := dataSets(config)
+			for key, element := range studies {
+				fmt.Println("Study:", key, "num image:", element)
+			}
 		}
 	case "trigger":
 		if err := triggerCommand.Parse(os.Args[2:]); err == nil {

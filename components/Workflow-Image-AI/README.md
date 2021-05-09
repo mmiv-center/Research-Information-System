@@ -10,7 +10,7 @@ The processing pipelines are submitted as containers. This is done to ensure tha
 
 In order to start a new development project you can use the rpp tool by downloading and running it in a project directory (here for MacOS):
 ```
-wget https://github.com/mmiv-center/Research-Information-System/blob/master/components/Workflow-Image-AI/build/macos-amd64/rpp
+wget -qO- https://github.com/mmiv-center/Research-Information-System/blob/master/components/Workflow-Image-AI/build/macos-amd64/rpp
 chmod +x ./rpp
 ./rpp init --author_name "my name" --author_email "my email" .
 ```
