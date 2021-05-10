@@ -13,8 +13,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
+	"os/user"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/suyashkumar/dicom"
@@ -143,10 +147,22 @@ type AuthorInfo struct {
 	Name, Email string
 }
 
+type DataInfo struct {
+	Path     string
+	DataInfo map[string]map[string]SeriesInfo
+}
+
 type Config struct {
-	Date   string
-	Data   string
-	Author AuthorInfo
+	Date         string
+	Data         DataInfo
+	SeriesFilter string
+	Author       AuthorInfo
+}
+
+type SeriesInfo struct {
+	SeriesDescription string
+	NumImages         int
+	SeriesNumber      int
 }
 
 // readConfig parses a provided config file as JSON.
@@ -179,40 +195,76 @@ func readConfig(path_string string) (Config, error) {
 
 // dataSets parses the config.Data path for DICOM files.
 // It returns the detected studies and series as collections of paths.
-func dataSets(config Config) map[string]int {
-	var datasets = make(map[string]int)
+func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
+	var datasets = make(map[string]map[string]SeriesInfo)
+	if config.Data.Path == "" {
+		return datasets, fmt.Errorf("no data path for example data has been specified. Use\n\trpp config --data \"path-to-data\" to set such a directory of DICOM data")
+	}
 
-	err := filepath.Walk(config.Data, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(config.Data.Path, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
+			return nil
+		}
+		if err != nil {
 			return err
 		}
+		//fmt.Println("look at file: ", path)
 		dataset, err := dicom.ParseFile(path, nil) // See also: dicom.Parse which has a generic io.Reader API.
 		if err == nil {
 			StudyInstanceUIDVal, err := dataset.FindElementByTag(tag.StudyInstanceUID)
 			if err == nil {
-				StudyInstanceUID := dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
-				if val, ok := datasets[StudyInstanceUID]; ok {
-					datasets[StudyInstanceUID] = val + 1
-				} else {
-					datasets[StudyInstanceUID] = 1
+				var StudyInstanceUID string
+				var SeriesInstanceUID string
+				var SeriesDescription string
+				var SeriesNumber int
+
+				StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
+				SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
+				if err == nil {
+					SeriesInstanceUID = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
 				}
+				SeriesDescriptionVal, err := dataset.FindElementByTag(tag.SeriesDescription)
+				if err == nil {
+					SeriesDescription = dicom.MustGetStrings(SeriesDescriptionVal.Value)[0]
+				}
+				SeriesNumberVal, err := dataset.FindElementByTag(tag.SeriesNumber)
+				if err == nil {
+					SeriesNumber, err = strconv.Atoi(dicom.MustGetStrings(SeriesNumberVal.Value)[0])
+					if err != nil {
+						SeriesNumber = 0
+					}
+				}
+				if _, ok := datasets[StudyInstanceUID]; ok {
+					if val, ok := datasets[StudyInstanceUID][SeriesInstanceUID]; ok {
+						datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: val.NumImages + 1, SeriesDescription: SeriesDescription, SeriesNumber: SeriesNumber}
+					} else {
+						datasets[StudyInstanceUID] = make(map[string]SeriesInfo)
+						datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1, SeriesDescription: SeriesDescription, SeriesNumber: SeriesNumber}
+					}
+				} else {
+					datasets[StudyInstanceUID] = make(map[string]SeriesInfo)
+					datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1, SeriesDescription: SeriesDescription, SeriesNumber: SeriesNumber}
+				}
+			} else {
+				return nil
 			}
 		}
-
-		return err
+		return nil
 	})
 	if err != nil {
 		fmt.Println("Warning: could not walk this path")
 	}
 
-	return datasets
+	return datasets, nil
 }
 
 func main() {
 
+	rand.Seed(time.Now().UnixNano())
+
 	const (
 		defaultInputDir    = "Specify where you want to setup shop"
-		defaultTriggerTime = "now"
+		defaultTriggerTime = "When the compution should be triggered in seconds"
 	)
 
 	initCommand := flag.NewFlagSet("init", flag.ContinueOnError)
@@ -224,24 +276,42 @@ func main() {
 	initCommand.StringVar(&input_dir, "input_dir", ".", defaultInputDir)
 	initCommand.StringVar(&input_dir, "i", ".", defaultInputDir)
 	var author_name string
-	configCommand.StringVar(&author_name, "author_name", "", "Your name.")
-	initCommand.StringVar(&author_name, "author_name", "", "Your name.")
+	configCommand.StringVar(&author_name, "author_name", "", "Your name \"A User\".")
+	initCommand.StringVar(&author_name, "author_name", "", "Your name \"A User\".")
 	var author_email string
 	configCommand.StringVar(&author_email, "author_email", "", "Your email.")
 	initCommand.StringVar(&author_email, "author_email", "", "Your email.")
 	var data_path string
-	configCommand.StringVar(&data_path, "data", "data", "Path to a folder with folders of DICOM files.")
+	configCommand.StringVar(&data_path, "data", "", "Path to a folder with folders of DICOM files.")
 
 	var trigger string
 	triggerCommand.StringVar(&trigger, "trigger", "now", defaultTriggerTime)
 
 	var status_detailed bool
-	statusCommand.BoolVar(&status_detailed, "detailed", false, "Show detailed information about example data.")
+	statusCommand.BoolVar(&status_detailed, "detailed", false, "Parse the data folder and extract number of studies and series for the trigger.")
+
+	var config_series_filter string
+	configCommand.StringVar(&config_series_filter, "series_filter", ".*",
+		"Filter applied to series before trigger. This regular expression should\nmatch anything in the string build by StudyInstanceUID: %%s, \nSeriesInstanceUID: %%s, SeriesDescription: %%s, NumImages: %%d, SeriesNumber: %%d\n")
+
+	var user_name string
+	user, err := user.Current()
+	if err != nil {
+		user_name = user.Username
+		fmt.Println("got a user name ", user_name)
+	}
 
 	// Showing useful information when the user enters the --help option
 	flag.Usage = func() {
-		fmt.Printf("Usage: %s [init|trigger|status|config] [options]\nOptions:\n", os.Args[0])
-		flag.PrintDefaults()
+		fmt.Printf("Usage: %s [init|trigger|status|config] [options]\nIf you are unsure you should start with init to create a new project folder.\n\t%s init --author_name \"%s\" --author_email \"\" <project>\n", os.Args[0], os.Args[0], user_name)
+		fmt.Printf("Options init:\n")
+		initCommand.PrintDefaults()
+		fmt.Printf("Options config:\n")
+		configCommand.PrintDefaults()
+		fmt.Printf("Options status:\n")
+		statusCommand.PrintDefaults()
+		fmt.Printf("Options trigger:\n")
+		triggerCommand.PrintDefaults()
 	}
 
 	if len(os.Args) < 2 {
@@ -260,8 +330,6 @@ func main() {
 				input_dir = initCommand.Arg(0)
 			}
 
-			fmt.Println("Asked to init in directory:", input_dir)
-
 			if _, err := os.Stat(input_dir); os.IsNotExist(err) {
 				if err := os.Mkdir(input_dir, 0755); os.IsExist(err) {
 					exitGracefully(errors.New("directory exist already"))
@@ -274,7 +342,7 @@ func main() {
 			} else {
 				// do we know the author information?
 				if author_name == "" || author_email == "" {
-					msg := fmt.Sprintf("we need your name and your email. Add with\n\t %s init --author_name \"My Name\" --author_email \"email@home\" %s", os.Args[0], input_dir)
+					msg := fmt.Sprintf("we need your name and your email. Add with\n\t %s init --author_name \"%s\" --author_email \"email@home\" %s", os.Args[0], user_name, input_dir)
 					exitGracefully(errors.New(msg))
 				}
 
@@ -303,6 +371,7 @@ func main() {
 				}
 				//fmt.Println("Initialized this folder.")
 			}
+			fmt.Printf("Init folder %s done\n", input_dir)
 		}
 	case "config":
 		if err := configCommand.Parse(os.Args[2:]); err == nil {
@@ -320,11 +389,23 @@ func main() {
 			if author_email != "" {
 				config.Author.Email = author_email
 			}
+			if config_series_filter != "" {
+				config.SeriesFilter = config_series_filter
+			}
+			var studies map[string]map[string]SeriesInfo
 			if data_path != "" {
 				if _, err := os.Stat(data_path); os.IsNotExist(err) {
 					exitGracefully(errors.New("this data path does not exist"))
 				}
-				config.Data = data_path
+				config.Data.Path = data_path
+				studies, err = dataSets(config)
+				check(err)
+				// update the config file now
+				config, err = readConfig(dir_path)
+				if err != nil {
+					exitGracefully(errors.New("could not read the config file"))
+				}
+				config.Data.DataInfo = studies
 			}
 			// write out config again
 			file, _ := json.MarshalIndent(config, "", " ")
@@ -340,29 +421,49 @@ func main() {
 			file, _ := json.MarshalIndent(config, "", " ")
 			fmt.Println(string(file))
 			if status_detailed {
-				studies := dataSets(config)
+				studies, err := dataSets(config)
+				check(err)
+				// update the config file now
+				config, err := readConfig(dir_path)
+				if err != nil {
+					exitGracefully(errors.New("could not read the config file"))
+				}
+				config.Data.DataInfo = studies
+				file, _ := json.MarshalIndent(config, "", " ")
+				_ = ioutil.WriteFile(dir_path, file, 0644)
+
 				for key, element := range studies {
-					fmt.Println("Study:", key, "num image:", element)
+					fmt.Println("Study:", key)
+					for key2, element2 := range element {
+						fmt.Printf("\t%s num images: %d, series number: %d, description: \"%s\"\n", key2, element2.NumImages, element2.SeriesNumber, element2.SeriesDescription)
+					}
 				}
 			}
 		}
 	case "trigger":
 		if err := triggerCommand.Parse(os.Args[2:]); err == nil {
-			fmt.Println("Asked to trigger")
-			fmt.Println("TOBD")
+			dir_path := input_dir + "/.rpp/config"
+			// we have a couple of example datasets that we can select
+			config, err := readConfig(dir_path)
+			if err != nil {
+				exitGracefully(errors.New("could not read the config file"))
+			}
+
+			selectFromA := make(map[string]string)
+			var selectFromB []string
+			for StudyInstanceUID, value := range config.Data.DataInfo {
+				for SeriesInstanceUID, value2 := range value {
+					selectFromA[SeriesInstanceUID] = fmt.Sprintf("StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, NumImages: %d, SeriesNumber: %d", StudyInstanceUID, SeriesInstanceUID, value2.SeriesDescription, value2.NumImages, value2.SeriesNumber)
+				}
+			}
+			mm := regexp.MustCompile(config.SeriesFilter)
+			for key, value := range selectFromA {
+				if mm.MatchString(value) {
+					selectFromB = append(selectFromB, key)
+				}
+			}
+			idx := rand.Intn((len(selectFromB) - 0) + 0)
+			fmt.Printf("found %d matching series. Picked index %d, run with series: %s\n", len(selectFromB), idx, selectFromB[idx])
 		}
 	}
-
-	//if input_dir == "" {
-	//	exitGracefully(errors.New("A location to create is required for init"))
-	//}
-
-	// Declaring the channels that our go-routines are going to use
-	//writerChannel := make(chan map[string]string)
-	//done := make(chan bool)
-	// Running both of our go-routines, the first one responsible for reading and the second one for writing
-	//go processCsvFile(fileData, writerChannel)
-	//go writeJSONFile(fileData.filepath, writerChannel, done, fileData.pretty)
-	// Waiting for the done channel to receive a value, so that we can terminate the programn execution
-	//<-done
 }

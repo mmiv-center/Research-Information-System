@@ -33,7 +33,8 @@ func Test_processCsvFile(t *testing.T) {
 
 			defer os.Remove(tmpfile.Name())            // Removing the CSV test file before living
 			_, err = tmpfile.WriteString(tt.csvString) // Writing the content of the CSV test file
-			tmpfile.Sync()                             // Persisting data on disk
+			check(err)
+			tmpfile.Sync() // Persisting data on disk
 			// Defining the inputFile struct that we're going to use as one parameter of our function
 			testFileData := inputFile{
 				filepath:  tmpfile.Name(),
