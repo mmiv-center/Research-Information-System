@@ -28,6 +28,9 @@ import (
 //go:embed templates/README.md
 var readme string
 
+//go:embed templates/stub.py
+var stub_py string
+
 type inputFile struct {
 	filepath  string
 	separator string
@@ -304,13 +307,13 @@ func main() {
 	// Showing useful information when the user enters the --help option
 	flag.Usage = func() {
 		fmt.Printf("Usage: %s [init|trigger|status|config] [options]\nIf you are unsure you should start with init to create a new project folder.\n\t%s init --author_name \"%s\" --author_email \"\" <project>\n", os.Args[0], os.Args[0], user_name)
-		fmt.Printf("Options init:\n")
+		fmt.Printf("Option init:\n")
 		initCommand.PrintDefaults()
-		fmt.Printf("Options config:\n")
+		fmt.Printf("Option config:\n")
 		configCommand.PrintDefaults()
-		fmt.Printf("Options status:\n")
+		fmt.Printf("Option status:\n")
 		statusCommand.PrintDefaults()
-		fmt.Printf("Options trigger:\n")
+		fmt.Printf("Option trigger:\n")
 		triggerCommand.PrintDefaults()
 	}
 
@@ -369,7 +372,16 @@ func main() {
 					check(err)
 					f.Sync()
 				}
-				//fmt.Println("Initialized this folder.")
+				stub_path := input_dir + "/stub.py"
+				if _, err := os.Stat(stub_path); !os.IsNotExist(err) {
+					fmt.Println("This directory already contains a stub.py, don't overwrite. Skip writing...")
+				} else {
+					f, err := os.Create(stub_path)
+					check(err)
+					_, err = f.WriteString(stub_py)
+					check(err)
+					f.Sync()
+				}
 			}
 			fmt.Printf("Init folder %s done\n", input_dir)
 		}
