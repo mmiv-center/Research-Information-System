@@ -16,9 +16,9 @@ chmod +x ./rpp
 cd ./project01
 ```
 
-There are executables for Windows and Linux as well. The above call will create two files in your folder project01. A README.md and a stub.py text file.
+There are executables for Windows and Linux as well. The above call will create two files in your folder project01. A README.md and a stub.py text file. It will also create a .rpp/config file that is used by rpp to remember your settings and information about your project.
 
-Once you have a folder for your project's source code add a folder with test data in DICOM format:
+Once you have a folder for your project's source code, add a folder with test data in DICOM format:
 ```
 ./rpp config --data ./data
 ```

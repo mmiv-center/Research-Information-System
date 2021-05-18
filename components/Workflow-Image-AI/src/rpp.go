@@ -418,6 +418,7 @@ func main() {
 					exitGracefully(errors.New("could not read the config file"))
 				}
 				config.Data.DataInfo = studies
+				config.Data.Path = data_path
 			}
 			// write out config again
 			file, _ := json.MarshalIndent(config, "", " ")
