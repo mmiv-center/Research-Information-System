@@ -15,3 +15,12 @@ chmod +x ./rpp
 ./rpp init --author_name "my name" --author_email "my email" .
 ```
 
+There are executables for Windows and Linux as well. Once you have a folder for your project let the project know about a folder with test data in DICOM format:
+```
+./rpp config --data ./data
+```
+Use the status command to see the settings of your project
+```
+./rpp status --detailed
+```
+This should also list information about the DICOM files that are available.
