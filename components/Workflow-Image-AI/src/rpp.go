@@ -196,6 +196,48 @@ func readConfig(path_string string) (Config, error) {
 	return config, nil
 }
 
+func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string) {
+
+	input_path := source_path + "/input"
+
+	err := os.Mkdir(input_path, 0755)
+	if err != nil {
+		exitGracefully(errors.New("could not create data directory"))
+	}
+
+	counter := 0
+	err = filepath.Walk(source_path, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		//fmt.Println("look at file: ", path)
+		dataset, err := dicom.ParseFile(path, nil) // See also: dicom.Parse which has a generic io.Reader API.
+		if err == nil {
+			SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
+			if err == nil {
+				var SeriesInstanceUID string
+				SeriesInstanceUID = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
+				if SeriesInstanceUID != SelectedSeriesInstanceUID {
+					return nil // ignore that file
+				}
+				outputPath := input_path
+				inputFile, _ := os.Open(path)
+				data, _ := ioutil.ReadAll(inputFile)
+				ioutil.WriteFile(fmt.Sprintf("%s/%06d.dcm", outputPath, counter), data, 0)
+
+				counter = counter + 1
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Println("Warning: could not walk this path")
+	}
+}
+
 // dataSets parses the config.Data path for DICOM files.
 // It returns the detected studies and series as collections of paths.
 func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
@@ -289,6 +331,8 @@ func main() {
 
 	var trigger string
 	triggerCommand.StringVar(&trigger, "trigger", "now", defaultTriggerTime)
+	var trigger_test bool
+	triggerCommand.BoolVar(&trigger_test, "test", false, "Don't actually run anything, just show what you would do.")
 
 	var status_detailed bool
 	statusCommand.BoolVar(&status_detailed, "detailed", false, "Parse the data folder and extract number of studies and series for the trigger.")
@@ -477,6 +521,24 @@ func main() {
 			}
 			idx := rand.Intn((len(selectFromB) - 0) + 0)
 			fmt.Printf("found %d matching series. Picked index %d, run with series: %s\n", len(selectFromB), idx, selectFromB[idx])
+			if trigger_test {
+				fmt.Printf("AND NOW WE DON'T DO SOMETHING")
+			} else {
+				fmt.Printf("AND NOW WE DO")
+
+				dir, err := ioutil.TempDir("", "rpp_trigger_run")
+				if err != nil {
+					exitGracefully(errors.New("could not create the temporary directory for the trigger"))
+				}
+				defer os.RemoveAll(dir)
+
+				// we should copy all files into this directory that we need for processing
+				// the study we want is this one selectFromB[idx]
+				copyFiles(selectFromB[idx], config.Data.Path, dir)
+
+				//
+
+			}
 		}
 	}
 }
