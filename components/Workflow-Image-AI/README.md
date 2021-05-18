@@ -12,10 +12,13 @@ In order to start a new development project you can use the rpp tool by download
 ```
 wget -qO- https://github.com/mmiv-center/Research-Information-System/blob/master/components/Workflow-Image-AI/build/macos-amd64/rpp
 chmod +x ./rpp
-./rpp init --author_name "my name" --author_email "my email" .
+./rpp init --author_name "my name" --author_email "my email" project01
+cd ./project01
 ```
 
-There are executables for Windows and Linux as well. Once you have a folder for your project let the project know about a folder with test data in DICOM format:
+There are executables for Windows and Linux as well. The above call will create two files in your folder project01. A README.md and a stub.py text file.
+
+Once you have a folder for your project's source code add a folder with test data in DICOM format:
 ```
 ./rpp config --data ./data
 ```
@@ -23,4 +26,4 @@ Use the status command to see the settings of your project
 ```
 ./rpp status --detailed
 ```
-This should also list information about the DICOM files that are available.
+This should also list information about the DICOM files that are now available to test your processing pipeline.
