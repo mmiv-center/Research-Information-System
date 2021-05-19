@@ -52,15 +52,15 @@ for i, s in enumerate(slices):
 
 # plot 3 orthogonal slices
 a1 = plt.subplot(2, 2, 1)
-plt.imshow(img3d[:, :, img_shape[2]//2])
+plt.imshow(img3d[:, :, img_shape[2]//2], cmap='gray')
 a1.set_aspect(ax_aspect)
 
 a2 = plt.subplot(2, 2, 2)
-plt.imshow(img3d[:, img_shape[1]//2, :])
+plt.imshow(img3d[:, img_shape[1]//2, :], cmap='gray')
 a2.set_aspect(sag_aspect)
 
 a3 = plt.subplot(2, 2, 3)
-plt.imshow(img3d[img_shape[0]//2, :, :].T)
+plt.imshow(img3d[img_shape[0]//2, :, :].T, cmap='gray')
 a3.set_aspect(cor_aspect)
 
 plt.show()

@@ -22,7 +22,9 @@ Now you have a folder for your project's source code, add another folder with te
 ```
 ../rpp config --data ./data --temp_directory `pwd`
 ```
-Use the status command to see the settings of your project
+Notice: In order to speed up testing you should not have too many DICOM files in the data directory.
+
+Use the status command to see the current settings of your project
 ```
 ../rpp status
 ```
@@ -35,7 +37,7 @@ This call will not delete the folder after processing but keep it around for us 
 
 ### Specify a subset of the image series for processing
 
-Some pipelines will be specific to some image series. To configure what image series in your data directory are processed define a trigger filter like the following (all series with the number "2")
+If your processing pipeline depends on specific image series you can filter out all other series. To configure what image series are processed define a trigger filter like the following (all series with the DICOM tag SeriesNumber equals to "2")
 ```
 ../rpp config --series_filter "SeriesNumber: 2"
 ```

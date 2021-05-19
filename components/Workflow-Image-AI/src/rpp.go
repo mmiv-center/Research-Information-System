@@ -238,6 +238,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 				if SeriesInstanceUID != SelectedSeriesInstanceUID {
 					return nil // ignore that file
 				}
+				fmt.Printf("%05d files\r", counter)
 				var SeriesDescription string
 				SeriesDescriptionVal, err := dataset.FindElementByTag(tag.SeriesDescription)
 				if err == nil {
@@ -358,7 +359,7 @@ func main() {
 
 	const (
 		defaultInputDir    = "Specify where you want to setup shop"
-		defaultTriggerTime = "When the compution should be triggered in seconds"
+		defaultTriggerTime = "A wait time in seconds before the computation is triggered (2s, or 7m, etc.)"
 		errorConfigFile    = "the current directory is not an rpp directory. Change to the correct directory or run\n\t rpp init project01\nfirst to create a new project01 folder in the current location."
 	)
 
@@ -380,7 +381,7 @@ func main() {
 	configCommand.StringVar(&data_path, "data", "", "Path to a folder with folders of DICOM files.")
 
 	var trigger string
-	triggerCommand.StringVar(&trigger, "trigger", "now", defaultTriggerTime)
+	triggerCommand.StringVar(&trigger, "trigger", "0s", defaultTriggerTime)
 	var trigger_test bool
 	triggerCommand.BoolVar(&trigger_test, "test", false, "Don't actually run anything, just show what you would do.")
 	var trigger_keep bool
@@ -614,16 +615,24 @@ func main() {
 			// write out a description
 			file, _ := json.MarshalIndent(description, "", " ")
 			_ = ioutil.WriteFile(dir+"/descr.json", file, 0644)
-			if trigger_test {
-				fmt.Println("AND NOW WE DON'T DO SOMETHING")
-			} else {
+			if !trigger_test {
+				// wait for some seconds
+				if trigger != "" {
+					sec, _ := time.ParseDuration(trigger)
+					time.Sleep(sec)
+				}
+
 				cmd_str := fmt.Sprintf("python ./stub.py \"%s/\"", dir)
-				cmd := exec.Command(cmd_str)
+				cmd := exec.Command("python", "stub.py", dir)
 				err := cmd.Run()
 				if err != nil {
 					exitGracefully(errors.New(fmt.Sprintf("could not run trigger command\n\t%s", cmd_str)))
 				}
 				fmt.Println("Done.")
+				// we can check if we have an output folder now
+				if _, err := os.Stat(dir + "/output/output.json"); err != nil && !os.IsNotExist(err) {
+					exitGracefully(errors.New(fmt.Sprintf("run finished but no output/output.json file found. Consider creating such a file in your program.\n")))
+				}
 			}
 		}
 	}
