@@ -2,17 +2,24 @@ import pydicom
 import glob
 import numpy as np
 import sys
+import os
+import json
 import matplotlib.pyplot as plt
 
+
+description = {}
+with open(os.path.join(sys.args[1], "descr.json")) as f:
+    description = json.load(f)
+
 files = []
-print('glob: {}'.format(sys.argv[1]))
-for fname in glob.glob(sys.argv[1], recursive=False):
+print('glob: {}/input'.format(sys.argv[1]))
+for fname in glob.glob(sys.argv[1]+"/input", recursive=False):
     print("loading: {}".format(fname))
     files.append(pydicom.dcmread(fname))
 
 print("file count: {}".format(len(files)))
 
-slices = sorted(slices, key=lambda s: s.SliceLocation)
+slices = sorted(files, key=lambda s: s.SliceLocation)
 
 # pixel aspects, assuming all slices are the same
 ps = slices[0].PixelSpacing
@@ -45,3 +52,13 @@ plt.imshow(img3d[img_shape[0]//2, :, :].T)
 a3.set_aspect(cor_aspect)
 
 plt.show()
+input("Press Enter to continue...")
+
+# store any result data in sys.argv[1]/output
+output=os.path.join(sys.argv[1],"output")
+if not(os.path.exists(output)):
+    try:
+        os.mkdir(output,0o770)
+    except OSError as error:
+        print(error)
+

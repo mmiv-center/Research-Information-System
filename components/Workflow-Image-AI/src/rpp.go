@@ -196,7 +196,8 @@ func readConfig(path_string string) (Config, error) {
 	return config, nil
 }
 
-func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string) {
+// copyFiles will copy all DICOM files that fit the string to the dest_path directory.
+func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string) int {
 
 	input_path := source_path + "/input"
 
@@ -236,6 +237,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 	if err != nil {
 		fmt.Println("Warning: could not walk this path")
 	}
+	return counter
 }
 
 // dataSets parses the config.Data path for DICOM files.
@@ -333,6 +335,8 @@ func main() {
 	triggerCommand.StringVar(&trigger, "trigger", "now", defaultTriggerTime)
 	var trigger_test bool
 	triggerCommand.BoolVar(&trigger_test, "test", false, "Don't actually run anything, just show what you would do.")
+	var trigger_keep bool
+	triggerCommand.BoolVar(&trigger_keep, "keep", false, "Keep the created directory around for testing.")
 
 	var status_detailed bool
 	statusCommand.BoolVar(&status_detailed, "detailed", false, "Parse the data folder and extract number of studies and series for the trigger.")
@@ -530,12 +534,14 @@ func main() {
 				if err != nil {
 					exitGracefully(errors.New("could not create the temporary directory for the trigger"))
 				}
-				defer os.RemoveAll(dir)
-
+				if trigger_keep {
+					fmt.Printf("processing directory in \"%s\"", dir)
+					defer os.RemoveAll(dir)
+				}
 				// we should copy all files into this directory that we need for processing
 				// the study we want is this one selectFromB[idx]
-				copyFiles(selectFromB[idx], config.Data.Path, dir)
-
+				numFiles := copyFiles(selectFromB[idx], config.Data.Path, dir)
+				fmt.Println("Found", numFiles, "files.")
 				//
 
 			}
