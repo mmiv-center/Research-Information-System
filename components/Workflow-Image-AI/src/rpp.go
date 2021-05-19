@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bufio"
 	_ "embed"
 	"encoding/csv"
 	"encoding/json"
@@ -425,8 +426,26 @@ func main() {
 			} else {
 				// do we know the author information?
 				if author_name == "" || author_email == "" {
-					msg := fmt.Sprintf("we need your name and your email. Add with\n\t %s init --author_name \"%s\" --author_email \"email@home\" %s", os.Args[0], user_name, input_dir)
-					exitGracefully(errors.New(msg))
+
+					reader := bufio.NewReader(os.Stdin)
+					// we can ask interactively about the author information
+					if author_name == "" {
+						fmt.Printf("Your name: ")
+						author_name, err = reader.ReadString('\n')
+						if err != nil {
+							msg := fmt.Sprintf("we need your name. Add with\n\t--author_name \"%s\"")
+							exitGracefully(errors.New(msg))
+						}
+					}
+					if author_email == "" {
+						fmt.Printf("Your email: ")
+						author_email, err = reader.ReadString('\n')
+						if err != nil {
+							msg := fmt.Sprintf("we need your your email. Add with\n\t--author_email \"email@home\"")
+							exitGracefully(errors.New(msg))
+						}
+					}
+
 				}
 
 				if err := os.Mkdir(dir_path, 0755); os.IsExist(err) {
@@ -475,6 +494,22 @@ func main() {
 				exitGracefully(errors.New("could not read the config file"))
 			}
 
+			var studies map[string]map[string]SeriesInfo
+			if data_path != "" {
+				if _, err := os.Stat(data_path); os.IsNotExist(err) {
+					exitGracefully(errors.New("this data path does not exist"))
+				}
+				config.Data.Path = data_path
+				studies, err = dataSets(config)
+				check(err)
+				// update the config file now - the above dataSets can take a long time!
+				config, err = readConfig(dir_path)
+				if err != nil {
+					exitGracefully(errors.New("could not read the config file"))
+				}
+				config.Data.DataInfo = studies
+				config.Data.Path = data_path
+			}
 			if author_name != "" {
 				config.Author.Name = author_name
 			}
@@ -484,24 +519,8 @@ func main() {
 			if config_series_filter != "" {
 				config.SeriesFilter = config_series_filter
 			}
-			if config_series_filter != "" {
+			if config_temp_directory != "" {
 				config.TempDirectory = config_temp_directory
-			}
-			var studies map[string]map[string]SeriesInfo
-			if data_path != "" {
-				if _, err := os.Stat(data_path); os.IsNotExist(err) {
-					exitGracefully(errors.New("this data path does not exist"))
-				}
-				config.Data.Path = data_path
-				studies, err = dataSets(config)
-				check(err)
-				// update the config file now
-				config, err = readConfig(dir_path)
-				if err != nil {
-					exitGracefully(errors.New("could not read the config file"))
-				}
-				config.Data.DataInfo = studies
-				config.Data.Path = data_path
 			}
 			// write out config again
 			file, _ := json.MarshalIndent(config, "", " ")

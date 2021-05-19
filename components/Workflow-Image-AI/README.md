@@ -33,7 +33,7 @@ To configure what image series in your data directory are processed define a tri
 ```
 ./rpp config --series_filter "SeriesNumber: 2"
 ```
-This search text (regular expression) is matched against a string that contains
+This search text, a regular expression, is matched against a long string that contains
 ```{json}
 "StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, NumImages: %d, SeriesNumber: %d"
 ```
