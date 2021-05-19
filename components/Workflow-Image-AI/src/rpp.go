@@ -16,6 +16,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 	"regexp"
@@ -203,6 +204,7 @@ type Description struct {
 	SeriesDescription string
 	NumFiles          int
 	PatientID         string
+	SequenceName      string
 }
 
 // copyFiles will copy all DICOM files that fit the string to the dest_path directory.
@@ -252,6 +254,14 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 						description.PatientID = PatientID
 					}
 				}
+				var SequenceName string
+				SequenceNameVal, err := dataset.FindElementByTag(tag.SequenceName)
+				if err == nil {
+					SequenceName = dicom.MustGetStrings(SequenceNameVal.Value)[0]
+					if SequenceName != "" {
+						description.SequenceName = SequenceName
+					}
+				}
 
 				outputPath := destination_path
 				inputFile, _ := os.Open(path)
@@ -278,6 +288,11 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 		return datasets, fmt.Errorf("no data path for example data has been specified. Use\n\trpp config --data \"path-to-data\" to set such a directory of DICOM data")
 	}
 
+	if _, err := os.Stat(config.Data.Path); err != nil && os.IsNotExist(err) {
+		exitGracefully(errors.New("data path does not exist"))
+	}
+	fmt.Println("Found data directory, start parsing DICOM files...")
+	counter := 0
 	err := filepath.Walk(config.Data.Path, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
@@ -295,6 +310,8 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 				var SeriesDescription string
 				var SeriesNumber int
 
+				fmt.Printf("%05d files\r", counter)
+				counter = counter + 1
 				StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
 				SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
 				if err == nil {
@@ -342,6 +359,7 @@ func main() {
 	const (
 		defaultInputDir    = "Specify where you want to setup shop"
 		defaultTriggerTime = "When the compution should be triggered in seconds"
+		errorConfigFile    = "the current directory is not an rpp directory. Change to the correct directory or run\n\t rpp init project01\nfirst to create a new project01 folder in the current location."
 	)
 
 	initCommand := flag.NewFlagSet("init", flag.ContinueOnError)
@@ -491,7 +509,7 @@ func main() {
 			dir_path := input_dir + "/.rpp/config"
 			config, err := readConfig(dir_path)
 			if err != nil {
-				exitGracefully(errors.New("could not read the config file"))
+				exitGracefully(errors.New(errorConfigFile))
 			}
 
 			var studies map[string]map[string]SeriesInfo
@@ -505,7 +523,7 @@ func main() {
 				// update the config file now - the above dataSets can take a long time!
 				config, err = readConfig(dir_path)
 				if err != nil {
-					exitGracefully(errors.New("could not read the config file"))
+					exitGracefully(errors.New(errorConfigFile))
 				}
 				config.Data.DataInfo = studies
 				config.Data.Path = data_path
@@ -531,7 +549,7 @@ func main() {
 			dir_path := input_dir + "/.rpp/config"
 			config, err := readConfig(dir_path)
 			if err != nil {
-				exitGracefully(errors.New("could not read the config file"))
+				exitGracefully(errors.New(errorConfigFile))
 			}
 			file, _ := json.MarshalIndent(config, "", " ")
 			fmt.Println(string(file))
@@ -541,7 +559,7 @@ func main() {
 				// update the config file now
 				config, err := readConfig(dir_path)
 				if err != nil {
-					exitGracefully(errors.New("could not read the config file"))
+					exitGracefully(errors.New(errorConfigFile))
 				}
 				config.Data.DataInfo = studies
 				file, _ := json.MarshalIndent(config, "", " ")
@@ -561,7 +579,7 @@ func main() {
 			// we have a couple of example datasets that we can select
 			config, err := readConfig(dir_path)
 			if err != nil {
-				exitGracefully(errors.New("could not read the config file"))
+				exitGracefully(errors.New(errorConfigFile))
 			}
 
 			selectFromA := make(map[string]string)
@@ -599,7 +617,13 @@ func main() {
 			if trigger_test {
 				fmt.Println("AND NOW WE DON'T DO SOMETHING")
 			} else {
-				fmt.Printf("AND NOW WE DO SOMETHING")
+				cmd_str := fmt.Sprintf("python ./stub.py \"%s/\"", dir)
+				cmd := exec.Command(cmd_str)
+				err := cmd.Run()
+				if err != nil {
+					exitGracefully(errors.New(fmt.Sprintf("could not run trigger command\n\t%s", cmd_str)))
+				}
+				fmt.Println("Done.")
 			}
 		}
 	}
