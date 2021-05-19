@@ -8,18 +8,30 @@ import matplotlib.pyplot as plt
 
 
 description = {}
-with open(os.path.join(sys.args[1], "descr.json")) as f:
+with open(os.path.join(sys.argv[1], "descr.json")) as f:
     description = json.load(f)
 
 files = []
 print('glob: {}/input'.format(sys.argv[1]))
-for fname in glob.glob(sys.argv[1]+"/input", recursive=False):
-    print("loading: {}".format(fname))
+for fname in glob.glob(sys.argv[1]+"/input/*", recursive=False):
+    #print("loading: {}".format(fname))
     files.append(pydicom.dcmread(fname))
 
 print("file count: {}".format(len(files)))
 
-slices = sorted(files, key=lambda s: s.SliceLocation)
+# make sure we keep data that has the same shape as the first slice
+files = [a for a in files if a.pixel_array.shape == files[0].pixel_array.shape]
+
+# make sure we sort the slices by SliceLocation or, if that does not exist by InstanceNumber
+def sortFunc(s):
+    if "SliceLocation" in s:
+        return s.SliceLocation
+    else:
+        if "InstanceNumber" in s:
+            return s.InstanceNumber
+        return 0
+slices = sorted(files, key=sortFunc)
+
 
 # pixel aspects, assuming all slices are the same
 ps = slices[0].PixelSpacing
@@ -52,9 +64,8 @@ plt.imshow(img3d[img_shape[0]//2, :, :].T)
 a3.set_aspect(cor_aspect)
 
 plt.show()
-input("Press Enter to continue...")
 
-# store any result data in sys.argv[1]/output
+# store any result DICOM data in sys.argv[1]/output
 output=os.path.join(sys.argv[1],"output")
 if not(os.path.exists(output)):
     try:
@@ -62,3 +73,21 @@ if not(os.path.exists(output)):
     except OSError as error:
         print(error)
 
+#################################################
+# This might be a good place to start your work.
+# Volume: img3d
+# Structured Information: description
+#################################################
+
+
+
+
+# Add any structured information to an output.json
+# that contains the same information as the descr.json.
+description['shape_x'] = img3d.shape[0]
+description['shape_y'] = img3d.shape[1]
+description['shape_z'] = img3d.shape[2]
+
+# save the structured information into the output folder
+with open(output+"/output.json", 'w') as outfile:
+    json.dump(description, outfile)

@@ -156,10 +156,11 @@ type DataInfo struct {
 }
 
 type Config struct {
-	Date         string
-	Data         DataInfo
-	SeriesFilter string
-	Author       AuthorInfo
+	Date          string
+	Data          DataInfo
+	SeriesFilter  string
+	Author        AuthorInfo
+	TempDirectory string
 }
 
 type SeriesInfo struct {
@@ -196,18 +197,28 @@ func readConfig(path_string string) (Config, error) {
 	return config, nil
 }
 
+type Description struct {
+	SeriesInstanceUID string
+	SeriesDescription string
+	NumFiles          int
+	PatientID         string
+}
+
 // copyFiles will copy all DICOM files that fit the string to the dest_path directory.
-func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string) int {
+func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string) (int, Description) {
 
-	input_path := source_path + "/input"
+	destination_path := dest_path + "/input"
 
-	err := os.Mkdir(input_path, 0755)
-	if err != nil {
-		exitGracefully(errors.New("could not create data directory"))
+	if _, err := os.Stat(destination_path); os.IsNotExist(err) {
+		err := os.Mkdir(destination_path, 0755)
+		if err != nil {
+			exitGracefully(errors.New("could not create data directory"))
+		}
 	}
-
+	var description Description
+	description.SeriesInstanceUID = SelectedSeriesInstanceUID
 	counter := 0
-	err = filepath.Walk(source_path, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(source_path, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
 		}
@@ -224,10 +235,27 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 				if SeriesInstanceUID != SelectedSeriesInstanceUID {
 					return nil // ignore that file
 				}
-				outputPath := input_path
+				var SeriesDescription string
+				SeriesDescriptionVal, err := dataset.FindElementByTag(tag.SeriesDescription)
+				if err == nil {
+					SeriesDescription = dicom.MustGetStrings(SeriesDescriptionVal.Value)[0]
+					if SeriesDescription != "" {
+						description.SeriesDescription = SeriesDescription
+					}
+				}
+				var PatientID string
+				PatientIDVal, err := dataset.FindElementByTag(tag.PatientID)
+				if err == nil {
+					PatientID = dicom.MustGetStrings(PatientIDVal.Value)[0]
+					if PatientID != "" {
+						description.PatientID = PatientID
+					}
+				}
+
+				outputPath := destination_path
 				inputFile, _ := os.Open(path)
 				data, _ := ioutil.ReadAll(inputFile)
-				ioutil.WriteFile(fmt.Sprintf("%s/%06d.dcm", outputPath, counter), data, 0)
+				ioutil.WriteFile(fmt.Sprintf("%s/%06d.dcm", outputPath, counter), data, 0644)
 
 				counter++
 			}
@@ -237,7 +265,8 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 	if err != nil {
 		fmt.Println("Warning: could not walk this path")
 	}
-	return counter
+	description.NumFiles = counter
+	return counter, description
 }
 
 // dataSets parses the config.Data path for DICOM files.
@@ -344,6 +373,9 @@ func main() {
 	var config_series_filter string
 	configCommand.StringVar(&config_series_filter, "series_filter", ".*",
 		"Filter applied to series before trigger. This regular expression should\nmatch anything in the string build by StudyInstanceUID: %%s, \nSeriesInstanceUID: %%s, SeriesDescription: %%s, NumImages: %%d, SeriesNumber: %%d\n")
+
+	var config_temp_directory string
+	configCommand.StringVar(&config_temp_directory, "temp_directory", "", "Specify a directory for the temporary folders used in the trigger.\n")
 
 	var user_name string
 	user, err := user.Current()
@@ -452,6 +484,9 @@ func main() {
 			if config_series_filter != "" {
 				config.SeriesFilter = config_series_filter
 			}
+			if config_series_filter != "" {
+				config.TempDirectory = config_temp_directory
+			}
 			var studies map[string]map[string]SeriesInfo
 			if data_path != "" {
 				if _, err := os.Stat(data_path); os.IsNotExist(err) {
@@ -525,25 +560,27 @@ func main() {
 			}
 			idx := rand.Intn((len(selectFromB) - 0) + 0)
 			fmt.Printf("found %d matching series. Picked index %d, run with series: %s\n", len(selectFromB), idx, selectFromB[idx])
-			if trigger_test {
-				fmt.Printf("AND NOW WE DON'T DO SOMETHING")
+
+			dir, err := ioutil.TempDir(config.TempDirectory, fmt.Sprintf("rpp_trigger_run_%s_*", time.Now().Weekday()))
+			if err != nil {
+				exitGracefully(errors.New("could not create the temporary directory for the trigger"))
+			}
+			if !trigger_keep {
+				defer os.RemoveAll(dir)
 			} else {
-				fmt.Printf("AND NOW WE DO")
-
-				dir, err := ioutil.TempDir("", "rpp_trigger_run")
-				if err != nil {
-					exitGracefully(errors.New("could not create the temporary directory for the trigger"))
-				}
-				if trigger_keep {
-					fmt.Printf("processing directory in \"%s\"", dir)
-					defer os.RemoveAll(dir)
-				}
-				// we should copy all files into this directory that we need for processing
-				// the study we want is this one selectFromB[idx]
-				numFiles := copyFiles(selectFromB[idx], config.Data.Path, dir)
-				fmt.Println("Found", numFiles, "files.")
-				//
-
+				fmt.Printf("trigger data directory is \"%s\"\n", dir)
+			}
+			// we should copy all files into this directory that we need for processing
+			// the study we want is this one selectFromB[idx]
+			numFiles, description := copyFiles(selectFromB[idx], config.Data.Path, dir)
+			fmt.Println("Found", numFiles, "files.")
+			// write out a description
+			file, _ := json.MarshalIndent(description, "", " ")
+			_ = ioutil.WriteFile(dir+"/descr.json", file, 0644)
+			if trigger_test {
+				fmt.Println("AND NOW WE DON'T DO SOMETHING")
+			} else {
+				fmt.Printf("AND NOW WE DO SOMETHING")
 			}
 		}
 	}
