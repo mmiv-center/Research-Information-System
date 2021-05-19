@@ -27,3 +27,13 @@ Use the status command to see the settings of your project
 ./rpp status --detailed
 ```
 This should also list information about the DICOM files that are now available to test your processing pipeline.
+
+To configure what image series in your data directory are processed define a trigger search like the following
+```
+./rpp config --series_filter "SeriesNumber: 2"
+```
+This search text (regular expression) is matched against a string that contains
+```{json}
+"StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, NumImages: %d, SeriesNumber: %d"
+```
+All image series that match will be a potential test image series for the trigger command and from those one image series is selected at random.

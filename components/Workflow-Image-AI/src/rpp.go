@@ -228,7 +228,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 				data, _ := ioutil.ReadAll(inputFile)
 				ioutil.WriteFile(fmt.Sprintf("%s/%06d.dcm", outputPath, counter), data, 0)
 
-				counter = counter + 1
+				counter++
 			}
 		}
 		return nil
