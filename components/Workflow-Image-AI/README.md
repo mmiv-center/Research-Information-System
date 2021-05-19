@@ -4,7 +4,7 @@ Integration of algorithms into the research information system allows projects t
 
 Using the tools in this section you should be able to start developing a processing pipeline and to test the processing pipeline. After such tests you can upload the pipelines to the research PACS and enable it for your project.
 
-### Setup
+## Setup
 
 The processing pipelines are submitted as containers. This is done to ensure that pipelines running on the same underlying hardware don't interfere with each other. They can depends on different versions of python for example if each one is inside a containerized environment. Tools like conda (anaconda/minconda) can be used inside the container.
 
@@ -20,18 +20,24 @@ There are executables for Windows and Linux as well. The above call will create 
 
 Now you have a folder for your project's source code, add another folder with test data in DICOM format and set the temporay directory to our current directory for testing purposes:
 ```
-./rpp config --data ./data
-./rpp config --temp_directory `pwd`
+../rpp config --data ./data --temp_directory `pwd`
 ```
 Use the status command to see the settings of your project
 ```
-./rpp status --detailed
+../rpp status
 ```
-This should also list information about the DICOM files that are now available to test your processing pipeline.
 
-To configure what image series in your data directory are processed define a trigger search like the following
+To simulate what the system does for testing purposes we can trigger the processing of a DICOM series by
 ```
-./rpp config --series_filter "SeriesNumber: 2"
+../rpp trigger --keep 
+```
+This call will not delete the folder after processing but keep it around for us to see what happened.
+
+### Specify a subset of the image series for processing
+
+Some pipelines will be specific to some image series. To configure what image series in your data directory are processed define a trigger filter like the following (all series with the number "2")
+```
+../rpp config --series_filter "SeriesNumber: 2"
 ```
 This search text, a regular expression, is matched against a long string that contains
 ```{json}
