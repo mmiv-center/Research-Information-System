@@ -50,7 +50,7 @@ for i, s in enumerate(slices):
     img3d[:, :, i] = img2d
 
 # plot 3 orthogonal slices
-fig=plt.figure(figsize=(2,2))
+fig=plt.figure(figsize=(6,6))
 fig.patch.set_facecolor('gray')
 gs1 = gridspec.GridSpec(2,2)
 gs1.update(wspace=0.025, hspace=0.05)
