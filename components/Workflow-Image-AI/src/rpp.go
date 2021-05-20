@@ -505,8 +505,8 @@ func main() {
 					selectFromA[SeriesInstanceUID] = fmt.Sprintf("StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, NumImages: %d, SeriesNumber: %d", StudyInstanceUID, SeriesInstanceUID, value2.SeriesDescription, value2.NumImages, value2.SeriesNumber)
 				}
 			}
-			if selectFromB == nil {
-				exitGracefully(errors.New("There is no matching data. Did you forget to specify a data folder?\n\trpp config --data <folder>"))
+			if len(selectFromA) == 0 {
+				exitGracefully(errors.New("There is no data. Did you forget to specify a data folder?\n\trpp config --data <folder>"))
 			}
 
 			mm := regexp.MustCompile(config.SeriesFilter)
@@ -515,6 +515,10 @@ func main() {
 					selectFromB = append(selectFromB, key)
 				}
 			}
+			if selectFromB == nil {
+				exitGracefully(errors.New("There is no matching data. Did you specify a filter that does not have a result?\n\trpp status"))
+			}
+
 			idx := rand.Intn((len(selectFromB) - 0) + 0)
 			fmt.Printf("found %d matching series. Picked index %d, run with series: %s\n", len(selectFromB), idx, selectFromB[idx])
 
@@ -584,6 +588,8 @@ func main() {
 				}
 
 				fmt.Println("Done.")
+			} else {
+				fmt.Println("Test only. Make sure you also use '--keep' and call something like this:\n\tpython ./stub.py " + dir)
 			}
 		}
 	default:
