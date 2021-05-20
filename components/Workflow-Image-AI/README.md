@@ -18,11 +18,11 @@ cd ./project01
 
 There are executables for Windows and Linux as well. The above call will create two files in your folder project01. A README.md and a stub.py text file. It will also create a .rpp/config file that is used by rpp to remember your settings and information about your project.
 
-Now you have a folder for your project's source code, add another folder with test data in DICOM format and set the temporay directory to our current directory for testing purposes:
+Now you have a folder for your project's source code. In order to develop our pipeline we will use another data folder with test DICOM images. Also, set the temporay directory to our current directory. This will ensure we can see the way the pipeline is executed.
 ```
 ../rpp config --data ./data --temp_directory `pwd`
 ```
-Use the status command to see the settings of your project
+Use the status command at any time to see the settings of your project as a JSON
 ```
 ../rpp status
 ```
