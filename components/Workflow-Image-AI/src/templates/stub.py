@@ -81,21 +81,20 @@ if not(os.path.exists(output)):
     except OSError as error:
         print(error)
 
-#################################################
-# This might be a good place to start your work.
+####################################################
+# This might be a good place to add your work.
 # Volume: img3d
 # Structured Information: description
-#################################################
+# As an example here we compute the signal-to-noise
+# over the whole volume.
+####################################################
 
-
-
-
-# Add any structured information to an output.json
-# that contains the same information as the descr.json.
+sd = img3d.std()
+description['signal-to-noise'] = np.where(sd == 0, 0, img3d.mean()/sd).item()
 description['shape_x'] = img3d.shape[0]
 description['shape_y'] = img3d.shape[1]
 description['shape_z'] = img3d.shape[2]
 
-# save the structured information into the output folder
+# remember to save the structured information into the output folder
 with open(output+"/output.json", 'w') as outfile:
     json.dump(description, outfile)
