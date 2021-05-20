@@ -33,7 +33,11 @@ To simulate what the system does for testing purposes we can trigger the process
 ```
 ../rpp trigger --keep 
 ```
-This call will not delete the folder after processing but keep it around for us to see what happened.
+This call will create a new folder in the temp system folder (change with 'rpp config --temp_directory <new location>'). Inside that folder rpp will create a copy of the selected image series (input/ folder). Using '--keep' in the above call the folder will stay after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated will end up in the 'output/' folder.
+
+### Integration into the research PACS
+
+The current framework is sufficient to test the processing pipeline in a somewhat realistic way. The next step is to publish the algorithm. That will ensure that the pipeline is called for every incoming dataset.
 
 ### Specify a subset of the image series for processing
 
