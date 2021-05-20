@@ -561,12 +561,12 @@ func main() {
 					exitGracefully(errors.New("could not add to " + stderr_log))
 					// log.Println(err)
 				}
-
-				fmt.Println("Done.")
 				// we can check if we have an output folder now
 				if _, err := os.Stat(dir + "/output/output.json"); err != nil && !os.IsNotExist(err) {
 					exitGracefully(fmt.Errorf("run finished but no output/output.json file found. Consider creating such a file in your program"))
 				}
+
+				fmt.Println("Done.")
 			}
 		}
 	default:

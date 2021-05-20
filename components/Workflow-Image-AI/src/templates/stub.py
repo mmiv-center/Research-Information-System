@@ -5,7 +5,7 @@ import sys
 import os
 import json
 import matplotlib.pyplot as plt
-
+import matplotlib.gridspec as gridspec
 
 description = {}
 with open(os.path.join(sys.argv[1], "descr.json")) as f:
@@ -17,10 +17,10 @@ for fname in glob.glob(sys.argv[1]+"/input/*", recursive=False):
     #print("loading: {}".format(fname))
     files.append(pydicom.dcmread(fname))
 
-print("file count: {}".format(len(files)))
-
-# make sure we keep data that has the same shape as the first slice
+# make sure we only keep data that has the same shape as the first slice
 files = [a for a in files if a.pixel_array.shape == files[0].pixel_array.shape]
+
+print("file count: {}".format(len(files)))
 
 # make sure we sort the slices by SliceLocation or, if that does not exist by InstanceNumber
 def sortFunc(s):
@@ -32,13 +32,12 @@ def sortFunc(s):
         return 0
 slices = sorted(files, key=sortFunc)
 
-
 # pixel aspects, assuming all slices are the same
 ps = slices[0].PixelSpacing
 ss = slices[0].SliceThickness
 ax_aspect = ps[1]/ps[0]
 sag_aspect = ps[1]/ss
-cor_aspect = ss/ps[0]
+cor_aspect = ps[0]/ss
 
 # create 3D array
 img_shape = list(slices[0].pixel_array.shape)
@@ -51,17 +50,26 @@ for i, s in enumerate(slices):
     img3d[:, :, i] = img2d
 
 # plot 3 orthogonal slices
-a1 = plt.subplot(2, 2, 1)
+fig=plt.figure(figsize=(2,2))
+fig.patch.set_facecolor('gray')
+gs1 = gridspec.GridSpec(2,2)
+gs1.update(wspace=0.025, hspace=0.05)
+
+a1 = plt.subplot(gs1[0])
 plt.imshow(img3d[:, :, img_shape[2]//2], cmap='gray')
 a1.set_aspect(ax_aspect)
+a1.set_xticklabels([])
 
-a2 = plt.subplot(2, 2, 2)
+a2 = plt.subplot(gs1[1])
 plt.imshow(img3d[:, img_shape[1]//2, :], cmap='gray')
 a2.set_aspect(sag_aspect)
+a2.set_xticklabels([])
+a2.set_yticklabels([])
 
-a3 = plt.subplot(2, 2, 3)
-plt.imshow(img3d[img_shape[0]//2, :, :].T, cmap='gray')
+a3 = plt.subplot(gs1[2])
+plt.imshow(img3d[img_shape[0]//2, :, :], cmap='gray')
 a3.set_aspect(cor_aspect)
+a3.set_yticklabels([])
 
 plt.show()
 
