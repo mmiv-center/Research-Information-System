@@ -499,12 +499,16 @@ func main() {
 			}
 
 			selectFromA := make(map[string]string)
-			var selectFromB []string
+			var selectFromB []string = nil
 			for StudyInstanceUID, value := range config.Data.DataInfo {
 				for SeriesInstanceUID, value2 := range value {
 					selectFromA[SeriesInstanceUID] = fmt.Sprintf("StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, NumImages: %d, SeriesNumber: %d", StudyInstanceUID, SeriesInstanceUID, value2.SeriesDescription, value2.NumImages, value2.SeriesNumber)
 				}
 			}
+			if selectFromB == nil {
+				exitGracefully(errors.New("There is no matching data. Did you forget to specify a data folder?\n\trpp config --data <folder>"))
+			}
+
 			mm := regexp.MustCompile(config.SeriesFilter)
 			for key, value := range selectFromA {
 				if mm.MatchString(value) {
