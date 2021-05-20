@@ -34,6 +34,9 @@ var readme string
 //go:embed templates/stub.py
 var stub_py string
 
+//go:embed templates/stub.sh
+var stub_sh string
+
 func exitGracefully(err error) {
 	fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	os.Exit(1)
@@ -399,6 +402,16 @@ func main() {
 					f, err := os.Create(stub_path)
 					check(err)
 					_, err = f.WriteString(stub_py)
+					check(err)
+					f.Sync()
+				}
+				stub_path2 := input_dir + "/stub.sh"
+				if _, err := os.Stat(stub_path2); !os.IsNotExist(err) {
+					fmt.Println("This directory already contains a stub.sh, don't overwrite. Skip writing...")
+				} else {
+					f, err := os.Create(stub_path2)
+					check(err)
+					_, err = f.WriteString(stub_sh)
 					check(err)
 					f.Sync()
 				}
