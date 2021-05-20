@@ -6,6 +6,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -32,12 +33,6 @@ var readme string
 
 //go:embed templates/stub.py
 var stub_py string
-
-type inputFile struct {
-	filepath  string
-	separator string
-	pretty    bool
-}
 
 func exitGracefully(err error) {
 	fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -262,7 +257,7 @@ func main() {
 	const (
 		defaultInputDir    = "Specify where you want to setup shop"
 		defaultTriggerTime = "A wait time in seconds before the computation is triggered (2s, or 7m, etc.)"
-		errorConfigFile    = "the current directory is not an rpp directory. Change to the correct directory or run\n\t rpp init project01\nfirst to create a new project01 folder in the current location."
+		errorConfigFile    = "the current directory is not an rpp directory. Change to the correct directory or run\n\t rpp init project01\nfirst to create a new project01 folder in the current location"
 	)
 
 	initCommand := flag.NewFlagSet("init", flag.ContinueOnError)
@@ -359,7 +354,7 @@ func main() {
 						fmt.Printf("Your name: ")
 						author_name, err = reader.ReadString('\n')
 						if err != nil {
-							msg := fmt.Sprintf("we need your name. Add with\n\t--author_name \"%s\"")
+							msg := "we need your name. Add with\n\t--author_name \"<name>\""
 							exitGracefully(errors.New(msg))
 						}
 					}
@@ -367,7 +362,7 @@ func main() {
 						fmt.Printf("Your email: ")
 						author_email, err = reader.ReadString('\n')
 						if err != nil {
-							msg := fmt.Sprintf("we need your your email. Add with\n\t--author_email \"email@home\"")
+							msg := "we need your your email. Add with\n\t--author_email \"email@home\""
 							exitGracefully(errors.New(msg))
 						}
 					}
@@ -531,14 +526,46 @@ func main() {
 
 				cmd_str := fmt.Sprintf("python ./stub.py \"%s/\"", dir)
 				cmd := exec.Command("python", "stub.py", dir)
+				var outb, errb bytes.Buffer
+				cmd.Stdout = &outb
+				cmd.Stderr = &errb
 				err := cmd.Run()
 				if err != nil {
-					exitGracefully(errors.New(fmt.Sprintf("could not run trigger command\n\t%s", cmd_str)))
+					exitGracefully(fmt.Errorf("could not run trigger command\n\t%s", cmd_str))
 				}
+				// store stdout and stderr as log files
+				if _, err := os.Stat(dir + "/log"); err != nil && os.IsNotExist(err) {
+					if err := os.Mkdir(dir+"/log", 0755); os.IsExist(err) {
+						exitGracefully(errors.New("directory exist already"))
+					}
+				}
+				// write the log files
+				var stdout_log string = fmt.Sprintf("%s/log/stdout.log", dir)
+				f_log_stdout, err := os.OpenFile(stdout_log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err != nil {
+					exitGracefully(errors.New("could not open file " + stdout_log))
+				}
+				defer f_log_stdout.Close()
+				if _, err := f_log_stdout.WriteString(outb.String()); err != nil {
+					exitGracefully(errors.New("could not write to log/stdout.log"))
+					// log.Println(err)
+				}
+
+				var stderr_log string = fmt.Sprintf("%s/log/stderr.log", dir)
+				f_log_stderr, err := os.OpenFile(stderr_log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err != nil {
+					exitGracefully(errors.New("could not open " + stderr_log))
+				}
+				defer f_log_stderr.Close()
+				if _, err := f_log_stderr.WriteString(errb.String()); err != nil {
+					exitGracefully(errors.New("could not add to " + stderr_log))
+					// log.Println(err)
+				}
+
 				fmt.Println("Done.")
 				// we can check if we have an output folder now
 				if _, err := os.Stat(dir + "/output/output.json"); err != nil && !os.IsNotExist(err) {
-					exitGracefully(errors.New(fmt.Sprintf("run finished but no output/output.json file found. Consider creating such a file in your program.\n")))
+					exitGracefully(fmt.Errorf("run finished but no output/output.json file found. Consider creating such a file in your program"))
 				}
 			}
 		}
