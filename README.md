@@ -6,11 +6,11 @@ This repository contains components required to setup a research information sys
 
 Our research information system is modeled after information systems used in clinical practice for industrial scale data processing, e.g. for the capture, storage and analysis of data for hundreds of thousands of participants per month and millions of participants per year. We adapted the system for research organizations that serve hundreds of research projects.
 
-The research information system has two components - a *research PACS* for storage and review of image data and a *research electronic record system* for the collection and storage of all tabulated data. The technical component that is used to enter data into both components is called *FIONA*.
+The research information system has two components - a *research PACS* for storage and review of image data and a *research electronic record system* for the collection and storage of all tabulated data. The technical component that is used to link data in both components is called *FIONA* - a virtual machine working as a gatekeeper for all data into the research PACS.
 
 ## Specification for terms used
 
-We are using the REDCap data dictionary model to store structured data about projects. A small number of REDCap projects are used to organize the data in the research information system. This includes information on each research project and information on the incoming image studies and where in the research information system they should end up.
+We are using the REDCap data dictionary model to store structured data about research projects. A small number of REDCap projects are used to organize the data in the research information system. This includes information on each research project like ethical approval and time range and information on the incoming image studies and where in the research information system the end up.
 
 Item | Description
 -----|------------
