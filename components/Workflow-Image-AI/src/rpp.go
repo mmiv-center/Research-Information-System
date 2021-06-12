@@ -37,6 +37,18 @@ var stub_py string
 //go:embed templates/stub.sh
 var stub_sh string
 
+//go:embed templates/requirements.txt
+var requirements string
+
+//go:embed templates/Dockerfile
+var dockerfile string
+
+//go:embed templates/.dockerignore
+var dockerignore string
+
+//go:embed templates/docker-compose.yml
+var dockercompose string
+
 func exitGracefully(err error) {
 	fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	os.Exit(1)
@@ -415,6 +427,52 @@ func main() {
 					check(err)
 					f.Sync()
 				}
+				// virtualization environment
+				virt_path := input_dir + "/.rpp/virt"
+				if err := os.Mkdir(virt_path, 0755); os.IsExist(err) {
+					exitGracefully(errors.New("directory exist already"))
+				}
+				requirements_path2 := virt_path + "/requirements.txt"
+				if _, err := os.Stat(requirements_path2); !os.IsNotExist(err) {
+					fmt.Println("This directory already contains a requirements.txt, don't overwrite. Skip writing...")
+				} else {
+					f, err := os.Create(requirements_path2)
+					check(err)
+					_, err = f.WriteString(requirements)
+					check(err)
+					f.Sync()
+				}
+				dockerignore_path2 := virt_path + "/.dockerignore"
+				if _, err := os.Stat(dockerignore_path2); !os.IsNotExist(err) {
+					fmt.Println("This directory already contains a .dockerignore, don't overwrite. Skip writing...")
+				} else {
+					f, err := os.Create(dockerignore_path2)
+					check(err)
+					_, err = f.WriteString(dockerignore)
+					check(err)
+					f.Sync()
+				}
+				dockerfile_path2 := virt_path + "/Dockerfile"
+				if _, err := os.Stat(dockerfile_path2); !os.IsNotExist(err) {
+					fmt.Println("This directory already contains a Dockerfile, don't overwrite. Skip writing...")
+				} else {
+					f, err := os.Create(dockerfile_path2)
+					check(err)
+					_, err = f.WriteString(dockerfile)
+					check(err)
+					f.Sync()
+				}
+				dockercompose_path2 := virt_path + "/docker-compose.yml"
+				if _, err := os.Stat(dockercompose_path2); !os.IsNotExist(err) {
+					fmt.Println("This directory already contains a docker-compose.yml, don't overwrite. Skip writing...")
+				} else {
+					f, err := os.Create(dockercompose_path2)
+					check(err)
+					_, err = f.WriteString(dockercompose)
+					check(err)
+					f.Sync()
+				}
+
 			}
 			fmt.Printf("Init folder %s done\n", input_dir)
 		}

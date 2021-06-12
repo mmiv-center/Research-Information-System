@@ -1,0 +1,8 @@
+version: '3.4'
+
+services:
+  workflowimageai:
+    image: workflowimageai
+    build:
+      context: .
+      dockerfile: ./Dockerfile
