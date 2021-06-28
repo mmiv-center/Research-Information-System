@@ -608,9 +608,9 @@ func main() {
 				var outb, errb bytes.Buffer
 				cmd.Stdout = &outb
 				cmd.Stderr = &errb
-				err := cmd.Run()
-				if err != nil {
-					exitGracefully(fmt.Errorf("could not run trigger command\n\t%s", cmd_str))
+				exitCode := cmd.Run()
+				if exitCode != nil {
+					exitGracefully(fmt.Errorf("could not run trigger command\n\t%s\nError code: %d\n", cmd_str, exitCode))
 				}
 				// store stdout and stderr as log files
 				if _, err := os.Stat(dir + "/log"); err != nil && os.IsNotExist(err) {
