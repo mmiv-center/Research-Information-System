@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/suyashkumar/dicom"
@@ -272,7 +273,7 @@ func main() {
 	const (
 		defaultInputDir    = "Specify where you want to setup shop"
 		defaultTriggerTime = "A wait time in seconds before the computation is triggered (2s, or 7m, etc.)"
-		errorConfigFile    = "the current directory is not an rpp directory. Change to the correct directory or run\n\t rpp init project01\nfirst to create a new project01 folder in the current location"
+		errorConfigFile    = "The current directory is not an rpp directory. Change to the correct directory first or create a new folder by running\n\trpp init project01\n"
 	)
 
 	initCommand := flag.NewFlagSet("init", flag.ContinueOnError)
@@ -372,6 +373,10 @@ func main() {
 							msg := "we need your name. Add with\n\t--author_name \"<name>\""
 							exitGracefully(errors.New(msg))
 						}
+						author_name = strings.TrimSuffix(author_name, "\n")
+						if (len(author_name) < 2) {
+							fmt.Println("Does not look like a name, but you know best.")
+						}
 					}
 					if author_email == "" {
 						fmt.Printf("Your email: ")
@@ -380,12 +385,22 @@ func main() {
 							msg := "we need your your email. Add with\n\t--author_email \"email@home\""
 							exitGracefully(errors.New(msg))
 						}
+						author_email = strings.TrimSuffix(author_name, "\n")
+						var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+						var isEmail = true
+						if len(author_email) < 3 && len(author_email) > 254 {
+							isEmail = false
+						}
+						isEmail = emailRegex.MatchString(author_email)
+						if (!isEmail) {
+							fmt.Println("Does not look like an email - but you know best.")
+						}
 					}
 
 				}
 
 				if err := os.Mkdir(dir_path, 0755); os.IsExist(err) {
-					exitGracefully(errors.New("directory exist already"))
+					exitGracefully(errors.New("directory already exists"))
 				}
 				data := Config{
 					Date: time.Now().String(),
@@ -474,7 +489,8 @@ func main() {
 				}
 
 			}
-			fmt.Printf("Init folder %s done\n", input_dir)
+			fmt.Printf("Init new project folder %s done\n", input_dir)
+			fmt.Println("You might want to add a data folder with DICOM files to get started\n\trpp config --data <data folder>")
 		}
 	case "config":
 		if err := configCommand.Parse(os.Args[2:]); err == nil {
@@ -501,6 +517,9 @@ func main() {
 				}
 				config.Data.DataInfo = studies
 				config.Data.Path = data_path
+				if config_temp_directory == "" {
+					fmt.Println("For testing a workflow you might next want to set the temp directory\n\trpp config --temp_directory <folder>")
+				}
 			}
 			if author_name != "" {
 				config.Author.Name = author_name
@@ -513,6 +532,7 @@ func main() {
 			}
 			if config_temp_directory != "" {
 				config.TempDirectory = config_temp_directory
+				fmt.Println("You can trigger a workflow now. Use\n\trpp trigger --keep\nto leave the data folder in the temp directory for inspection.")
 			}
 			// write out config again
 			file, _ := json.MarshalIndent(config, "", " ")
@@ -520,6 +540,12 @@ func main() {
 		}
 	case "status":
 		if err := statusCommand.Parse(os.Args[2:]); err == nil {
+			// we might have a folder name after all the arguments to look into
+			values := statusCommand.Args()
+			if len(values) == 1 {
+				input_dir = statusCommand.Arg(0)
+			}
+
 			dir_path := input_dir + "/.rpp/config"
 			config, err := readConfig(dir_path)
 			if err != nil {
