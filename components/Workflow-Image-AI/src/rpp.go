@@ -12,12 +12,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"image"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -25,6 +27,11 @@ import (
 
 	"github.com/suyashkumar/dicom"
 	"github.com/suyashkumar/dicom/pkg/tag"
+
+	"golang.org/x/image/draw"
+
+	"image/color"
+	_ "image/jpeg"
 )
 
 const version string = "0.0.1"
@@ -120,7 +127,92 @@ type Description struct {
 	SequenceName      string
 }
 
+// img.At(x, y).RGBA() returns four uint32 values; we want a Pixel
+func rgbaToPixel(r uint32, g uint32, b uint32, a uint32) Pixel {
+    return Pixel{int(r / 257), int(g / 257), int(b / 257), int(a / 257)}
+}
+
+// Pixel struct example
+type Pixel struct {
+    R int
+    G int
+    B int
+    A int
+}
+var ASCIISTR = "MND8OZ$7I?+=~:,.."
+
+func printImage2ASCII(img image.Image, w, h int) []byte {
+		table := []byte(ASCIISTR)
+		buf := new(bytes.Buffer)
+
+		g := color.GrayModel.Convert(img.At(0, 0))
+		maxVal := reflect.ValueOf(g).FieldByName("Y").Uint()
+		minVal := maxVal
+		
+		for i := 0; i < h; i++ {
+			for j := 0; j < w; j++ {
+				g := color.GrayModel.Convert(img.At(j, i))
+				//g := img.At(j, i)
+				y := reflect.ValueOf(g).FieldByName("Y").Uint()
+				if y > maxVal {
+					maxVal = y
+					//fmt.Println(y, g)
+				}
+				if y < minVal {
+					minVal = y
+				}
+			}
+		}
+		// todo: better to use a histogram to scale at 2%...99.9% per image
+		// some pixel are very dark and we need more contast
+		//fmt.Println("max ", maxVal, "min", minVal)
+		denom := maxVal - minVal
+		if denom == 0 {
+			denom = 1
+		}
+		for i := 0; i < h; i++ {
+			for j := 0; j < w; j++ {
+				g := color.GrayModel.Convert(img.At(j, i))
+				//g := img.At(j, i)
+				y := reflect.ValueOf(g).FieldByName("Y").Uint()
+				//fmt.Println("got a number: ", img.At(j, i))
+				pos := int( (y-minVal) * 16 / denom)
+				_ = buf.WriteByte(table[pos])
+			}
+			_ = buf.WriteByte('\n')
+		}
+		return buf.Bytes()
+}
+
+type Converted struct {
+    Img image.Image
+    Mod color.Model
+}
+
+// We return the new color model...
+func (c *Converted) ColorModel() color.Model{
+    return c.Mod
+}
+
+// ... but the original bounds
+func (c *Converted) Bounds() image.Rectangle{
+    return c.Img.Bounds()
+}
+
+// At forwards the call to the original image and
+// then asks the color model to convert it.
+func (c *Converted) At(x, y int) color.Color{
+    return c.Mod.Convert(c.Img.At(x,y))
+}
+
+func Scale(src image.Image, rect image.Rectangle, scale draw.Scaler) image.Image {
+	dst := image.NewRGBA(rect)
+	scale.Scale(dst, rect, src, src.Bounds(), draw.Over, nil)
+	return dst
+}
+
 // copyFiles will copy all DICOM files that fit the string to the dest_path directory.
+// we could display those images as well on the command line - just to impress
 func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string) (int, Description) {
 
 	destination_path := dest_path + "/input"
@@ -151,6 +243,31 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 				if SeriesInstanceUID != SelectedSeriesInstanceUID {
 					return nil // ignore that file
 				}
+
+				// we can get a version of the image, scale it and print out on command line
+				showImage := true
+				if (showImage) {
+					pixelDataElement, _ := dataset.FindElementByTag(tag.PixelData)
+					pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
+					for _, fr := range pixelDataInfo.Frames {
+						img, _ := fr.GetImage() // The Go image.Image for this frame
+						gr := &Converted{img, color.RGBAModel /*color.GrayModel*/}
+
+						origbounds := gr.Img.Bounds()
+						orig_width, orig_height := origbounds.Max.X, origbounds.Max.Y
+						// newImage := resize.Resize(196/2 , 196/2 / (80/24), gr.Img, resize.Lanczos3) // should use 80x20 aspect ratio for screen
+						// golang.org/x/image/draw
+						newImage := Scale(gr.Img, image.Rect(0, 0, 196/2 , 196/2 / (80/24)), draw.ApproxBiLinear)
+
+						bounds := newImage.Bounds()
+						width, height := bounds.Max.X, bounds.Max.Y
+						fmt.Println("Image", counter, path, "(", orig_width, "x", orig_height, ")")
+						p := printImage2ASCII(newImage, width, height)
+						fmt.Println(string(p))
+					}
+					//fmt.Println("END of all frames")
+				}
+
 				fmt.Printf("%05d files\r", counter)
 				var SeriesDescription string
 				SeriesDescriptionVal, err := dataset.FindElementByTag(tag.SeriesDescription)
@@ -181,8 +298,8 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 				inputFile, _ := os.Open(path)
 				data, _ := ioutil.ReadAll(inputFile)
 				ioutil.WriteFile(fmt.Sprintf("%s/%06d.dcm", outputPath, counter), data, 0644)
-
-				counter++
+				//fmt.Println("path: ", fmt.Sprintf("%s/%06d.dcm", outputPath, counter))
+				counter = counter + 1
 			}
 		}
 		return nil
