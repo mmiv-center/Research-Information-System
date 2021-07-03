@@ -48,7 +48,7 @@ rpp config --data ./data --temp_directory `pwd`
 ```
 Notice: In order to speed up testing you should not have too many DICOM files in the data directory.
 
-Use the status command to see the current settings of your project
+Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .rpp directory.
 ```
 rpp status
 ```
@@ -57,7 +57,7 @@ To simulate what the system does for testing purposes we can trigger the process
 ```
 rpp trigger --keep 
 ```
-This call will create a new folder in the temp system folder (change with 'rpp config --temp_directory <new location>'). Inside that folder rpp will create a copy of the selected image series (input/ folder). Using '--keep' in the above call the folder will stay after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated will end up in the 'output/' folder.
+This call will create a new folder in the temp system folder (change with 'rpp config --temp_directory <new location>'). Inside that folder rpp creates a copy of the selected image series (input/ folder). Using '--keep' option the folder will stay around after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated should be placed in the 'output/' folder.
 
 ### Integration into the research PACS
 

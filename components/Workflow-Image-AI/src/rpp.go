@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"image"
 	"io/ioutil"
+	"log"
 	"math"
 	"math/rand"
 	"os"
@@ -192,7 +193,12 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 				g := color.GrayModel.Convert(img.At(j, i))
 				//g := img.At(j, i)
 				y := reflect.ValueOf(g).FieldByName("Y").Uint()
-				histogram[ int(math.Round(( (float64(y) - float64(minVal))) / float64(maxVal-minVal) * float64(bins-1))) ] += 1
+				if math.IsInf(float64(y),0) || math.IsNaN(float64(y)) {
+					continue;
+				}
+				idx := int(math.Round(( (float64(y) - float64(minVal))) / float64(maxVal-minVal) * float64(bins-1)))
+				idx = int(math.Max(float64(bins)-1,math.Min(0,float64(idx))))
+				histogram[ idx ] += 1
 			}
 		}
 		// compute the 2%, 99% borders in the cumulative density
@@ -285,9 +291,9 @@ func showDataset(dataset dicom.Dataset, counter int, path string) {
 
 		bounds := newImage.Bounds()
 		width, height := bounds.Max.X, bounds.Max.Y
-		fmt.Printf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
 		p := printImage2ASCII(newImage, width, height)
 		fmt.Println(string(p))
+		fmt.Printf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
 	}
 }
 
@@ -477,6 +483,9 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 func main() {
 
 	rand.Seed(time.Now().UnixNano())
+	// disable logging 
+	log.SetFlags(0)
+	log.SetOutput(ioutil.Discard)
 
 	const (
 		defaultInputDir    = "Specify where you want to setup shop"
@@ -729,7 +738,7 @@ func main() {
 				config.Data.DataInfo = studies
 				config.Data.Path = data_path
 				if config_temp_directory == "" {
-					fmt.Println("For testing a workflow you might next want to set the temp directory\n\trpp config --temp_directory <folder>")
+					fmt.Println("For testing a workflow you might next want to set the temp directory\n\n\trpp config --temp_directory <folder>\n")
 				}
 			}
 			if author_name != "" {
