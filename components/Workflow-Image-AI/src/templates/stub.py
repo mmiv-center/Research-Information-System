@@ -97,4 +97,4 @@ description['shape_z'] = img3d.shape[2]
 
 # remember to save the structured information into the output folder
 with open(output+"/output.json", 'w') as outfile:
-    json.dump(description, outfile)
+    outfile.write(json.dumps(description, indent=4, sort_keys=True))

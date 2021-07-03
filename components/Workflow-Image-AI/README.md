@@ -8,30 +8,54 @@ Using the tools in this section you should be able to start developing a process
 
 The processing pipelines are submitted as containers. This is done to ensure that pipelines running on the same underlying hardware don't interfere with each other. They can depends on different versions of python for example if each one is inside a containerized environment. Tools like conda (anaconda/minconda) can be used inside the container.
 
-In order to start a new development project you can use the *rpp* tool by downloading and running it in a project directory (here for MacOS):
+In order to start a new development project you can use the *rpp* tool. It helps you create a first project directory, link to image data and trigger a processing task just like it will be done on the research information system. Use this workflow to find and fix any issues locally before submitting your processing pipeline.
+
+### Install on MacOS
+
+Download the executable. Copy the file to a folder like /usr/local/bin/.
 ```
-wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/macos-amd64/rpp > rpp
-chmod +x ./rpp
-./rpp init project01
+wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/macos-amd64/rpp > /usr/local/bin/rpp
+chmod +x /usr/local/bin/rpp
+```
+
+### Install on Windows
+
+Download the executable. Copy the program to your program files folder.
+```
+wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/windows-amd64/rpp.exe > %ProgramFiles%/rpp.exe
+```
+
+### Install on Linux
+
+Download the executable. Copy the file to a folder like /usr/local/bin/.
+```
+wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/linux-amd64/rpp > /usr/local/bin/rpp
+chmod +x /usr/local/bin/rpp
+```
+
+### Create a first project
+
+```
+rpp init project01
 cd ./project01
 ```
 
-There are executables for Windows and Linux as well. The above call will create two files in your folder project01. A README.md and a stub.py text file. It will also create a .rpp/config file that is used by rpp to remember your settings and information about your project.
+The above call will create a new directory project01. The directory contains a starter package, a README.md and a stub.py text file. Init will also create a hidden .rpp/config file that is used by rpp to remember your settings and information about your project.
 
 Now you have a folder for your project's source code. In order to develop our pipeline we will use another data folder with test DICOM images. Also, set the temporay directory to our current directory. This will ensure we can see the way the pipeline is executed.
 ```
-../rpp config --data ./data --temp_directory `pwd`
+rpp config --data ./data --temp_directory `pwd`
 ```
 Notice: In order to speed up testing you should not have too many DICOM files in the data directory.
 
 Use the status command to see the current settings of your project
 ```
-../rpp status
+rpp status
 ```
 
 To simulate what the system does for testing purposes we can trigger the processing of a DICOM series by
 ```
-../rpp trigger --keep 
+rpp trigger --keep 
 ```
 This call will create a new folder in the temp system folder (change with 'rpp config --temp_directory <new location>'). Inside that folder rpp will create a copy of the selected image series (input/ folder). Using '--keep' in the above call the folder will stay after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated will end up in the 'output/' folder.
 
@@ -43,11 +67,10 @@ The current framework is sufficient to test the processing pipeline in a somewha
 
 If your processing pipeline depends on specific image series you can filter out all other series. To configure what image series are processed define a trigger filter like the following (all series with the DICOM tag SeriesNumber equals to "2")
 ```
-../rpp config --series_filter "SeriesNumber: 2"
+rpp config --series_filter "SeriesNumber: 2"
 ```
 This search text, a regular expression, is matched against a long string that contains
 ```{json}
 "StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, NumImages: %d, SeriesNumber: %d"
 ```
 All image series that match will be a potential test image series for the trigger command and from those one image series is selected at random.
-

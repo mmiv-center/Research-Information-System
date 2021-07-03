@@ -142,6 +142,9 @@ type Pixel struct {
     A int
 }
 var ASCIISTR = "MND8OZ$7I?+=~:,.."
+// from http://paulbourke.net/dataformats/asciiart/
+var ASCIISTR2 = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'."
+var ASCIISTR3 = " .:-=+*#%@"
 
 func reverse(s string) string {
     o := make([]rune, utf8.RuneCountInString(s));
@@ -154,7 +157,9 @@ func reverse(s string) string {
 }
 
 func printImage2ASCII(img image.Image, w, h int) []byte {
-		table := []byte(reverse(ASCIISTR))
+		//table := []byte(reverse(ASCIISTR))
+		table := []byte(reverse(ASCIISTR2))
+		//table := []byte(ASCIISTR3)
 		buf := new(bytes.Buffer)
 
 		g := color.GrayModel.Convert(img.At(0, 0))
@@ -176,15 +181,18 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 			}
 		}
 		// todo: better to use a histogram to scale at 2%...99.9% per image
-		var histogram [512]int
+		var histogram [1024]int
 		bins := len(histogram)
+		for i := 0; i < bins; i++ {
+			histogram[i] = 0
+		}
 
 		for i := 0; i < h; i++ {
 			for j := 0; j < w; j++ {
 				g := color.GrayModel.Convert(img.At(j, i))
 				//g := img.At(j, i)
 				y := reflect.ValueOf(g).FieldByName("Y").Uint()
-				histogram[ int(math.Round(( float64(y -minVal)) / float64(maxVal-minVal) * float64(bins-1))) ] += 1
+				histogram[ int(math.Round(( (float64(y) - float64(minVal))) / float64(maxVal-minVal) * float64(bins-1))) ] += 1
 			}
 		}
 		// compute the 2%, 99% borders in the cumulative density
@@ -204,7 +212,7 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 		max99 := 0
 		s = histogram[0]
 		for i := 1; i < bins; i++ {
-			if float32(s) >= (float32(sum) * 98.0 / 100.0) { // sum / 100 = ? / 2
+			if float32(s) >= (float32(sum) * 99.0 / 100.0) { // sum / 100 = ? / 2
 				max99 = int(minVal) + int(float32(i)/float32(bins) * float32(maxVal - minVal))
 				break
 			}
@@ -225,8 +233,8 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 				//g := img.At(j, i)
 				y := reflect.ValueOf(g).FieldByName("Y").Uint()
 				//fmt.Println("got a number: ", img.At(j, i))
-				pos := int( (int(y)-min2) * 16 / denom)
-				pos = int( math.Min(16,math.Max(0,float64(pos))) )
+				pos := int( (float32(y)-float32(min2)) * float32(len(table)-1) / float32(denom))
+				pos = int( math.Min(float64(len(table)-1),math.Max(0,float64(pos))) )
 				_ = buf.WriteByte(table[pos])
 			}
 			_ = buf.WriteByte('\n')
@@ -261,6 +269,28 @@ func Scale(src image.Image, rect image.Rectangle, scale draw.Scaler) image.Image
 	return dst
 }
 
+func showDataset(dataset dicom.Dataset, counter int, path string) {
+	pixelDataElement, _ := dataset.FindElementByTag(tag.PixelData)
+	pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
+	for _, fr := range pixelDataInfo.Frames {
+		fmt.Printf("\033[0;0f\n")  // go to top of the screen
+		img, _ := fr.GetImage() // The Go image.Image for this frame
+		// gr := &Converted{img, color.RGBAModel /*color.GrayModel*/}
+
+		origbounds := img.Bounds()
+		orig_width, orig_height := origbounds.Max.X, origbounds.Max.Y
+		// newImage := resize.Resize(196/2 , 196/2 / (80/24), gr.Img, resize.Lanczos3) // should use 80x20 aspect ratio for screen
+		// golang.org/x/image/draw
+		newImage := Scale(img, image.Rect(0, 0, 196/2 , int(math.Round(196.0 / 2.0 / (80.0/30.0) ) )), draw.ApproxBiLinear)
+
+		bounds := newImage.Bounds()
+		width, height := bounds.Max.X, bounds.Max.Y
+		fmt.Printf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
+		p := printImage2ASCII(newImage, width, height)
+		fmt.Println(string(p))
+	}
+}
+
 // copyFiles will copy all DICOM files that fit the string to the dest_path directory.
 // we could display those images as well on the command line - just to impress
 func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string) (int, Description) {
@@ -276,6 +306,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 	var description Description
 	description.SeriesInstanceUID = SelectedSeriesInstanceUID
 	counter := 0
+	fmt.Printf("\033[2J\n") // clear the screen
 	err := filepath.Walk(source_path, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
@@ -284,6 +315,8 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 			return err
 		}
 		//fmt.Println("look at file: ", path)
+		//fmt.Printf("\033[2J\n")
+
 		dataset, err := dicom.ParseFile(path, nil) // See also: dicom.Parse which has a generic io.Reader API.
 		if err == nil {
 			SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
@@ -297,28 +330,31 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 				// we can get a version of the image, scale it and print out on command line
 				showImage := true
 				if (showImage) {
-					pixelDataElement, _ := dataset.FindElementByTag(tag.PixelData)
+					showDataset(dataset, counter+1, path)
+					/* pixelDataElement, _ := dataset.FindElementByTag(tag.PixelData)
 					pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
 					for _, fr := range pixelDataInfo.Frames {
+						fmt.Printf("\033[0;0f\n")  // go to top of the screen
 						img, _ := fr.GetImage() // The Go image.Image for this frame
-						// gr := &Converted{img, color.RGBAModel /*color.GrayModel*/}
+						// gr := &Converted{img, color.RGBAModel}
 
 						origbounds := img.Bounds()
 						orig_width, orig_height := origbounds.Max.X, origbounds.Max.Y
 						// newImage := resize.Resize(196/2 , 196/2 / (80/24), gr.Img, resize.Lanczos3) // should use 80x20 aspect ratio for screen
 						// golang.org/x/image/draw
-						newImage := Scale(img, image.Rect(0, 0, 196/2 , 196/2 / (80/24)), draw.ApproxBiLinear)
+						newImage := Scale(img, image.Rect(0, 0, 196/2 , int(math.Round(196.0 / 2.0 / (80.0/30.0) ) )), draw.ApproxBiLinear)
 
 						bounds := newImage.Bounds()
 						width, height := bounds.Max.X, bounds.Max.Y
-						fmt.Println("Image", counter, path, "(", orig_width, "x", orig_height, ")")
+						fmt.Printf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
 						p := printImage2ASCII(newImage, width, height)
 						fmt.Println(string(p))
-					}
+						//fmt.Printf("\033[10;0f\n")
+					} */
 					//fmt.Println("END of all frames")
 				}
 
-				fmt.Printf("%05d files\r", counter)
+				//fmt.Printf("%05d files\r", counter)
 				var SeriesDescription string
 				SeriesDescriptionVal, err := dataset.FindElementByTag(tag.SeriesDescription)
 				if err == nil {
@@ -392,6 +428,11 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 				var SeriesNumber int
 
 				fmt.Printf("%05d files\r", counter)
+				showImages := true
+				if showImages {
+					showDataset(dataset, counter, path)
+				}
+
 				counter = counter + 1
 				StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
 				SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
@@ -657,7 +698,10 @@ func main() {
 
 			}
 			fmt.Printf("Init new project folder %s done\n", input_dir)
-			fmt.Println("You might want to add a data folder with DICOM files to get started\n\trpp config --data <data folder>")
+			fmt.Println("You might want to add a data folder with DICOM files to get started\n\n\trpp config --data <data folder>\n")
+			fmt.Println("Careful using data folders with too many files. Each time you trigger a\n" +
+						"computation rpp needs to look at each of those files. This might take\n" +
+						"a long time. Test with a few hundred files first.\n")
 		}
 	case "config":
 		if err := configCommand.Parse(os.Args[2:]); err == nil {
@@ -834,9 +878,23 @@ func main() {
 					// log.Println(err)
 				}
 				// we can check if we have an output folder now
-				if _, err := os.Stat(dir + "/output/output.json"); err != nil && !os.IsNotExist(err) {
+				path_string := dir + "/output/output.json"
+				if _, err := os.Stat(path_string); err != nil && !os.IsNotExist(err) {
 					exitGracefully(fmt.Errorf("run finished but no output/output.json file found. Consider creating such a file in your program"))
 				}
+
+				// plot the output.json as a result object to screen
+				jsonFile, err := os.Open(path_string)
+				// if we os.Open returns an error then handle it
+				if err != nil {
+					fmt.Println(err)
+				}
+				//fmt.Println("Successfully Opened users.json")
+				// defer the closing of our jsonFile so that we can parse it later on
+				defer jsonFile.Close()
+			
+				byteValue, _ := ioutil.ReadAll(jsonFile)
+				fmt.Println(string(byteValue))
 
 				fmt.Println("Done.")
 			} else {
