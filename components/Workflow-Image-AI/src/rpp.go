@@ -602,16 +602,19 @@ func main() {
 							msg := "we need your your email. Add with\n\t--author_email \"email@home\""
 							exitGracefully(errors.New(msg))
 						}
-						author_email = strings.TrimSuffix(author_name, "\n")
-						var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+						author_email = strings.TrimSuffix(author_email, "\n")
+						var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+						//	"^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
 						var isEmail = true
-						if len(author_email) < 3 && len(author_email) > 254 {
-							isEmail = false
-						}
+						//e, err := mail.ParseAddress(author_email)
+						//isEmail = (err == nil)
+						//if len(author_email) < 3 && len(author_email) > 254 {
+						//	isEmail = false
+						//}
 						isEmail = emailRegex.MatchString(author_email)
-						if (!isEmail) {
+						if (isEmail == false) {
 							fmt.Println("Does not look like an email - but you know best.")
-						}
+						} 
 					}
 
 				}
@@ -708,9 +711,9 @@ func main() {
 			}
 			fmt.Printf("Init new project folder %s done\n", input_dir)
 			fmt.Println("You might want to add a data folder with DICOM files to get started\n\n\trpp config --data <data folder>\n")
-			fmt.Println("Careful using data folders with too many files. Each time you trigger a\n" +
-						"computation rpp needs to look at each of those files. This might take\n" +
-						"a long time. Test with a few hundred files first.\n")
+			fmt.Println("Careful with using a data folder with too many files. Each time you trigger a\n" +
+						"computation rpp needs to look at each of the files. This might take\n" +
+						"a long time. Test with a few hundred DICOM files first.\n")
 		}
 	case "config":
 		if err := configCommand.Parse(os.Args[2:]); err == nil {
@@ -738,7 +741,8 @@ func main() {
 				config.Data.DataInfo = studies
 				config.Data.Path = data_path
 				if config_temp_directory == "" {
-					fmt.Println("For testing a workflow you might next want to set the temp directory\n\n\trpp config --temp_directory <folder>\n")
+					fmt.Println("For testing a workflow you might next want to set the temp directory\n\n\t" +
+					"rpp config --temp_directory <folder>\n\nExample trigger data folders will appear there.\n")
 				}
 			}
 			if author_name != "" {
