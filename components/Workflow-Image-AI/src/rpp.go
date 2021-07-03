@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"image"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -24,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/suyashkumar/dicom"
 	"github.com/suyashkumar/dicom/pkg/tag"
@@ -141,8 +143,18 @@ type Pixel struct {
 }
 var ASCIISTR = "MND8OZ$7I?+=~:,.."
 
+func reverse(s string) string {
+    o := make([]rune, utf8.RuneCountInString(s));
+    i := len(o);
+    for _, c := range s {
+        i--;
+        o[i] = c;
+    }
+    return string(o);
+}
+
 func printImage2ASCII(img image.Image, w, h int) []byte {
-		table := []byte(ASCIISTR)
+		table := []byte(reverse(ASCIISTR))
 		buf := new(bytes.Buffer)
 
 		g := color.GrayModel.Convert(img.At(0, 0))
@@ -164,9 +176,46 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 			}
 		}
 		// todo: better to use a histogram to scale at 2%...99.9% per image
+		var histogram [512]int
+		bins := len(histogram)
+
+		for i := 0; i < h; i++ {
+			for j := 0; j < w; j++ {
+				g := color.GrayModel.Convert(img.At(j, i))
+				//g := img.At(j, i)
+				y := reflect.ValueOf(g).FieldByName("Y").Uint()
+				histogram[ int(math.Round(( float64(y -minVal)) / float64(maxVal-minVal) * float64(bins-1))) ] += 1
+			}
+		}
+		// compute the 2%, 99% borders in the cumulative density
+		sum := histogram[0]
+		for i := 1; i < bins; i++ {
+			sum += histogram[i]
+		}
+		min2 := 0
+		s := histogram[0]
+		for i := 1; i < bins; i++ {
+			if float32(s) >= (float32(sum) * 2.0 / 100.0) { // sum / 100 = ? / 2
+				min2 = int(minVal) + int(float32(i)/float32(bins) * float32(maxVal - minVal))
+				break
+			}
+			s += histogram[i]
+		}
+		max99 := 0
+		s = histogram[0]
+		for i := 1; i < bins; i++ {
+			if float32(s) >= (float32(sum) * 98.0 / 100.0) { // sum / 100 = ? / 2
+				max99 = int(minVal) + int(float32(i)/float32(bins) * float32(maxVal - minVal))
+				break
+			}
+			s += histogram[i]
+		}
+		//fmt.Println("min2:", min2, "max99:", max99, "true min:", minVal, "true max:", maxVal)
+
 		// some pixel are very dark and we need more contast
 		//fmt.Println("max ", maxVal, "min", minVal)
-		denom := maxVal - minVal
+		// denom := maxVal - minVal
+		denom := max99 - min2
 		if denom == 0 {
 			denom = 1
 		}
@@ -176,7 +225,8 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 				//g := img.At(j, i)
 				y := reflect.ValueOf(g).FieldByName("Y").Uint()
 				//fmt.Println("got a number: ", img.At(j, i))
-				pos := int( (y-minVal) * 16 / denom)
+				pos := int( (int(y)-min2) * 16 / denom)
+				pos = int( math.Min(16,math.Max(0,float64(pos))) )
 				_ = buf.WriteByte(table[pos])
 			}
 			_ = buf.WriteByte('\n')
@@ -251,13 +301,13 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 					pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
 					for _, fr := range pixelDataInfo.Frames {
 						img, _ := fr.GetImage() // The Go image.Image for this frame
-						gr := &Converted{img, color.RGBAModel /*color.GrayModel*/}
+						// gr := &Converted{img, color.RGBAModel /*color.GrayModel*/}
 
-						origbounds := gr.Img.Bounds()
+						origbounds := img.Bounds()
 						orig_width, orig_height := origbounds.Max.X, origbounds.Max.Y
 						// newImage := resize.Resize(196/2 , 196/2 / (80/24), gr.Img, resize.Lanczos3) // should use 80x20 aspect ratio for screen
 						// golang.org/x/image/draw
-						newImage := Scale(gr.Img, image.Rect(0, 0, 196/2 , 196/2 / (80/24)), draw.ApproxBiLinear)
+						newImage := Scale(img, image.Rect(0, 0, 196/2 , 196/2 / (80/24)), draw.ApproxBiLinear)
 
 						bounds := newImage.Bounds()
 						width, height := bounds.Max.X, bounds.Max.Y
@@ -721,7 +771,7 @@ func main() {
 			}
 
 			idx := rand.Intn((len(selectFromB) - 0) + 0)
-			fmt.Printf("found %d matching series. Picked index %d, run with series: %s\n", len(selectFromB), idx, selectFromB[idx])
+			fmt.Printf("found %d matching series. Picked index %d, trigger series: %s\n", len(selectFromB), idx, selectFromB[idx])
 
 			dir, err := ioutil.TempDir(config.TempDirectory, fmt.Sprintf("rpp_trigger_run_%s_*", time.Now().Weekday()))
 			if err != nil {
