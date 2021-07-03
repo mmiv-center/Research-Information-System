@@ -38,6 +38,7 @@ import (
 )
 
 const version string = "0.0.1"
+var own_name string = "rpp"
 
 //go:embed templates/README.md
 var readme string
@@ -127,7 +128,13 @@ type Description struct {
 	SeriesDescription string
 	NumFiles          int
 	PatientID         string
+	PatientName	      string
 	SequenceName      string
+	StudyDate		  string
+	StudyTime		  string
+	SeriesTime        string
+	SeriesNumber 	  string
+	ProcessDataPath   string
 }
 
 // img.At(x, y).RGBA() returns four uint32 values; we want a Pixel
@@ -197,10 +204,11 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 					continue;
 				}
 				idx := int(math.Round(( (float64(y) - float64(minVal))) / float64(maxVal-minVal) * float64(bins-1)))
-				idx = int(math.Max(float64(bins)-1,math.Min(0,float64(idx))))
+				idx = int(math.Min(float64(bins)-1,math.Max(0,float64(idx))))
 				histogram[ idx ] += 1
 			}
 		}
+		//fmt.Println(histogram)
 		// compute the 2%, 99% borders in the cumulative density
 		sum := histogram[0]
 		for i := 1; i < bins; i++ {
@@ -224,7 +232,7 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 			}
 			s += histogram[i]
 		}
-		//fmt.Println("min2:", min2, "max99:", max99, "true min:", minVal, "true max:", maxVal)
+		fmt.Println("min2:", min2, "max99:", max99, "true min:", minVal, "true max:", maxVal)
 
 		// some pixel are very dark and we need more contast
 		//fmt.Println("max ", maxVal, "min", minVal)
@@ -311,6 +319,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 	}
 	var description Description
 	description.SeriesInstanceUID = SelectedSeriesInstanceUID
+	description.ProcessDataPath = dest_path
 	counter := 0
 	fmt.Printf("\033[2J\n") // clear the screen
 	err := filepath.Walk(source_path, func(path string, info os.FileInfo, err error) error {
@@ -337,27 +346,6 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 				showImage := true
 				if (showImage) {
 					showDataset(dataset, counter+1, path)
-					/* pixelDataElement, _ := dataset.FindElementByTag(tag.PixelData)
-					pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
-					for _, fr := range pixelDataInfo.Frames {
-						fmt.Printf("\033[0;0f\n")  // go to top of the screen
-						img, _ := fr.GetImage() // The Go image.Image for this frame
-						// gr := &Converted{img, color.RGBAModel}
-
-						origbounds := img.Bounds()
-						orig_width, orig_height := origbounds.Max.X, origbounds.Max.Y
-						// newImage := resize.Resize(196/2 , 196/2 / (80/24), gr.Img, resize.Lanczos3) // should use 80x20 aspect ratio for screen
-						// golang.org/x/image/draw
-						newImage := Scale(img, image.Rect(0, 0, 196/2 , int(math.Round(196.0 / 2.0 / (80.0/30.0) ) )), draw.ApproxBiLinear)
-
-						bounds := newImage.Bounds()
-						width, height := bounds.Max.X, bounds.Max.Y
-						fmt.Printf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
-						p := printImage2ASCII(newImage, width, height)
-						fmt.Println(string(p))
-						//fmt.Printf("\033[10;0f\n")
-					} */
-					//fmt.Println("END of all frames")
 				}
 
 				//fmt.Printf("%05d files\r", counter)
@@ -377,6 +365,14 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 						description.PatientID = PatientID
 					}
 				}
+				var PatientName string
+				PatientNameVal, err := dataset.FindElementByTag(tag.PatientName)
+				if err == nil {
+					PatientName = dicom.MustGetStrings(PatientNameVal.Value)[0]
+					if PatientName != "" {
+						description.PatientName = PatientName
+					}
+				}
 				var SequenceName string
 				SequenceNameVal, err := dataset.FindElementByTag(tag.SequenceName)
 				if err == nil {
@@ -385,11 +381,86 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 						description.SequenceName = SequenceName
 					}
 				}
+				var StudyDate string
+				StudyDateVal, err := dataset.FindElementByTag(tag.StudyDate)
+				if err == nil {
+					StudyDate = dicom.MustGetStrings(StudyDateVal.Value)[0]
+					if StudyDate != "" {
+						description.StudyDate = StudyDate
+					}
+				}
+				var StudyTime string
+				StudyTimeVal, err := dataset.FindElementByTag(tag.StudyTime)
+				if err == nil {
+					StudyTime = dicom.MustGetStrings(StudyTimeVal.Value)[0]
+					if StudyTime != "" {
+						description.StudyTime = StudyTime
+					}
+				}
+				var SeriesTime string
+				SeriesTimeVal, err := dataset.FindElementByTag(tag.SeriesTime)
+				if err == nil {
+					SeriesTime = dicom.MustGetStrings(SeriesTimeVal.Value)[0]
+					if SeriesTime != "" {
+						description.SeriesTime = SeriesTime
+					}
+				}
+				var SeriesNumber string
+				SeriesNumberVal, err := dataset.FindElementByTag(tag.SeriesNumber)
+				if err == nil {
+					SeriesNumber = dicom.MustGetStrings(SeriesNumberVal.Value)[0]
+					if SeriesNumber != "" {
+						description.SeriesNumber = SeriesNumber
+					}
+				}
+
 
 				outputPath := destination_path
 				inputFile, _ := os.Open(path)
 				data, _ := ioutil.ReadAll(inputFile)
-				ioutil.WriteFile(fmt.Sprintf("%s/%06d.dcm", outputPath, counter), data, 0644)
+				outputPathFileName := fmt.Sprintf("%s/%06d.dcm", outputPath, counter)
+				ioutil.WriteFile(outputPathFileName, data, 0644)
+
+				// We can do a better destination path here. The friendly way of doing this is
+				// to provide separate folders aka the BIDS way.
+				// We can create a shadow structure that uses symlinks and sorts everything into
+				// sub-folders. Lets name a directory "_" and place the info in that directory.
+				symOrder := true
+				if symOrder {
+					symOrderPath := filepath.Join(destination_path, "_")
+					if _, err := os.Stat(symOrderPath); os.IsNotExist(err) {
+						err := os.Mkdir(symOrderPath, 0755)
+						if err != nil {
+							exitGracefully(errors.New("could not create symlink data directory"))
+						}
+					}
+					symOrderPatientPath := filepath.Join(symOrderPath, PatientID + PatientName)
+					if _, err := os.Stat(symOrderPatientPath); os.IsNotExist(err) {
+						err := os.Mkdir(symOrderPatientPath, 0755)
+						if err != nil {
+							exitGracefully(errors.New("could not create symlink data directory"))
+						}
+					}
+					symOrderPatientDatePath := filepath.Join(symOrderPatientPath, StudyDate)
+					if _, err := os.Stat(symOrderPatientDatePath); os.IsNotExist(err) {
+						err := os.Mkdir(symOrderPatientDatePath, 0755)
+						if err != nil {
+							exitGracefully(errors.New("could not create symlink data directory"))
+						}
+					}
+					symOrderPatientDateSeriesNumber := filepath.Join(symOrderPatientDatePath, SeriesNumber + "_" + SeriesDescription)
+					if _, err := os.Stat(symOrderPatientDateSeriesNumber); os.IsNotExist(err) {
+						err := os.Mkdir(symOrderPatientDateSeriesNumber, 0755)
+						if err != nil {
+							exitGracefully(errors.New("could not create symlink data directory"))
+						}
+					}
+					// now create symbolic link here to our outputPath + counter .dcm == outputPathFileName
+					symlink := filepath.Join(symOrderPatientDateSeriesNumber, fmt.Sprintf("%06d.dcm", counter))
+					relativeDataPath := fmt.Sprintf("../../../../%06d.dcm", counter)
+					os.Symlink(relativeDataPath, symlink)
+				}
+
 				//fmt.Println("path: ", fmt.Sprintf("%s/%06d.dcm", outputPath, counter))
 				counter = counter + 1
 			}
@@ -537,6 +608,7 @@ func main() {
 		fmt.Println("got a user name ", user_name)
 	}
 
+	own_name = os.Args[0]
 	// Showing useful information when the user enters the --help option
 	flag.Usage = func() {
 		fmt.Printf("RPP - Remote Pipeline Processing\n")
@@ -710,10 +782,10 @@ func main() {
 
 			}
 			fmt.Printf("Init new project folder %s done\n", input_dir)
-			fmt.Println("You might want to add a data folder with DICOM files to get started\n\n\trpp config --data <data folder>\n")
+			fmt.Printf("You might want to add a data folder with DICOM files to get started\n\n\tcd %s\n\t%s config --data <data folder>\n\n", input_dir, own_name)
 			fmt.Println("Careful with using a data folder with too many files. Each time you trigger a\n" +
 						"computation rpp needs to look at each of the files. This might take\n" +
-						"a long time. Test with a few hundred DICOM files first.\n")
+						"a long time. Test with a few hundred DICOM files first.")
 		}
 	case "config":
 		if err := configCommand.Parse(os.Args[2:]); err == nil {
@@ -741,8 +813,9 @@ func main() {
 				config.Data.DataInfo = studies
 				config.Data.Path = data_path
 				if config_temp_directory == "" {
-					fmt.Println("For testing a workflow you might next want to set the temp directory\n\n\t" +
-					"rpp config --temp_directory <folder>\n\nExample trigger data folders will appear there.\n")
+					fmt.Printf("For testing a workflow you might next want to set the temp directory\n\n\t" +
+					"%s config --temp_directory <folder>\n\nExample trigger data folders will appear there.\n",
+					own_name)
 				}
 			}
 			if author_name != "" {
@@ -756,7 +829,7 @@ func main() {
 			}
 			if config_temp_directory != "" {
 				config.TempDirectory = config_temp_directory
-				fmt.Println("You can trigger a workflow now. Use\n\trpp trigger --keep\nto leave the data folder in the temp directory for inspection.")
+				fmt.Printf("You can trigger a workflow now. Use\n\n\t%s trigger --keep\n\nto leave the data folder in the temp directory for inspection.\n", own_name)
 			}
 			// write out config again
 			file, _ := json.MarshalIndent(config, "", " ")
@@ -814,7 +887,7 @@ func main() {
 				}
 			}
 			if len(selectFromA) == 0 {
-				exitGracefully(errors.New("There is no data. Did you forget to specify a data folder?\n\trpp config --data <folder>"))
+				exitGracefully(errors.New(fmt.Sprintf("There is no data. Did you forget to specify a data folder?\n\t%s config --data <folder>\n", own_name)))
 			}
 
 			mm := regexp.MustCompile(config.SeriesFilter)
@@ -824,7 +897,7 @@ func main() {
 				}
 			}
 			if selectFromB == nil {
-				exitGracefully(errors.New("There is no matching data. Did you specify a filter that does not have a result?\n\trpp status"))
+				exitGracefully(errors.New(fmt.Sprintf("There is no matching data. Did you specify a filter that does not have a result?\n\t%s status\n", own_name)))
 			}
 
 			idx := rand.Intn((len(selectFromB) - 0) + 0)

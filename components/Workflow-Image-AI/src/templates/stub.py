@@ -15,7 +15,8 @@ files = []
 print('glob: {}/input'.format(sys.argv[1]))
 for fname in glob.glob(sys.argv[1]+"/input/*", recursive=False):
     #print("loading: {}".format(fname))
-    files.append(pydicom.dcmread(fname))
+    if os.path.isfile(fname):
+        files.append(pydicom.dcmread(fname))
 
 # make sure we only keep data that has the same shape as the first slice
 files = [a for a in files if a.pixel_array.shape == files[0].pixel_array.shape]
