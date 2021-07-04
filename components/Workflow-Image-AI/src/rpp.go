@@ -38,6 +38,7 @@ import (
 )
 
 const version string = "0.0.1"
+
 var own_name string = "rpp"
 
 //go:embed templates/README.md
@@ -90,15 +91,14 @@ type Config struct {
 }
 
 type SeriesInfo struct {
-	SeriesDescription string
-	NumImages         int
-	SeriesNumber      int
-	SequenceName      string
-	Modality          string
-	StudyDescription  string
-	Manufacturer      string
+	SeriesDescription     string
+	NumImages             int
+	SeriesNumber          int
+	SequenceName          string
+	Modality              string
+	StudyDescription      string
+	Manufacturer          string
 	ManufacturerModelName string
-
 }
 
 // readConfig parses a provided config file as JSON.
@@ -134,153 +134,155 @@ type Description struct {
 	SeriesDescription string
 	NumFiles          int
 	PatientID         string
-	PatientName	      string
+	PatientName       string
 	SequenceName      string
-	StudyDate		  string
-	StudyTime		  string
+	StudyDate         string
+	StudyTime         string
 	SeriesTime        string
-	SeriesNumber 	  string
+	SeriesNumber      string
 	ProcessDataPath   string
 }
 
 // img.At(x, y).RGBA() returns four uint32 values; we want a Pixel
 func rgbaToPixel(r uint32, g uint32, b uint32, a uint32) Pixel {
-    return Pixel{int(r / 257), int(g / 257), int(b / 257), int(a / 257)}
+	return Pixel{int(r / 257), int(g / 257), int(b / 257), int(a / 257)}
 }
 
 // Pixel struct example
 type Pixel struct {
-    R int
-    G int
-    B int
-    A int
+	R int
+	G int
+	B int
+	A int
 }
+
 var ASCIISTR = "MND8OZ$7I?+=~:,.."
+
 // from http://paulbourke.net/dataformats/asciiart/
 var ASCIISTR2 = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'."
 var ASCIISTR3 = " .:-=+*#%@"
 
 func reverse(s string) string {
-    o := make([]rune, utf8.RuneCountInString(s));
-    i := len(o);
-    for _, c := range s {
-        i--;
-        o[i] = c;
-    }
-    return string(o);
+	o := make([]rune, utf8.RuneCountInString(s))
+	i := len(o)
+	for _, c := range s {
+		i--
+		o[i] = c
+	}
+	return string(o)
 }
 
 func printImage2ASCII(img image.Image, w, h int) []byte {
-		//table := []byte(reverse(ASCIISTR))
-		table := []byte(reverse(ASCIISTR2))
-		//table := []byte(ASCIISTR3)
-		buf := new(bytes.Buffer)
+	//table := []byte(reverse(ASCIISTR))
+	table := []byte(reverse(ASCIISTR2))
+	//table := []byte(ASCIISTR3)
+	buf := new(bytes.Buffer)
 
-		g := color.Gray16Model.Convert(img.At(0, 0))
-		maxVal := reflect.ValueOf(g).FieldByName("Y").Uint()
-		minVal := maxVal
-		
-		for i := 0; i < h; i++ {
-			for j := 0; j < w; j++ {
-				g := color.Gray16Model.Convert(img.At(j, i))
-				//g := img.At(j, i)
-				y := reflect.ValueOf(g).FieldByName("Y").Uint()
-				if y > maxVal {
-					maxVal = y
-					//fmt.Println(y, g)
-				}
-				if y < minVal {
-					minVal = y
-				}
-			}
-		}
-		// todo: better to use a histogram to scale at 2%...99.9% per image
-		var histogram [1024]int
-		bins := len(histogram)
-		for i := 0; i < bins; i++ {
-			histogram[i] = 0
-		}
+	g := color.Gray16Model.Convert(img.At(0, 0))
+	maxVal := reflect.ValueOf(g).FieldByName("Y").Uint()
+	minVal := maxVal
 
-		for i := 0; i < h; i++ {
-			for j := 0; j < w; j++ {
-				g := color.Gray16Model.Convert(img.At(j, i))
-				//g := img.At(j, i)
-				y := reflect.ValueOf(g).FieldByName("Y").Uint()
-				if math.IsInf(float64(y),0) || math.IsNaN(float64(y)) {
-					continue;
-				}
-				idx := int(math.Round(( (float64(y) - float64(minVal))) / float64(maxVal-minVal) * float64(bins-1)))
-				idx = int(math.Min(float64(bins)-1,math.Max(0,float64(idx))))
-				histogram[ idx ] += 1
+	for i := 0; i < h; i++ {
+		for j := 0; j < w; j++ {
+			g := color.Gray16Model.Convert(img.At(j, i))
+			//g := img.At(j, i)
+			y := reflect.ValueOf(g).FieldByName("Y").Uint()
+			if y > maxVal {
+				maxVal = y
+				//fmt.Println(y, g)
+			}
+			if y < minVal {
+				minVal = y
 			}
 		}
-		//fmt.Println(histogram)
-		// compute the 2%, 99% borders in the cumulative density
-		sum := histogram[0]
-		for i := 1; i < bins; i++ {
-			sum += histogram[i]
-		}
-		min2 := 0
-		s := histogram[0]
-		for i := 1; i < bins; i++ {
-			if float32(s) >= (float32(sum) * 2.0 / 100.0) { // sum / 100 = ? / 2
-				min2 = int(minVal) + int(float32(i)/float32(bins) * float32(maxVal - minVal))
-				break
-			}
-			s += histogram[i]
-		}
-		max99 := 0
-		s = histogram[0]
-		for i := 1; i < bins; i++ {
-			if float32(s) >= (float32(sum) * 98.0 / 100.0) { // sum / 100 = ? / 2
-				max99 = int(minVal) + int(float32(i)/float32(bins) * float32(maxVal - minVal))
-				break
-			}
-			s += histogram[i]
-		}
-		//fmt.Println("min2:", min2, "max99:", max99, "true min:", minVal, "true max:", maxVal)
+	}
+	// todo: better to use a histogram to scale at 2%...99.9% per image
+	var histogram [1024]int
+	bins := len(histogram)
+	for i := 0; i < bins; i++ {
+		histogram[i] = 0
+	}
 
-		// some pixel are very dark and we need more contast
-		//fmt.Println("max ", maxVal, "min", minVal)
-		// denom := maxVal - minVal
-		denom := max99 - min2
-		if denom == 0 {
-			denom = 1
-		}
-		for i := 0; i < h; i++ {
-			for j := 0; j < w; j++ {
-				g := color.Gray16Model.Convert(img.At(j, i))
-				//g := img.At(j, i)
-				y := reflect.ValueOf(g).FieldByName("Y").Uint()
-				//fmt.Println("got a number: ", img.At(j, i))
-				pos := int( (float32(y)-float32(min2)) * float32(len(table)-1) / float32(denom))
-				pos = int( math.Min(float64(len(table)-1),math.Max(0,float64(pos))) )
-				_ = buf.WriteByte(table[pos])
+	for i := 0; i < h; i++ {
+		for j := 0; j < w; j++ {
+			g := color.Gray16Model.Convert(img.At(j, i))
+			//g := img.At(j, i)
+			y := reflect.ValueOf(g).FieldByName("Y").Uint()
+			if math.IsInf(float64(y), 0) || math.IsNaN(float64(y)) {
+				continue
 			}
-			_ = buf.WriteByte('\n')
+			idx := int(math.Round((float64(y) - float64(minVal)) / float64(maxVal-minVal) * float64(bins-1)))
+			idx = int(math.Min(float64(bins)-1, math.Max(0, float64(idx))))
+			histogram[idx] += 1
 		}
-		return buf.Bytes()
+	}
+	//fmt.Println(histogram)
+	// compute the 2%, 99% borders in the cumulative density
+	sum := histogram[0]
+	for i := 1; i < bins; i++ {
+		sum += histogram[i]
+	}
+	min2 := 0
+	s := histogram[0]
+	for i := 1; i < bins; i++ {
+		if float32(s) >= (float32(sum) * 2.0 / 100.0) { // sum / 100 = ? / 2
+			min2 = int(minVal) + int(float32(i)/float32(bins)*float32(maxVal-minVal))
+			break
+		}
+		s += histogram[i]
+	}
+	max99 := 0
+	s = histogram[0]
+	for i := 1; i < bins; i++ {
+		if float32(s) >= (float32(sum) * 98.0 / 100.0) { // sum / 100 = ? / 2
+			max99 = int(minVal) + int(float32(i)/float32(bins)*float32(maxVal-minVal))
+			break
+		}
+		s += histogram[i]
+	}
+	//fmt.Println("min2:", min2, "max99:", max99, "true min:", minVal, "true max:", maxVal)
+
+	// some pixel are very dark and we need more contast
+	//fmt.Println("max ", maxVal, "min", minVal)
+	// denom := maxVal - minVal
+	denom := max99 - min2
+	if denom == 0 {
+		denom = 1
+	}
+	for i := 0; i < h; i++ {
+		for j := 0; j < w; j++ {
+			g := color.Gray16Model.Convert(img.At(j, i))
+			//g := img.At(j, i)
+			y := reflect.ValueOf(g).FieldByName("Y").Uint()
+			//fmt.Println("got a number: ", img.At(j, i))
+			pos := int((float32(y) - float32(min2)) * float32(len(table)-1) / float32(denom))
+			pos = int(math.Min(float64(len(table)-1), math.Max(0, float64(pos))))
+			_ = buf.WriteByte(table[pos])
+		}
+		_ = buf.WriteByte('\n')
+	}
+	return buf.Bytes()
 }
 
 type Converted struct {
-    Img image.Image
-    Mod color.Model
+	Img image.Image
+	Mod color.Model
 }
 
 // We return the new color model...
-func (c *Converted) ColorModel() color.Model{
-    return c.Mod
+func (c *Converted) ColorModel() color.Model {
+	return c.Mod
 }
 
 // ... but the original bounds
-func (c *Converted) Bounds() image.Rectangle{
-    return c.Img.Bounds()
+func (c *Converted) Bounds() image.Rectangle {
+	return c.Img.Bounds()
 }
 
 // At forwards the call to the original image and
 // then asks the color model to convert it.
-func (c *Converted) At(x, y int) color.Color{
-    return c.Mod.Convert(c.Img.At(x,y))
+func (c *Converted) At(x, y int) color.Color {
+	return c.Mod.Convert(c.Img.At(x, y))
 }
 
 func Scale(src image.Image, rect image.Rectangle, scale draw.Scaler) image.Image {
@@ -293,28 +295,28 @@ func showDataset(dataset dicom.Dataset, counter int, path string) {
 	pixelDataElement, _ := dataset.FindElementByTag(tag.PixelData)
 	pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
 	for _, fr := range pixelDataInfo.Frames {
-		fmt.Printf("\033[0;0f\n")  // go to top of the screen
-		img, _ := fr.GetImage() // The Go image.Image for this frame
+		fmt.Printf("\033[0;0f\n") // go to top of the screen
+		img, _ := fr.GetImage()   // The Go image.Image for this frame
 
 		/*
-		// If we would use the native frame we could get access to more levels of detail.
-		// That would allow us to use more than 8 bit color depth using ASCII...
-		native_img, _ := fr.GetNativeFrame()
-		fmt.Println("Bits per sample is ", native_img.BitsPerSample)
-		var mi int = native_img.Data[0][0]
-		var ma int = mi
-		for i:=0; i < native_img.Rows; i++ {
-			for j:=0; j < native_img.Cols; j++ {
-				currValue := native_img.Data[i*native_img.Cols+j][0]
-				if currValue < mi {
-					mi = currValue
-				}
-				if currValue > ma {
-					ma = currValue
+			// If we would use the native frame we could get access to more levels of detail.
+			// That would allow us to use more than 8 bit color depth using ASCII...
+			native_img, _ := fr.GetNativeFrame()
+			fmt.Println("Bits per sample is ", native_img.BitsPerSample)
+			var mi int = native_img.Data[0][0]
+			var ma int = mi
+			for i:=0; i < native_img.Rows; i++ {
+				for j:=0; j < native_img.Cols; j++ {
+					currValue := native_img.Data[i*native_img.Cols+j][0]
+					if currValue < mi {
+						mi = currValue
+					}
+					if currValue > ma {
+						ma = currValue
+					}
 				}
 			}
-		}
-		fmt.Println("mi ma : ", mi, ma)
+			fmt.Println("mi ma : ", mi, ma)
 		*/
 
 		// gr := &Converted{img, color.RGBAModel /*color.GrayModel*/}
@@ -324,8 +326,8 @@ func showDataset(dataset dicom.Dataset, counter int, path string) {
 		// newImage := resize.Resize(196/2 , 196/2 / (80/24), gr.Img, resize.Lanczos3) // should use 80x20 aspect ratio for screen
 		// golang.org/x/image/draw
 		//newImage := Scale(img, image.Rect(0, 0, 196/2 , int(math.Round(196.0 / 2.0 / (80.0/30.0) ) )), draw.ApproxBiLinear)
-		newImage := image.NewGray16(image.Rect(0,0, 196/2 , int(math.Round(196.0 / 2.0 / (80.0/30.0) ) )))
-		draw.ApproxBiLinear.Scale(newImage,  image.Rect(0, 0, 196/2 , int(math.Round(196.0 / 2.0 / (80.0/30.0) ) )), img, origbounds, draw.Over, nil)
+		newImage := image.NewGray16(image.Rect(0, 0, 196/2, int(math.Round(196.0/2.0/(80.0/30.0)))))
+		draw.ApproxBiLinear.Scale(newImage, image.Rect(0, 0, 196/2, int(math.Round(196.0/2.0/(80.0/30.0)))), img, origbounds, draw.Over, nil)
 
 		bounds := newImage.Bounds()
 		width, height := bounds.Max.X, bounds.Max.Y
@@ -374,7 +376,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 
 				// we can get a version of the image, scale it and print out on command line
 				showImage := true
-				if (showImage) {
+				if showImage {
 					showDataset(dataset, counter+1, path)
 				}
 
@@ -444,7 +446,6 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 					}
 				}
 
-
 				outputPath := destination_path
 				inputFile, _ := os.Open(path)
 				data, _ := ioutil.ReadAll(inputFile)
@@ -464,21 +465,21 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 							exitGracefully(errors.New("could not create symlink data directory"))
 						}
 					}
-					symOrderPatientPath := filepath.Join(symOrderPath, PatientID + PatientName)
+					symOrderPatientPath := filepath.Join(symOrderPath, PatientID+PatientName)
 					if _, err := os.Stat(symOrderPatientPath); os.IsNotExist(err) {
 						err := os.Mkdir(symOrderPatientPath, 0755)
 						if err != nil {
 							exitGracefully(errors.New("could not create symlink data directory"))
 						}
 					}
-					symOrderPatientDatePath := filepath.Join(symOrderPatientPath, StudyDate + "_" + StudyTime)
+					symOrderPatientDatePath := filepath.Join(symOrderPatientPath, StudyDate+"_"+StudyTime)
 					if _, err := os.Stat(symOrderPatientDatePath); os.IsNotExist(err) {
 						err := os.Mkdir(symOrderPatientDatePath, 0755)
 						if err != nil {
 							exitGracefully(errors.New("could not create symlink data directory"))
 						}
 					}
-					symOrderPatientDateSeriesNumber := filepath.Join(symOrderPatientDatePath, SeriesNumber + "_" + SeriesDescription)
+					symOrderPatientDateSeriesNumber := filepath.Join(symOrderPatientDatePath, SeriesNumber+"_"+SeriesDescription)
 					if _, err := os.Stat(symOrderPatientDateSeriesNumber); os.IsNotExist(err) {
 						err := os.Mkdir(symOrderPatientDateSeriesNumber, 0755)
 						if err != nil {
@@ -584,37 +585,37 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 				}
 				if _, ok := datasets[StudyInstanceUID]; ok {
 					if val, ok := datasets[StudyInstanceUID][SeriesInstanceUID]; ok {
-						datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: val.NumImages + 1, 
-							SeriesDescription: SeriesDescription, 
-							SeriesNumber: SeriesNumber, 
-							SequenceName: SequenceName,
-							Modality: Modality, 
-							Manufacturer: Manufacturer,
+						datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: val.NumImages + 1,
+							SeriesDescription:     SeriesDescription,
+							SeriesNumber:          SeriesNumber,
+							SequenceName:          SequenceName,
+							Modality:              Modality,
+							Manufacturer:          Manufacturer,
 							ManufacturerModelName: ManufacturerModelName,
-							StudyDescription: StudyDescription,
+							StudyDescription:      StudyDescription,
 						}
 					} else {
 						datasets[StudyInstanceUID] = make(map[string]SeriesInfo)
-						datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1, 
-							SeriesDescription: SeriesDescription, 
-							SeriesNumber: SeriesNumber, 
-							SequenceName: SequenceName, 
-							Modality: Modality, 
-							Manufacturer: Manufacturer,
+						datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1,
+							SeriesDescription:     SeriesDescription,
+							SeriesNumber:          SeriesNumber,
+							SequenceName:          SequenceName,
+							Modality:              Modality,
+							Manufacturer:          Manufacturer,
 							ManufacturerModelName: ManufacturerModelName,
-							StudyDescription: StudyDescription,
+							StudyDescription:      StudyDescription,
 						}
 					}
 				} else {
 					datasets[StudyInstanceUID] = make(map[string]SeriesInfo)
-					datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1, 
-						SeriesDescription: SeriesDescription, 
-						SeriesNumber: SeriesNumber, 
-						SequenceName: SequenceName, 
-						Modality: Modality, 
-						Manufacturer: Manufacturer,
+					datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1,
+						SeriesDescription:     SeriesDescription,
+						SeriesNumber:          SeriesNumber,
+						SequenceName:          SequenceName,
+						Modality:              Modality,
+						Manufacturer:          Manufacturer,
 						ManufacturerModelName: ManufacturerModelName,
-					StudyDescription: StudyDescription,
+						StudyDescription:      StudyDescription,
 					}
 				}
 			} else {
@@ -633,7 +634,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 func main() {
 
 	rand.Seed(time.Now().UnixNano())
-	// disable logging 
+	// disable logging
 	log.SetFlags(0)
 	log.SetOutput(ioutil.Discard)
 
@@ -735,19 +736,19 @@ func main() {
 					reader := bufio.NewReader(os.Stdin)
 					// we can ask interactively about the author information
 					if author_name == "" {
-						fmt.Printf("Your name: ")
+						fmt.Printf("Author name: ")
 						author_name, err = reader.ReadString('\n')
 						if err != nil {
 							msg := "we need your name. Add with\n\t--author_name \"<name>\""
 							exitGracefully(errors.New(msg))
 						}
 						author_name = strings.TrimSuffix(author_name, "\n")
-						if (len(author_name) < 2) {
+						if len(author_name) < 2 {
 							fmt.Println("Does not look like a name, but you know best.")
 						}
 					}
 					if author_email == "" {
-						fmt.Printf("Your email: ")
+						fmt.Printf("Author email: ")
 						author_email, err = reader.ReadString('\n')
 						if err != nil {
 							msg := "we need your your email. Add with\n\t--author_email \"email@home\""
@@ -763,9 +764,9 @@ func main() {
 						//	isEmail = false
 						//}
 						isEmail = emailRegex.MatchString(author_email)
-						if (isEmail == false) {
+						if isEmail == false {
 							fmt.Println("Does not look like an email - but you know best.")
-						} 
+						}
 					}
 
 				}
@@ -863,8 +864,8 @@ func main() {
 			fmt.Printf("Init new project folder %s done\n", input_dir)
 			fmt.Printf("You might want to add a data folder with DICOM files to get started\n\n\tcd %s\n\t%s config --data <data folder>\n\n", input_dir, own_name)
 			fmt.Println("Careful with using a data folder with too many files. Each time you trigger a\n" +
-						"computation rpp needs to look at each of the files. This might take\n" +
-						"a long time. Test with a few hundred DICOM files first.")
+				"computation rpp needs to look at each of the files. This might take\n" +
+				"a long time. Test with a few hundred DICOM files first.")
 		}
 	case "config":
 		if err := configCommand.Parse(os.Args[2:]); err == nil {
@@ -892,9 +893,9 @@ func main() {
 				config.Data.DataInfo = studies
 				config.Data.Path = data_path
 				if config_temp_directory == "" {
-					fmt.Printf("For testing a workflow you might next want to set the temp directory\n\n\t" +
-					"%s config --temp_directory <folder>\n\nExample trigger data folders will appear there.\n",
-					own_name)
+					fmt.Printf("For testing a workflow you might next want to set the temp directory\n\n\t"+
+						"%s config --temp_directory <folder>\n\nExample trigger data folders will appear there.\n",
+						own_name)
 				}
 			}
 			if author_name != "" {
@@ -1012,7 +1013,7 @@ func main() {
 				cmd.Stderr = &errb
 				exitCode := cmd.Run()
 				if exitCode != nil {
-					exitGracefully(fmt.Errorf("could not run trigger command\n\t%s\nError code: %d\n", cmd_str, exitCode))
+					exitGracefully(fmt.Errorf("could not run trigger command\n\t%s\nError code: %s\n\t%s\n", cmd_str, exitCode.Error(), errb.String()))
 				}
 				// store stdout and stderr as log files
 				if _, err := os.Stat(dir + "/log"); err != nil && os.IsNotExist(err) {
@@ -1057,7 +1058,7 @@ func main() {
 				//fmt.Println("Successfully Opened users.json")
 				// defer the closing of our jsonFile so that we can parse it later on
 				defer jsonFile.Close()
-			
+
 				byteValue, _ := ioutil.ReadAll(jsonFile)
 				fmt.Println(string(byteValue))
 
