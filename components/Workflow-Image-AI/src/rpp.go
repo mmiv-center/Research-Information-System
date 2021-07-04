@@ -88,6 +88,7 @@ type Config struct {
 	SeriesFilter  string
 	Author        AuthorInfo
 	TempDirectory string
+	CallString    string
 }
 
 type SeriesInfo struct {
@@ -660,6 +661,8 @@ func main() {
 	initCommand.StringVar(&author_email, "author_email", "", "Your email.")
 	var data_path string
 	configCommand.StringVar(&data_path, "data", "", "Path to a folder with folders of DICOM files.")
+	var call_string string
+	configCommand.StringVar(&call_string, "call", "python ./stub.py", "How to call the executable.")
 
 	var trigger string
 	triggerCommand.StringVar(&trigger, "trigger", "0s", defaultTriggerTime)
@@ -780,6 +783,7 @@ func main() {
 						Name:  author_name,
 						Email: author_email,
 					},
+					CallString: "python ./stub.py",
 				}
 				file, _ := json.MarshalIndent(data, "", " ")
 				_ = ioutil.WriteFile(dir_path+"/config", file, 0644)
@@ -907,6 +911,9 @@ func main() {
 			if config_series_filter != "" {
 				config.SeriesFilter = config_series_filter
 			}
+			if call_string != "" {
+				config.CallString = call_string
+			}
 			if config_temp_directory != "" {
 				config.TempDirectory = config_temp_directory
 				fmt.Printf("You can trigger a workflow now. Use\n\n\t%s trigger --keep\n\nto leave the data folder in the temp directory for inspection.\n", own_name)
@@ -1000,20 +1007,30 @@ func main() {
 			file, _ := json.MarshalIndent(description, "", " ")
 			_ = ioutil.WriteFile(dir+"/descr.json", file, 0644)
 			if !trigger_test {
+				// chheck if the call string is empty
+				if config.CallString == "" {
+					exitGracefully(fmt.Errorf("could not run trigger command, no CallString defined\n"))
+				}
+
 				// wait for some seconds
 				if trigger != "" {
 					sec, _ := time.ParseDuration(trigger)
 					time.Sleep(sec)
 				}
 
-				cmd_str := fmt.Sprintf("python ./stub.py \"%s/\"", dir)
-				cmd := exec.Command("python", "stub.py", dir)
+				cmd_str := fmt.Sprintf("%s", config.CallString)
+				r := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`)
+				arr := r.FindAllString(cmd_str, -1)
+				arr = append(arr, string(dir))
+				fmt.Println(arr)
+				// cmd := exec.Command("python", "stub.py", dir)
+				cmd := exec.Command(arr[0], arr[1:]...)
 				var outb, errb bytes.Buffer
 				cmd.Stdout = &outb
 				cmd.Stderr = &errb
 				exitCode := cmd.Run()
 				if exitCode != nil {
-					exitGracefully(fmt.Errorf("could not run trigger command\n\t%s\nError code: %s\n\t%s\n", cmd_str, exitCode.Error(), errb.String()))
+					exitGracefully(fmt.Errorf("could not run trigger command\n\t%s\nError code: %s\n\t%s\n", strings.Join(arr[:], " "), exitCode.Error(), errb.String()))
 				}
 				// store stdout and stderr as log files
 				if _, err := os.Stat(dir + "/log"); err != nil && os.IsNotExist(err) {
