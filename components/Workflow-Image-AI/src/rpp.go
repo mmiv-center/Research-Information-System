@@ -441,7 +441,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 							exitGracefully(errors.New("could not create symlink data directory"))
 						}
 					}
-					symOrderPatientDatePath := filepath.Join(symOrderPatientPath, StudyDate)
+					symOrderPatientDatePath := filepath.Join(symOrderPatientPath, StudyDate + "_" + StudyTime)
 					if _, err := os.Stat(symOrderPatientDatePath); os.IsNotExist(err) {
 						err := os.Mkdir(symOrderPatientDatePath, 0755)
 						if err != nil {
