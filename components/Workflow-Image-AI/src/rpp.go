@@ -93,6 +93,12 @@ type SeriesInfo struct {
 	SeriesDescription string
 	NumImages         int
 	SeriesNumber      int
+	SequenceName      string
+	Modality          string
+	StudyDescription  string
+	Manufacturer      string
+	ManufacturerModelName string
+
 }
 
 // readConfig parses a provided config file as JSON.
@@ -170,13 +176,13 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 		//table := []byte(ASCIISTR3)
 		buf := new(bytes.Buffer)
 
-		g := color.GrayModel.Convert(img.At(0, 0))
+		g := color.Gray16Model.Convert(img.At(0, 0))
 		maxVal := reflect.ValueOf(g).FieldByName("Y").Uint()
 		minVal := maxVal
 		
 		for i := 0; i < h; i++ {
 			for j := 0; j < w; j++ {
-				g := color.GrayModel.Convert(img.At(j, i))
+				g := color.Gray16Model.Convert(img.At(j, i))
 				//g := img.At(j, i)
 				y := reflect.ValueOf(g).FieldByName("Y").Uint()
 				if y > maxVal {
@@ -197,7 +203,7 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 
 		for i := 0; i < h; i++ {
 			for j := 0; j < w; j++ {
-				g := color.GrayModel.Convert(img.At(j, i))
+				g := color.Gray16Model.Convert(img.At(j, i))
 				//g := img.At(j, i)
 				y := reflect.ValueOf(g).FieldByName("Y").Uint()
 				if math.IsInf(float64(y),0) || math.IsNaN(float64(y)) {
@@ -226,13 +232,13 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 		max99 := 0
 		s = histogram[0]
 		for i := 1; i < bins; i++ {
-			if float32(s) >= (float32(sum) * 99.0 / 100.0) { // sum / 100 = ? / 2
+			if float32(s) >= (float32(sum) * 98.0 / 100.0) { // sum / 100 = ? / 2
 				max99 = int(minVal) + int(float32(i)/float32(bins) * float32(maxVal - minVal))
 				break
 			}
 			s += histogram[i]
 		}
-		fmt.Println("min2:", min2, "max99:", max99, "true min:", minVal, "true max:", maxVal)
+		//fmt.Println("min2:", min2, "max99:", max99, "true min:", minVal, "true max:", maxVal)
 
 		// some pixel are very dark and we need more contast
 		//fmt.Println("max ", maxVal, "min", minVal)
@@ -243,7 +249,7 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 		}
 		for i := 0; i < h; i++ {
 			for j := 0; j < w; j++ {
-				g := color.GrayModel.Convert(img.At(j, i))
+				g := color.Gray16Model.Convert(img.At(j, i))
 				//g := img.At(j, i)
 				y := reflect.ValueOf(g).FieldByName("Y").Uint()
 				//fmt.Println("got a number: ", img.At(j, i))
@@ -289,13 +295,37 @@ func showDataset(dataset dicom.Dataset, counter int, path string) {
 	for _, fr := range pixelDataInfo.Frames {
 		fmt.Printf("\033[0;0f\n")  // go to top of the screen
 		img, _ := fr.GetImage() // The Go image.Image for this frame
+
+		/*
+		// If we would use the native frame we could get access to more levels of detail.
+		// That would allow us to use more than 8 bit color depth using ASCII...
+		native_img, _ := fr.GetNativeFrame()
+		fmt.Println("Bits per sample is ", native_img.BitsPerSample)
+		var mi int = native_img.Data[0][0]
+		var ma int = mi
+		for i:=0; i < native_img.Rows; i++ {
+			for j:=0; j < native_img.Cols; j++ {
+				currValue := native_img.Data[i*native_img.Cols+j][0]
+				if currValue < mi {
+					mi = currValue
+				}
+				if currValue > ma {
+					ma = currValue
+				}
+			}
+		}
+		fmt.Println("mi ma : ", mi, ma)
+		*/
+
 		// gr := &Converted{img, color.RGBAModel /*color.GrayModel*/}
 
 		origbounds := img.Bounds()
 		orig_width, orig_height := origbounds.Max.X, origbounds.Max.Y
 		// newImage := resize.Resize(196/2 , 196/2 / (80/24), gr.Img, resize.Lanczos3) // should use 80x20 aspect ratio for screen
 		// golang.org/x/image/draw
-		newImage := Scale(img, image.Rect(0, 0, 196/2 , int(math.Round(196.0 / 2.0 / (80.0/30.0) ) )), draw.ApproxBiLinear)
+		//newImage := Scale(img, image.Rect(0, 0, 196/2 , int(math.Round(196.0 / 2.0 / (80.0/30.0) ) )), draw.ApproxBiLinear)
+		newImage := image.NewGray16(image.Rect(0,0, 196/2 , int(math.Round(196.0 / 2.0 / (80.0/30.0) ) )))
+		draw.ApproxBiLinear.Scale(newImage,  image.Rect(0, 0, 196/2 , int(math.Round(196.0 / 2.0 / (80.0/30.0) ) )), img, origbounds, draw.Over, nil)
 
 		bounds := newImage.Bounds()
 		width, height := bounds.Max.X, bounds.Max.Y
@@ -503,6 +533,11 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 				var SeriesInstanceUID string
 				var SeriesDescription string
 				var SeriesNumber int
+				var SequenceName string
+				var StudyDescription string
+				var Modality string
+				var Manufacturer string
+				var ManufacturerModelName string
 
 				fmt.Printf("%05d files\r", counter)
 				showImages := true
@@ -527,16 +562,60 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 						SeriesNumber = 0
 					}
 				}
+				SequenceNameVal, err := dataset.FindElementByTag(tag.SequenceName)
+				if err == nil {
+					SequenceName = dicom.MustGetStrings(SequenceNameVal.Value)[0]
+				}
+				StudyDescriptionVal, err := dataset.FindElementByTag(tag.StudyDescription)
+				if err == nil {
+					StudyDescription = dicom.MustGetStrings(StudyDescriptionVal.Value)[0]
+				}
+				ModalityVal, err := dataset.FindElementByTag(tag.Modality)
+				if err == nil {
+					Modality = dicom.MustGetStrings(ModalityVal.Value)[0]
+				}
+				ManufacturerVal, err := dataset.FindElementByTag(tag.Manufacturer)
+				if err == nil {
+					Manufacturer = dicom.MustGetStrings(ManufacturerVal.Value)[0]
+				}
+				ManufacturerModelNameVal, err := dataset.FindElementByTag(tag.ManufacturerModelName)
+				if err == nil {
+					ManufacturerModelName = dicom.MustGetStrings(ManufacturerModelNameVal.Value)[0]
+				}
 				if _, ok := datasets[StudyInstanceUID]; ok {
 					if val, ok := datasets[StudyInstanceUID][SeriesInstanceUID]; ok {
-						datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: val.NumImages + 1, SeriesDescription: SeriesDescription, SeriesNumber: SeriesNumber}
+						datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: val.NumImages + 1, 
+							SeriesDescription: SeriesDescription, 
+							SeriesNumber: SeriesNumber, 
+							SequenceName: SequenceName,
+							Modality: Modality, 
+							Manufacturer: Manufacturer,
+							ManufacturerModelName: ManufacturerModelName,
+							StudyDescription: StudyDescription,
+						}
 					} else {
 						datasets[StudyInstanceUID] = make(map[string]SeriesInfo)
-						datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1, SeriesDescription: SeriesDescription, SeriesNumber: SeriesNumber}
+						datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1, 
+							SeriesDescription: SeriesDescription, 
+							SeriesNumber: SeriesNumber, 
+							SequenceName: SequenceName, 
+							Modality: Modality, 
+							Manufacturer: Manufacturer,
+							ManufacturerModelName: ManufacturerModelName,
+							StudyDescription: StudyDescription,
+						}
 					}
 				} else {
 					datasets[StudyInstanceUID] = make(map[string]SeriesInfo)
-					datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1, SeriesDescription: SeriesDescription, SeriesNumber: SeriesNumber}
+					datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1, 
+						SeriesDescription: SeriesDescription, 
+						SeriesNumber: SeriesNumber, 
+						SequenceName: SequenceName, 
+						Modality: Modality, 
+						Manufacturer: Manufacturer,
+						ManufacturerModelName: ManufacturerModelName,
+					StudyDescription: StudyDescription,
+					}
 				}
 			} else {
 				return nil
