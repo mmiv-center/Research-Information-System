@@ -700,17 +700,17 @@ func main() {
 		fmt.Printf("Version: %s\n", version)
 		fmt.Println(" A tool to simulate research information system workflows. The program")
 		fmt.Println(" can create workflow projects and trigger a processing step similar to")
-		fmt.Println(" automated processing steps run in the research information system.\n")
-		fmt.Printf("Usage: %s [init|trigger|status|config] [options]\n\tStart with init to create a new project folder.\n\n\t%s init <project>\n\n", os.Args[0], os.Args[0])
-		fmt.Printf("Option init:\n")
+		fmt.Printf(" automated processing steps run in the research information system.\n\n")
+		fmt.Printf("Usage: %s [init|trigger|status|config|build] [options]\n\tStart with init to create a new project folder:\n\n\t%s init <project>\n\n", os.Args[0], os.Args[0])
+		fmt.Printf("Option init:\n  Create a workflow project.\n\n")
 		initCommand.PrintDefaults()
-		fmt.Printf("Option config:\n")
+		fmt.Printf("\nOption config:\n  Configure your project.\n\n")
 		configCommand.PrintDefaults()
-		fmt.Printf("Option status:\n")
+		fmt.Printf("\nOption status:\n  List the settings of your project.\n\n")
 		statusCommand.PrintDefaults()
-		fmt.Printf("Option trigger:\n")
+		fmt.Printf("\nOption trigger:\n  Trigger a processing workflow locally.\n\n")
 		triggerCommand.PrintDefaults()
-		fmt.Printf("Option build:\n")
+		fmt.Printf("\nOption build:\n  Create a containerized version of your workflow.\n\n")
 		buildCommand.PrintDefaults()
 		fmt.Println("")
 	}
@@ -874,8 +874,8 @@ func main() {
 				}
 
 			}
-			fmt.Printf("Init new project folder %s done\n", input_dir)
-			fmt.Printf("You might want to add a data folder with DICOM files to get started\n\n\tcd %s\n\t%s config --data <data folder>\n\n", input_dir, own_name)
+			fmt.Printf("\nInit new project folder \"%s\" done.\n", input_dir)
+			fmt.Printf("You might want to add a data folder with DICOM files to get started\n\n\tcd \"%s\"\n\t%s config --data <data folder>\n\n", input_dir, own_name)
 			fmt.Println("Careful with using a data folder with too many files. Each time you trigger a\n" +
 				"computation rpp needs to look at each of the files. This might take\n" +
 				"a long time. Test with a few hundred DICOM files first.")
@@ -907,7 +907,7 @@ func main() {
 				config.Data.Path = data_path
 				if config_temp_directory == "" {
 					fmt.Printf("For testing a workflow you might next want to set the temp directory\n\n\t"+
-						"%s config --temp_directory <folder>\n\nExample trigger data folders will appear there.\n",
+						"%s config --temp_directory \"<folder>\"\n\nExample trigger data folders will appear there.\n",
 						own_name)
 				}
 			}
@@ -924,6 +924,9 @@ func main() {
 				config.CallString = call_string
 			}
 			if config_temp_directory != "" {
+				if _, err := os.Stat(config_temp_directory); os.IsNotExist(err) {
+					exitGracefully(errors.New("this temp_directory path does not exist"))
+				}
 				config.TempDirectory = config_temp_directory
 				fmt.Printf("You can trigger a workflow now. Use\n\n\t%s trigger --keep\n\nto leave the data folder in the temp directory for inspection.\n", own_name)
 			}
@@ -1004,6 +1007,7 @@ func main() {
 
 			dir, err := ioutil.TempDir(config.TempDirectory, fmt.Sprintf("rpp_trigger_run_%s_*", time.Now().Weekday()))
 			if err != nil {
+				fmt.Printf("%s", err)
 				exitGracefully(errors.New("could not create the temporary directory for the trigger"))
 			}
 			if !trigger_keep {
@@ -1021,7 +1025,7 @@ func main() {
 			if !trigger_test {
 				// chheck if the call string is empty
 				if config.CallString == "" {
-					exitGracefully(fmt.Errorf("could not run trigger command, no CallString defined\n"))
+					exitGracefully(fmt.Errorf("could not run trigger command, no CallString defined\n\n\t%s config --call \"python ./stub.py\"", own_name))
 				}
 
 				// wait for some seconds
@@ -1091,7 +1095,7 @@ func main() {
 				byteValue, _ := ioutil.ReadAll(jsonFile)
 				fmt.Println(string(byteValue))
 
-				fmt.Println("Done.")
+				//fmt.Println("Done.")
 			} else {
 				fmt.Println("Test only. Make sure you also use '--keep' and call something like this:\n\tpython ./stub.py " + dir)
 			}
@@ -1106,22 +1110,25 @@ func main() {
 				exitGracefully(errors.New(errorConfigFile))
 			}
 			projectName := config.ProjectName
-			fmt.Println("We will assume a python/pip based workflow.")
+			// remove any spaces in the project name, make it lower-case
+			projectName = strings.Replace(projectName, " ", "_", -1)
+			projectName = strings.ToLower(projectName)
+			fmt.Println("We will assume a python/pip based workflow and fall back to using conda.")
 			fmt.Println("\nRun pip freeze to update the list of packages (requires pip):")
 			fmt.Println("\n\tpip list --format=freeze >", path.Join(input_dir, ".rpp", "virt", "requirements.txt"))
 			fmt.Println("\nCreate a container of your workflow with docker:")
-			fmt.Println("\n\tdocker build --no-cache -t", projectName, "-f", path.Join(input_dir, ".rpp", "virt", "Dockerfile"), ".")
+			fmt.Println("\n\tdocker build --no-cache -t", fmt.Sprintf("workflow_%s", projectName), "-f", path.Join(input_dir, ".rpp", "virt", "Dockerfile"), ".")
 			fmt.Println("\nThis build might fail if pip is not able to resolve all the requirements in the docker container.")
-			fmt.Println("In this case it might help to update all packages first with something like:")
-			fmt.Println("\n\tpip list --outdated --format=freeze | grep -v '^\\-e' | cut -d = -f 1 | xargs -n1 pip install -U ")
-			fmt.Println("\nIf repeating the above steps still does not work it might be best if you use a virtual environment.")
+			//fmt.Println("In this case it might help to update all packages first with something like:")
+			//fmt.Println("\n\tpip list --outdated --format=freeze | grep -v '^\\-e' | cut -d = -f 1 | xargs -n1 pip install -U ")
+			fmt.Println("\nIf the above steps do not work it might be best to use a virtual environment.")
 			fmt.Println("The list of dependencies will be much smaller and only the essential packages for your")
 			fmt.Println("workflow will be part of the container.")
-			fmt.Println("\nFor example create a new conda environment with")
+			fmt.Println("\nCreate a new conda environment with")
 			fmt.Printf("\n\tconda create --name workflow_%s python=3.8\n", projectName)
-			fmt.Printf("\tactivate workflow_%s\n", projectName)
-			fmt.Printf("\tconda install pydicom numpy json matplotlib\n")
-			fmt.Printf("\nNow repeat the above steps. The list of requirements should be smaller now and docker build\n")
+			fmt.Printf("\tconda activate workflow_%s\n", projectName)
+			fmt.Printf("\tconda install -c conda-forge pydicom numpy matplotlib\n")
+			fmt.Printf("\nNow repeat the above steps. The list of requirements should be smaller and docker build\n")
 			fmt.Printf("is more likely to succeed.\n")
 
 			fmt.Println("\nSimulate a docker based processing workflow using one of the trigger generated folders:")
@@ -1140,7 +1147,8 @@ func main() {
 				}
 
 				fmt.Println("\n\tdocker run --rm -it \\\n\t",
-					"-v", fmt.Sprintf("\"%s/%s:/data\"", abs_temp_path, filepath.Base(folder)), "\\\n\t",
+					"-v", fmt.Sprintf("\"%s/%s\":/data", abs_temp_path, filepath.Base(folder)), "\\\n\t",
+					fmt.Sprintf("workflow_%s", projectName),
 					"/bin/bash -c", fmt.Sprintf("\"cd /app; %s /data/\"", config.CallString),
 				)
 			}
