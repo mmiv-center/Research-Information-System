@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -89,6 +90,7 @@ type Config struct {
 	Author        AuthorInfo
 	TempDirectory string
 	CallString    string
+	ProjectName   string
 }
 
 type SeriesInfo struct {
@@ -648,6 +650,7 @@ func main() {
 	configCommand := flag.NewFlagSet("config", flag.ContinueOnError)
 	triggerCommand := flag.NewFlagSet("trigger", flag.ContinueOnError)
 	statusCommand := flag.NewFlagSet("status", flag.ContinueOnError)
+	buildCommand := flag.NewFlagSet("build", flag.ContinueOnError)
 
 	var input_dir string
 	initCommand.StringVar(&input_dir, "input_dir", ".", defaultInputDir)
@@ -707,6 +710,8 @@ func main() {
 		statusCommand.PrintDefaults()
 		fmt.Printf("Option trigger:\n")
 		triggerCommand.PrintDefaults()
+		fmt.Printf("Option build:\n")
+		buildCommand.PrintDefaults()
 		fmt.Println("")
 	}
 
@@ -786,7 +791,8 @@ func main() {
 						Name:  author_name,
 						Email: author_email,
 					},
-					CallString: "python ./stub.py",
+					CallString:  "python ./stub.py",
+					ProjectName: path.Base(input_dir),
 				}
 				file, _ := json.MarshalIndent(data, "", " ")
 				_ = ioutil.WriteFile(dir_path+"/config", file, 0644)
@@ -1036,7 +1042,7 @@ func main() {
 				cmd.Stderr = &errb
 				exitCode := cmd.Run()
 				if exitCode != nil {
-					exitGracefully(fmt.Errorf("could not run trigger command\n\t%s\nError code: %s\n\t%s\n", strings.Join(arr[:], " "), exitCode.Error(), errb.String()))
+					exitGracefully(fmt.Errorf("could not run trigger command\n\t%s\nError code: %s\n\t%s", strings.Join(arr[:], " "), exitCode.Error(), errb.String()))
 				}
 				// store stdout and stderr as log files
 				if _, err := os.Stat(dir + "/log"); err != nil && os.IsNotExist(err) {
@@ -1089,6 +1095,56 @@ func main() {
 			} else {
 				fmt.Println("Test only. Make sure you also use '--keep' and call something like this:\n\tpython ./stub.py " + dir)
 			}
+		}
+	case "build":
+		if err := buildCommand.Parse(os.Args[2:]); err == nil {
+			// we should just gather the requirements for now
+			dir_path := input_dir + "/.rpp/config"
+			// we have a couple of example datasets that we can select
+			config, err := readConfig(dir_path)
+			if err != nil {
+				exitGracefully(errors.New(errorConfigFile))
+			}
+			projectName := config.ProjectName
+			fmt.Println("We will assume a python/pip based workflow.")
+			fmt.Println("\nRun pip freeze to update the list of packages (requires pip):")
+			fmt.Println("\n\tpip list --format=freeze >", path.Join(input_dir, ".rpp", "virt", "requirements.txt"))
+			fmt.Println("\nCreate a container of your workflow with docker:")
+			fmt.Println("\n\tdocker build --no-cache -t", projectName, "-f", path.Join(input_dir, ".rpp", "virt", "Dockerfile"), ".")
+			fmt.Println("\nThis build might fail if pip is not able to resolve all the requirements in the docker container.")
+			fmt.Println("In this case it might help to update all packages first with something like:")
+			fmt.Println("\n\tpip list --outdated --format=freeze | grep -v '^\\-e' | cut -d = -f 1 | xargs -n1 pip install -U ")
+			fmt.Println("\nIf repeating the above steps still does not work it might be best if you use a virtual environment.")
+			fmt.Println("The list of dependencies will be much smaller and only the essential packages for your")
+			fmt.Println("workflow will be part of the container.")
+			fmt.Println("\nFor example create a new conda environment with")
+			fmt.Printf("\n\tconda create --name workflow_%s python=3.8\n", projectName)
+			fmt.Printf("\tactivate workflow_%s\n", projectName)
+			fmt.Printf("\tconda install pydicom numpy json matplotlib\n")
+			fmt.Printf("\nNow repeat the above steps. The list of requirements should be smaller now and docker build\n")
+			fmt.Printf("is more likely to succeed.\n")
+
+			fmt.Println("\nSimulate a docker based processing workflow using one of the trigger generated folders:")
+			abs_temp_path, err := filepath.Abs(config.TempDirectory)
+			if err == nil {
+				// is there a rpp_trigger folder?
+				folders, err := filepath.Glob(fmt.Sprintf("%s/rpp_trigger_run_*", abs_temp_path))
+				var folder string
+				if err != nil || len(folders) < 1 {
+					fmt.Printf("Error: Could not find an example data folder in the temp directory %s.\n\tCreate one with\n\n\t%s trigger --keep\n\n",
+						abs_temp_path, own_name)
+					folder = "<rpp_trigger_run_folder>"
+				} else {
+					// first folder found in temp_directory
+					folder = folders[0]
+				}
+
+				fmt.Println("\n\tdocker run --rm -it \\\n\t",
+					"-v", fmt.Sprintf("\"%s/%s:/data\"", abs_temp_path, filepath.Base(folder)), "\\\n\t",
+					"/bin/bash -c", fmt.Sprintf("\"cd /app; %s /data/\"", config.CallString),
+				)
+			}
+
 		}
 	default:
 		// fall back to parsing without a command
