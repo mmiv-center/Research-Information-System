@@ -298,8 +298,8 @@ func showDataset(dataset dicom.Dataset, counter int, path string) {
 	pixelDataElement, _ := dataset.FindElementByTag(tag.PixelData)
 	pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
 	for _, fr := range pixelDataInfo.Frames {
-		fmt.Printf("\033[0;0f\n") // go to top of the screen
-		img, _ := fr.GetImage()   // The Go image.Image for this frame
+		fmt.Printf("\033[0;0f") // go to top of the screen
+		img, _ := fr.GetImage() // The Go image.Image for this frame
 
 		/*
 			// If we would use the native frame we could get access to more levels of detail.
@@ -542,10 +542,11 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 				var Manufacturer string
 				var ManufacturerModelName string
 
-				fmt.Printf("%05d files\r", counter)
 				showImages := true
 				if showImages {
 					showDataset(dataset, counter, path)
+				} else {
+					fmt.Printf("%05d files\r", counter)
 				}
 
 				counter = counter + 1
