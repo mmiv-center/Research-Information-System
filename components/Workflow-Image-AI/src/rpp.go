@@ -102,6 +102,7 @@ type SeriesInfo struct {
 	StudyDescription      string
 	Manufacturer          string
 	ManufacturerModelName string
+	Path				  string
 }
 
 // readConfig parses a provided config file as JSON.
@@ -586,8 +587,32 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 				if err == nil {
 					ManufacturerModelName = dicom.MustGetStrings(ManufacturerModelNameVal.Value)[0]
 				}
+				abs_path, err := filepath.Abs(path)
+				if err != nil {
+					abs_path = path
+				}
+				var path_pieces string = filepath.Dir(abs_path)
+
 				if _, ok := datasets[StudyInstanceUID]; ok {
 					if val, ok := datasets[StudyInstanceUID][SeriesInstanceUID]; ok {
+						// largest common path
+						var lcp string = "-1"
+						var l1 = strings.Split(val.Path, string(os.PathSeparator))
+						var l2 = strings.Split(path_pieces, string(os.PathSeparator))
+						//fmt.Println(l1, l2)
+						for i, j := 0, 0; i < len(l1) && j < len(l2); i, j = i+1, j+1 {
+							if l1[i] == l2[j] {
+								if lcp == "-1" {
+									lcp = l1[i]
+								} else {
+									lcp = fmt.Sprintf("%s%s%s", lcp, string(os.PathSeparator), l1[i])
+								}
+							} else {
+								//fmt.Printf("Break at \"%s\", for \"%s\", \"%s\"\n", lcp, l1, l2)
+								break
+							}
+						}
+
 						datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: val.NumImages + 1,
 							SeriesDescription:     SeriesDescription,
 							SeriesNumber:          SeriesNumber,
@@ -596,6 +621,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							Manufacturer:          Manufacturer,
 							ManufacturerModelName: ManufacturerModelName,
 							StudyDescription:      StudyDescription,
+							Path:				   lcp,
 						}
 					} else {
 						datasets[StudyInstanceUID] = make(map[string]SeriesInfo)
@@ -607,6 +633,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							Manufacturer:          Manufacturer,
 							ManufacturerModelName: ManufacturerModelName,
 							StudyDescription:      StudyDescription,
+							Path:				   path_pieces,
 						}
 					}
 				} else {
@@ -619,6 +646,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 						Manufacturer:          Manufacturer,
 						ManufacturerModelName: ManufacturerModelName,
 						StudyDescription:      StudyDescription,
+						Path:				   path_pieces,
 					}
 				}
 			} else {
@@ -1018,7 +1046,21 @@ func main() {
 			}
 			// we should copy all files into this directory that we need for processing
 			// the study we want is this one selectFromB[idx]
-			numFiles, description := copyFiles(selectFromB[idx], config.Data.Path, dir)
+			// look for the path stored in that study
+			var closestPath string = ""
+			for _, value := range config.Data.DataInfo {
+				for SeriesInstanceUID, value2 := range value {
+					if SeriesInstanceUID == selectFromB[idx] {
+						closestPath = value2.Path
+					}
+				}
+			}
+			if closestPath == "" {
+				fmt.Println("ERROR: Could not detect the closest PATH")
+				closestPath = config.Data.Path
+			}
+
+			numFiles, description := copyFiles(selectFromB[idx], closestPath, dir)
 			fmt.Println("Found", numFiles, "files.")
 			// write out a description
 			file, _ := json.MarshalIndent(description, "", " ")
@@ -1135,27 +1177,28 @@ func main() {
 
 			fmt.Println("\nSimulate a docker based processing workflow using one of the trigger generated folders:")
 			abs_temp_path, err := filepath.Abs(config.TempDirectory)
-			if err == nil {
-				// is there a rpp_trigger folder?
-				folders, err := filepath.Glob(fmt.Sprintf("%s/rpp_trigger_run_*", abs_temp_path))
-				var folder string
-				if err != nil || len(folders) < 1 {
-					fmt.Printf("Error: Could not find an example data folder in the temp directory %s.\n\tCreate one with\n\n\t%s trigger --keep\n\n",
-						abs_temp_path, own_name)
-					folder = "<rpp_trigger_run_folder>"
-				} else {
-					// first folder found in temp_directory
-					folder = folders[0]
-				}
-
-				fmt.Println("\n\tdocker run --rm -it \\\n\t",
-					"-v", fmt.Sprintf("\"%s/%s\":/data", abs_temp_path, filepath.Base(folder)), "\\\n\t",
-					fmt.Sprintf("workflow_%s", projectName),
-					"/bin/bash -c", fmt.Sprintf("\"cd /app; %s /data/\"", config.CallString),
-				)
-				fmt.Println("")
+			if err != nil {
+				fmt.Println("error computing the absolution path of the temp_directory")
+			}
+  			// is there a rpp_trigger folder?
+			folders, err := filepath.Glob(fmt.Sprintf("%s/rpp_trigger_run_*", abs_temp_path))
+			var folder string
+			if err != nil || len(folders) < 1 {
+				fmt.Printf("Error: Could not find an example data folder in the temp directory %s.\n\tCreate one with\n\n\t%s trigger --keep\n\n",
+					abs_temp_path, own_name)
+				folder = "<rpp_trigger_run_folder>"
+			} else {
+				// first folder found in temp_directory
+				folder = folders[0]
 			}
 
+			fmt.Println("\n\tdocker run --rm -it \\\n\t",
+				"-v", fmt.Sprintf("\"%s/%s\":/data", abs_temp_path, filepath.Base(folder)), "\\\n\t",
+				fmt.Sprintf("workflow_%s", projectName),
+				"/bin/bash -c", fmt.Sprintf("\"cd /app; %s /data/\"", config.CallString),
+			)
+			fmt.Println("")
+			fmt.Println("If the above call was sufficient to run your workflow, we can now submit.")
 		}
 	default:
 		// fall back to parsing without a command
