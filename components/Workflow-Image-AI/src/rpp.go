@@ -145,9 +145,9 @@ type Description struct {
 }
 
 // img.At(x, y).RGBA() returns four uint32 values; we want a Pixel
-func rgbaToPixel(r uint32, g uint32, b uint32, a uint32) Pixel {
+/*func rgbaToPixel(r uint32, g uint32, b uint32, a uint32) Pixel {
 	return Pixel{int(r / 257), int(g / 257), int(b / 257), int(a / 257)}
-}
+}*/
 
 // Pixel struct example
 type Pixel struct {
@@ -209,9 +209,9 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
 			y := reflect.ValueOf(g).FieldByName("Y").Uint()
-			if math.IsInf(float64(y), 0) || math.IsNaN(float64(y)) {
-				continue
-			}
+			//if math.IsInf(float64(y), 0) || math.IsNaN(float64(y)) {
+			//	continue
+			//}
 			idx := int(math.Round((float64(y) - float64(minVal)) / float64(maxVal-minVal) * float64(bins-1)))
 			idx = int(math.Min(float64(bins)-1, math.Max(0, float64(idx))))
 			histogram[idx] += 1
@@ -369,8 +369,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 		if err == nil {
 			SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
 			if err == nil {
-				var SeriesInstanceUID string
-				SeriesInstanceUID = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
+				var SeriesInstanceUID string = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
 				if SeriesInstanceUID != SelectedSeriesInstanceUID {
 					return nil // ignore that file
 				}
@@ -641,8 +640,8 @@ func main() {
 
 	const (
 		defaultInputDir    = "Specify where you want to setup shop"
-		defaultTriggerTime = "A wait time in seconds before the computation is triggered (2s, or 7m, etc.)"
-		errorConfigFile    = "The current directory is not an rpp directory. Change to the correct directory first or create a new folder by running\n\trpp init project01\n"
+		defaultTriggerTime = "A wait time in seconds or minutes before the computation is triggered"
+		errorConfigFile    = "the current directory is not an rpp directory. Change to the correct directory first or create a new folder by running\n\n\trpp init project01"
 	)
 
 	initCommand := flag.NewFlagSet("init", flag.ContinueOnError)
@@ -654,18 +653,18 @@ func main() {
 	initCommand.StringVar(&input_dir, "input_dir", ".", defaultInputDir)
 	//initCommand.StringVar(&input_dir, "i", ".", defaultInputDir)
 	var author_name string
-	configCommand.StringVar(&author_name, "author_name", "", "Your name \"A User\".")
-	initCommand.StringVar(&author_name, "author_name", "", "Your name \"A User\".")
+	configCommand.StringVar(&author_name, "author_name", "", "Author name used to publish your workflow.")
+	initCommand.StringVar(&author_name, "author_name", "", "Author name used to publish your workflow.")
 	var author_email string
-	configCommand.StringVar(&author_email, "author_email", "", "Your email.")
-	initCommand.StringVar(&author_email, "author_email", "", "Your email.")
+	configCommand.StringVar(&author_email, "author_email", "", "Author email used to publish your workflow.")
+	initCommand.StringVar(&author_email, "author_email", "", "Author email used to publish your workflow.")
 	var data_path string
-	configCommand.StringVar(&data_path, "data", "", "Path to a folder with folders of DICOM files.")
+	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files.")
 	var call_string string
-	configCommand.StringVar(&call_string, "call", "python ./stub.py", "How to call the executable.")
+	configCommand.StringVar(&call_string, "call", "python ./stub.py", "The command line to call the workflow. A path-name with the data will be appended\n\tto this string.")
 
-	var trigger string
-	triggerCommand.StringVar(&trigger, "trigger", "0s", defaultTriggerTime)
+	var triggerWaitTime string
+	triggerCommand.StringVar(&triggerWaitTime, "delay", "0s", defaultTriggerTime)
 	var trigger_test bool
 	triggerCommand.BoolVar(&trigger_test, "test", false, "Don't actually run anything, just show what you would do.")
 	var trigger_keep bool
@@ -679,7 +678,7 @@ func main() {
 		"Filter applied to series before trigger. This regular expression should\nmatch anything in the string build by StudyInstanceUID: %%s, \nSeriesInstanceUID: %%s, SeriesDescription: %%s, NumImages: %%d, SeriesNumber: %%d\n")
 
 	var config_temp_directory string
-	configCommand.StringVar(&config_temp_directory, "temp_directory", "", "Specify a directory for the temporary folders used in the trigger.\n")
+	configCommand.StringVar(&config_temp_directory, "temp_directory", "", "Specify a directory for the temporary folders used in the trigger")
 
 	var show_version bool
 	flag.BoolVar(&show_version, "version", false, "Show the version number.")
@@ -696,7 +695,10 @@ func main() {
 	flag.Usage = func() {
 		fmt.Printf("RPP - Remote Pipeline Processing\n")
 		fmt.Printf("Version: %s\n", version)
-		fmt.Printf("Usage: %s [init|trigger|status|config] [options]\n\tStart with init to create a new project folder.\n\t%s init <project>\n", os.Args[0], os.Args[0])
+		fmt.Println(" A tool to simulate research information system workflows. The program")
+		fmt.Println(" can create workflow projects and trigger a processing step similar to")
+		fmt.Println(" automated processing steps run in the research information system.\n")
+		fmt.Printf("Usage: %s [init|trigger|status|config] [options]\n\tStart with init to create a new project folder.\n\n\t%s init <project>\n\n", os.Args[0], os.Args[0])
 		fmt.Printf("Option init:\n")
 		initCommand.PrintDefaults()
 		fmt.Printf("Option config:\n")
@@ -705,6 +707,7 @@ func main() {
 		statusCommand.PrintDefaults()
 		fmt.Printf("Option trigger:\n")
 		triggerCommand.PrintDefaults()
+		fmt.Println("")
 	}
 
 	if len(os.Args) < 2 {
@@ -767,7 +770,7 @@ func main() {
 						//	isEmail = false
 						//}
 						isEmail = emailRegex.MatchString(author_email)
-						if isEmail == false {
+						if !isEmail {
 							fmt.Println("Does not look like an email - but you know best.")
 						}
 					}
@@ -970,11 +973,14 @@ func main() {
 			var selectFromB []string = nil
 			for StudyInstanceUID, value := range config.Data.DataInfo {
 				for SeriesInstanceUID, value2 := range value {
-					selectFromA[SeriesInstanceUID] = fmt.Sprintf("StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, NumImages: %d, SeriesNumber: %d", StudyInstanceUID, SeriesInstanceUID, value2.SeriesDescription, value2.NumImages, value2.SeriesNumber)
+					selectFromA[SeriesInstanceUID] = fmt.Sprintf("StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, NumImages: %d, SeriesNumber: %d, SequenceName: %s, Modality: %s, Manufacturer: %s, ManufacturerModelName: %s, StudyDescription: %s",
+						StudyInstanceUID, SeriesInstanceUID, value2.SeriesDescription, value2.NumImages, value2.SeriesNumber, value2.SequenceName, value2.Modality,
+						value2.Manufacturer, value2.ManufacturerModelName, value2.StudyDescription,
+					)
 				}
 			}
 			if len(selectFromA) == 0 {
-				exitGracefully(errors.New(fmt.Sprintf("There is no data. Did you forget to specify a data folder?\n\t%s config --data <folder>\n", own_name)))
+				exitGracefully(fmt.Errorf("there is no data. Did you forget to specify a data folder?\n\n\t%s config --data <folder>", own_name))
 			}
 
 			mm := regexp.MustCompile(config.SeriesFilter)
@@ -984,7 +990,7 @@ func main() {
 				}
 			}
 			if selectFromB == nil {
-				exitGracefully(errors.New(fmt.Sprintf("There is no matching data. Did you specify a filter that does not have a result?\n\t%s status\n", own_name)))
+				exitGracefully(fmt.Errorf("there is no matching data. Did you specify a filter that does not work?\n\n\t%s status", own_name))
 			}
 
 			idx := rand.Intn((len(selectFromB) - 0) + 0)
@@ -1013,12 +1019,12 @@ func main() {
 				}
 
 				// wait for some seconds
-				if trigger != "" {
-					sec, _ := time.ParseDuration(trigger)
+				if triggerWaitTime != "" {
+					sec, _ := time.ParseDuration(triggerWaitTime)
 					time.Sleep(sec)
 				}
 
-				cmd_str := fmt.Sprintf("%s", config.CallString)
+				cmd_str := config.CallString
 				r := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`)
 				arr := r.FindAllString(cmd_str, -1)
 				arr = append(arr, string(dir))
