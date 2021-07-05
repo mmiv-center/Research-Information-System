@@ -1113,23 +1113,24 @@ func main() {
 			// remove any spaces in the project name, make it lower-case
 			projectName = strings.Replace(projectName, " ", "_", -1)
 			projectName = strings.ToLower(projectName)
-			fmt.Println("We will assume a python/pip based workflow and fall back to using conda.")
-			fmt.Println("\nRun pip freeze to update the list of packages (requires pip):")
+			fmt.Println("\nWe will assume a python/pip based workflow and fall back to using conda.")
+			fmt.Println("There is no automated build yet, please follow these instructions:")
+			fmt.Println("\nRun pip freeze to update the list of python packages (requires pip):")
 			fmt.Println("\n\tpip list --format=freeze >", path.Join(input_dir, ".rpp", "virt", "requirements.txt"))
-			fmt.Println("\nCreate a container of your workflow with docker:")
+			fmt.Println("\nCreate a container of your workflow:")
 			fmt.Println("\n\tdocker build --no-cache -t", fmt.Sprintf("workflow_%s", projectName), "-f", path.Join(input_dir, ".rpp", "virt", "Dockerfile"), ".")
-			fmt.Println("\nThis build might fail if pip is not able to resolve all the requirements in the docker container.")
+			fmt.Println("\nThis build might fail if pip is not able to resolve all the requirements inside the container.")
 			//fmt.Println("In this case it might help to update all packages first with something like:")
 			//fmt.Println("\n\tpip list --outdated --format=freeze | grep -v '^\\-e' | cut -d = -f 1 | xargs -n1 pip install -U ")
-			fmt.Println("\nIf the above steps do not work it might be best to use a virtual environment.")
-			fmt.Println("The list of dependencies will be much smaller and only the essential packages for your")
-			fmt.Println("workflow will be part of the container.")
+			fmt.Println("\nIf the above steps do not work it is best to use a virtual environment.")
+			fmt.Println("The list of dependencies inside a new virtual environment easier to handle as only")
+			fmt.Println("\nthe essential packages for your workflow will be part of the container.")
 			fmt.Println("\nCreate a new conda environment with")
 			fmt.Printf("\n\tconda create --name workflow_%s python=3.8\n", projectName)
 			fmt.Printf("\tconda activate workflow_%s\n", projectName)
 			fmt.Printf("\tconda install -c conda-forge pydicom numpy matplotlib\n")
-			fmt.Printf("\nNow repeat the above steps. The list of requirements should be smaller and docker build\n")
-			fmt.Printf("is more likely to succeed.\n")
+			fmt.Printf("\nAdjust the list of packages based on your workflow. The above list should be\n")
+			fmt.Printf("sufficient for the default workflow. Now repeat the above steps.\n")
 
 			fmt.Println("\nSimulate a docker based processing workflow using one of the trigger generated folders:")
 			abs_temp_path, err := filepath.Abs(config.TempDirectory)
@@ -1151,6 +1152,7 @@ func main() {
 					fmt.Sprintf("workflow_%s", projectName),
 					"/bin/bash -c", fmt.Sprintf("\"cd /app; %s /data/\"", config.CallString),
 				)
+				fmt.Println("")
 			}
 
 		}
