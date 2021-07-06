@@ -704,6 +704,8 @@ func main() {
 	triggerCommand.BoolVar(&trigger_test, "test", false, "Don't actually run anything, just show what you would do.")
 	var trigger_keep bool
 	triggerCommand.BoolVar(&trigger_keep, "keep", false, "Keep the created directory around for testing.")
+	var trigger_each bool
+	triggerCommand.BoolVar(&trigger_each, "each", false, "Trigger for each found series, not just for a single random one.")
 
 	var status_detailed bool
 	statusCommand.BoolVar(&status_detailed, "detailed", false, "Parse the data folder and extract number of studies and series for the trigger.")
@@ -1033,117 +1035,127 @@ func main() {
 			if selectFromB == nil {
 				exitGracefully(fmt.Errorf("there is no matching data. Did you specify a filter that does not work?\n\n\t%s status", own_name))
 			}
-
-			idx := rand.Intn((len(selectFromB) - 0) + 0)
-			fmt.Printf("found %d matching series. Picked index %d, trigger series: %s\n", len(selectFromB), idx, selectFromB[idx])
-
-			dir, err := ioutil.TempDir(config.TempDirectory, fmt.Sprintf("rpp_trigger_run_%s_*", time.Now().Weekday()))
-			if err != nil {
-				fmt.Printf("%s", err)
-				exitGracefully(errors.New("could not create the temporary directory for the trigger"))
-			}
-			if !trigger_keep {
-				defer os.RemoveAll(dir)
+			// if trigger_each we want to run this for all of them, not just a single one
+			var runIdx []int
+			if !trigger_each {
+				runIdx = []int{rand.Intn((len(selectFromB) - 0) + 0)}
 			} else {
-				fmt.Printf("trigger data directory is \"%s\"\n", dir)
+				runIdx = []int{0}
+				for i := 1; i < len(selectFromB); i++ {
+					runIdx = append(runIdx, i)
+				}
 			}
-			// we should copy all files into this directory that we need for processing
-			// the study we want is this one selectFromB[idx]
-			// look for the path stored in that study
-			var closestPath string = ""
-			for _, value := range config.Data.DataInfo {
-				for SeriesInstanceUID, value2 := range value {
-					if SeriesInstanceUID == selectFromB[idx] {
-						closestPath = value2.Path
+			for _, idx := range runIdx {
+				fmt.Printf("found %d matching series. Picked index %d, trigger series: %s\n", len(selectFromB), idx, selectFromB[idx])
+
+				dir, err := ioutil.TempDir(config.TempDirectory, fmt.Sprintf("rpp_trigger_run_%s_*", time.Now().Weekday()))
+				if err != nil {
+					fmt.Printf("%s", err)
+					exitGracefully(errors.New("could not create the temporary directory for the trigger"))
+				}
+				if !trigger_keep {
+					defer os.RemoveAll(dir)
+				} else {
+					fmt.Printf("trigger data directory is \"%s\"\n", dir)
+				}
+				// we should copy all files into this directory that we need for processing
+				// the study we want is this one selectFromB[idx]
+				// look for the path stored in that study
+				var closestPath string = ""
+				for _, value := range config.Data.DataInfo {
+					for SeriesInstanceUID, value2 := range value {
+						if SeriesInstanceUID == selectFromB[idx] {
+							closestPath = value2.Path
+						}
 					}
 				}
-			}
-			if closestPath == "" {
-				fmt.Println("ERROR: Could not detect the closest PATH")
-				closestPath = config.Data.Path
-			}
-
-			numFiles, description := copyFiles(selectFromB[idx], closestPath, dir)
-			fmt.Println("Found", numFiles, "files.")
-			// write out a description
-			file, _ := json.MarshalIndent(description, "", " ")
-			_ = ioutil.WriteFile(dir+"/descr.json", file, 0644)
-			if !trigger_test {
-				// chheck if the call string is empty
-				if config.CallString == "" {
-					exitGracefully(fmt.Errorf("could not run trigger command, no CallString defined\n\n\t%s config --call \"python ./stub.py\"", own_name))
+				if closestPath == "" {
+					fmt.Println("ERROR: Could not detect the closest PATH")
+					closestPath = config.Data.Path
 				}
 
-				// wait for some seconds
-				if triggerWaitTime != "" {
-					sec, _ := time.ParseDuration(triggerWaitTime)
-					time.Sleep(sec)
-				}
-
-				cmd_str := config.CallString
-				r := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`)
-				arr := r.FindAllString(cmd_str, -1)
-				arr = append(arr, string(dir))
-				fmt.Println(arr)
-				// cmd := exec.Command("python", "stub.py", dir)
-				cmd := exec.Command(arr[0], arr[1:]...)
-				var outb, errb bytes.Buffer
-				cmd.Stdout = &outb
-				cmd.Stderr = &errb
-				exitCode := cmd.Run()
-				if exitCode != nil {
-					exitGracefully(fmt.Errorf("could not run trigger command\n\t%s\nError code: %s\n\t%s", strings.Join(arr[:], " "), exitCode.Error(), errb.String()))
-				}
-				// store stdout and stderr as log files
-				if _, err := os.Stat(dir + "/log"); err != nil && os.IsNotExist(err) {
-					if err := os.Mkdir(dir+"/log", 0755); os.IsExist(err) {
-						exitGracefully(errors.New("directory exist already"))
+				numFiles, description := copyFiles(selectFromB[idx], closestPath, dir)
+				fmt.Println("Found", numFiles, "files.")
+				// write out a description
+				file, _ := json.MarshalIndent(description, "", " ")
+				_ = ioutil.WriteFile(dir+"/descr.json", file, 0644)
+				if !trigger_test {
+					// chheck if the call string is empty
+					if config.CallString == "" {
+						exitGracefully(fmt.Errorf("could not run trigger command, no CallString defined\n\n\t%s config --call \"python ./stub.py\"", own_name))
 					}
-				}
-				// write the log files
-				var stdout_log string = fmt.Sprintf("%s/log/stdout.log", dir)
-				f_log_stdout, err := os.OpenFile(stdout_log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-				if err != nil {
-					exitGracefully(errors.New("could not open file " + stdout_log))
-				}
-				defer f_log_stdout.Close()
-				if _, err := f_log_stdout.WriteString(outb.String()); err != nil {
-					exitGracefully(errors.New("could not write to log/stdout.log"))
-					// log.Println(err)
-				}
 
-				var stderr_log string = fmt.Sprintf("%s/log/stderr.log", dir)
-				f_log_stderr, err := os.OpenFile(stderr_log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-				if err != nil {
-					exitGracefully(errors.New("could not open " + stderr_log))
-				}
-				defer f_log_stderr.Close()
-				if _, err := f_log_stderr.WriteString(errb.String()); err != nil {
-					exitGracefully(errors.New("could not add to " + stderr_log))
-					// log.Println(err)
-				}
-				// we can check if we have an output folder now
-				path_string := dir + "/output/output.json"
-				if _, err := os.Stat(path_string); err != nil && !os.IsNotExist(err) {
-					exitGracefully(fmt.Errorf("run finished but no output/output.json file found. Consider creating such a file in your program"))
-				}
+					// wait for some seconds
+					if triggerWaitTime != "" {
+						sec, _ := time.ParseDuration(triggerWaitTime)
+						time.Sleep(sec)
+					}
 
-				// plot the output.json as a result object to screen
-				jsonFile, err := os.Open(path_string)
-				// if we os.Open returns an error then handle it
-				if err != nil {
-					fmt.Println(err)
+					cmd_str := config.CallString
+					r := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`)
+					arr := r.FindAllString(cmd_str, -1)
+					arr = append(arr, string(dir))
+					fmt.Println(arr)
+					// cmd := exec.Command("python", "stub.py", dir)
+					cmd := exec.Command(arr[0], arr[1:]...)
+					var outb, errb bytes.Buffer
+					cmd.Stdout = &outb
+					cmd.Stderr = &errb
+					exitCode := cmd.Run()
+					if exitCode != nil {
+						exitGracefully(fmt.Errorf("could not run trigger command\n\t%s\nError code: %s\n\t%s", strings.Join(arr[:], " "), exitCode.Error(), errb.String()))
+					}
+					// store stdout and stderr as log files
+					if _, err := os.Stat(dir + "/log"); err != nil && os.IsNotExist(err) {
+						if err := os.Mkdir(dir+"/log", 0755); os.IsExist(err) {
+							exitGracefully(errors.New("directory exist already"))
+						}
+					}
+					// write the log files
+					var stdout_log string = fmt.Sprintf("%s/log/stdout.log", dir)
+					f_log_stdout, err := os.OpenFile(stdout_log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err != nil {
+						exitGracefully(errors.New("could not open file " + stdout_log))
+					}
+					defer f_log_stdout.Close()
+					if _, err := f_log_stdout.WriteString(outb.String()); err != nil {
+						exitGracefully(errors.New("could not write to log/stdout.log"))
+						// log.Println(err)
+					}
+
+					var stderr_log string = fmt.Sprintf("%s/log/stderr.log", dir)
+					f_log_stderr, err := os.OpenFile(stderr_log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err != nil {
+						exitGracefully(errors.New("could not open " + stderr_log))
+					}
+					defer f_log_stderr.Close()
+					if _, err := f_log_stderr.WriteString(errb.String()); err != nil {
+						exitGracefully(errors.New("could not add to " + stderr_log))
+						// log.Println(err)
+					}
+					// we can check if we have an output folder now
+					path_string := dir + "/output/output.json"
+					if _, err := os.Stat(path_string); err != nil && !os.IsNotExist(err) {
+						exitGracefully(fmt.Errorf("run finished but no output/output.json file found. Consider creating such a file in your program"))
+					}
+
+					// plot the output.json as a result object to screen
+					jsonFile, err := os.Open(path_string)
+					// if we os.Open returns an error then handle it
+					if err != nil {
+						fmt.Println(err)
+					}
+					//fmt.Println("Successfully Opened users.json")
+					// defer the closing of our jsonFile so that we can parse it later on
+					defer jsonFile.Close()
+
+					byteValue, _ := ioutil.ReadAll(jsonFile)
+					fmt.Println(string(byteValue))
+
+					//fmt.Println("Done.")
+				} else {
+					fmt.Println("Test only. Make sure you also use '--keep' and call something like this:\n\tpython ./stub.py " + dir)
 				}
-				//fmt.Println("Successfully Opened users.json")
-				// defer the closing of our jsonFile so that we can parse it later on
-				defer jsonFile.Close()
-
-				byteValue, _ := ioutil.ReadAll(jsonFile)
-				fmt.Println(string(byteValue))
-
-				//fmt.Println("Done.")
-			} else {
-				fmt.Println("Test only. Make sure you also use '--keep' and call something like this:\n\tpython ./stub.py " + dir)
 			}
 		}
 	case "build":

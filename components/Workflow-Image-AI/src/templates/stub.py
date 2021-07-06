@@ -19,7 +19,7 @@ for fname in glob.glob(sys.argv[1]+"/input/*", recursive=False):
         files.append(pydicom.dcmread(fname))
 
 # make sure we only keep data that has the same shape as the first slice
-files = [a for a in files if a.pixel_array.shape == files[0].pixel_array.shape]
+files = [a for a in files if a.get("PixelData") != None and a.pixel_array.shape == files[0].pixel_array.shape]
 
 print("file count: {}".format(len(files)))
 
@@ -34,8 +34,8 @@ def sortFunc(s):
 slices = sorted(files, key=sortFunc)
 
 # pixel aspects, assuming all slices are the same
-ps = slices[0].PixelSpacing
-ss = slices[0].SliceThickness
+ps = slices[0].get("PixelSpacing", [1,1])
+ss = slices[0].get("SliceThickness",1)
 ax_aspect = ps[1]/ps[0]
 sag_aspect = ps[1]/ss
 cor_aspect = ps[0]/ss
