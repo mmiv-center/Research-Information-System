@@ -102,7 +102,7 @@ type SeriesInfo struct {
 	StudyDescription      string
 	Manufacturer          string
 	ManufacturerModelName string
-	Path				  string
+	Path                  string
 }
 
 // readConfig parses a provided config file as JSON.
@@ -296,7 +296,10 @@ func Scale(src image.Image, rect image.Rectangle, scale draw.Scaler) image.Image
 }
 
 func showDataset(dataset dicom.Dataset, counter int, path string) {
-	pixelDataElement, _ := dataset.FindElementByTag(tag.PixelData)
+	pixelDataElement, err := dataset.FindElementByTag(tag.PixelData)
+	if err != nil {
+		return
+	}
 	pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
 	for _, fr := range pixelDataInfo.Frames {
 		fmt.Printf("\033[0;0f") // go to top of the screen
@@ -621,7 +624,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							Manufacturer:          Manufacturer,
 							ManufacturerModelName: ManufacturerModelName,
 							StudyDescription:      StudyDescription,
-							Path:				   lcp,
+							Path:                  lcp,
 						}
 					} else {
 						datasets[StudyInstanceUID] = make(map[string]SeriesInfo)
@@ -633,7 +636,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							Manufacturer:          Manufacturer,
 							ManufacturerModelName: ManufacturerModelName,
 							StudyDescription:      StudyDescription,
-							Path:				   path_pieces,
+							Path:                  path_pieces,
 						}
 					}
 				} else {
@@ -646,7 +649,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 						Manufacturer:          Manufacturer,
 						ManufacturerModelName: ManufacturerModelName,
 						StudyDescription:      StudyDescription,
-						Path:				   path_pieces,
+						Path:                  path_pieces,
 					}
 				}
 			} else {
@@ -1180,7 +1183,7 @@ func main() {
 			if err != nil {
 				fmt.Println("error computing the absolution path of the temp_directory")
 			}
-  			// is there a rpp_trigger folder?
+			// is there a rpp_trigger folder?
 			folders, err := filepath.Glob(fmt.Sprintf("%s/rpp_trigger_run_*", abs_temp_path))
 			var folder string
 			if err != nil || len(folders) < 1 {
