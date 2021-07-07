@@ -760,7 +760,7 @@ func main() {
 	configCommand.StringVar(&author_email, "author_email", "", "Author email used to publish your workflow.")
 	initCommand.StringVar(&author_email, "author_email", "", "Author email used to publish your workflow.")
 	var data_path string
-	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files. If you want to specify a subset of folders\nuse double quotes for the path and the glob syntax. For example all folders that\nstart with numbers 008 and 009 would be read with --data \"path/to/data/0[8-9]\"")
+	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files. If you want to specify a subset of folders\nuse double quotes for the path and the glob syntax. For example all folders that\nstart with numbers 008 and 009 would be read with --data \"path/to/data/0[8-9]*\"")
 	var call_string string
 	configCommand.StringVar(&call_string, "call", "python ./stub.py", "The command line to call the workflow. A path-name with the data will be appended\n\tto this string.")
 	var project_name_string string
