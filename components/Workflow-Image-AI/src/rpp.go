@@ -137,6 +137,7 @@ func readConfig(path_string string) (Config, error) {
 type Description struct {
 	SeriesInstanceUID string
 	SeriesDescription string
+	StudyInstanceUID  string
 	NumFiles          int
 	PatientID         string
 	PatientName       string
@@ -392,151 +393,173 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 	description.ProcessDataPath = dest_path
 	counter := 0
 	fmt.Printf("\033[2J\n") // clear the screen
-	err := filepath.Walk(source_path, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
+
+	var input_path_list []string
+	if _, err := os.Stat(source_path); err != nil && os.IsNotExist(err) {
+		// could be list of paths if we have a glob string
+		input_path_list, err = filepath.Glob(source_path)
+		if err != nil || len(input_path_list) < 1 {
+			exitGracefully(errors.New("data path does not exist or is empty"))
 		}
-		if err != nil {
-			return err
-		}
-		//fmt.Println("look at file: ", path)
-		//fmt.Printf("\033[2J\n")
+	} else {
+		input_path_list = append(input_path_list, source_path)
+	}
 
-		dataset, err := dicom.ParseFile(path, nil) // See also: dicom.Parse which has a generic io.Reader API.
-		if err == nil {
-			SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
-			if err == nil {
-				var SeriesInstanceUID string = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
-				if SeriesInstanceUID != SelectedSeriesInstanceUID {
-					return nil // ignore that file
-				}
-
-				// we can get a version of the image, scale it and print out on command line
-				showImage := true
-				if showImage {
-					showDataset(dataset, counter+1, path)
-				}
-
-				//fmt.Printf("%05d files\r", counter)
-				var SeriesDescription string
-				SeriesDescriptionVal, err := dataset.FindElementByTag(tag.SeriesDescription)
-				if err == nil {
-					SeriesDescription = dicom.MustGetStrings(SeriesDescriptionVal.Value)[0]
-					if SeriesDescription != "" {
-						description.SeriesDescription = SeriesDescription
-					}
-				}
-				var PatientID string
-				PatientIDVal, err := dataset.FindElementByTag(tag.PatientID)
-				if err == nil {
-					PatientID = dicom.MustGetStrings(PatientIDVal.Value)[0]
-					if PatientID != "" {
-						description.PatientID = PatientID
-					}
-				}
-				var PatientName string
-				PatientNameVal, err := dataset.FindElementByTag(tag.PatientName)
-				if err == nil {
-					PatientName = dicom.MustGetStrings(PatientNameVal.Value)[0]
-					if PatientName != "" {
-						description.PatientName = PatientName
-					}
-				}
-				var SequenceName string
-				SequenceNameVal, err := dataset.FindElementByTag(tag.SequenceName)
-				if err == nil {
-					SequenceName = dicom.MustGetStrings(SequenceNameVal.Value)[0]
-					if SequenceName != "" {
-						description.SequenceName = SequenceName
-					}
-				}
-				var StudyDate string
-				StudyDateVal, err := dataset.FindElementByTag(tag.StudyDate)
-				if err == nil {
-					StudyDate = dicom.MustGetStrings(StudyDateVal.Value)[0]
-					if StudyDate != "" {
-						description.StudyDate = StudyDate
-					}
-				}
-				var StudyTime string
-				StudyTimeVal, err := dataset.FindElementByTag(tag.StudyTime)
-				if err == nil {
-					StudyTime = dicom.MustGetStrings(StudyTimeVal.Value)[0]
-					if StudyTime != "" {
-						description.StudyTime = StudyTime
-					}
-				}
-				var SeriesTime string
-				SeriesTimeVal, err := dataset.FindElementByTag(tag.SeriesTime)
-				if err == nil {
-					SeriesTime = dicom.MustGetStrings(SeriesTimeVal.Value)[0]
-					if SeriesTime != "" {
-						description.SeriesTime = SeriesTime
-					}
-				}
-				var SeriesNumber string
-				SeriesNumberVal, err := dataset.FindElementByTag(tag.SeriesNumber)
-				if err == nil {
-					SeriesNumber = dicom.MustGetStrings(SeriesNumberVal.Value)[0]
-					if SeriesNumber != "" {
-						description.SeriesNumber = SeriesNumber
-					}
-				}
-
-				outputPath := destination_path
-				inputFile, _ := os.Open(path)
-				data, _ := ioutil.ReadAll(inputFile)
-				outputPathFileName := fmt.Sprintf("%s/%06d.dcm", outputPath, counter)
-				ioutil.WriteFile(outputPathFileName, data, 0644)
-
-				// We can do a better destination path here. The friendly way of doing this is
-				// to provide separate folders aka the BIDS way.
-				// We can create a shadow structure that uses symlinks and sorts everything into
-				// sub-folders. Lets name a directory "_" and place the info in that directory.
-				symOrder := sort_dicom
-				if symOrder {
-					symOrderPath := filepath.Join(destination_path, "_")
-					if _, err := os.Stat(symOrderPath); os.IsNotExist(err) {
-						err := os.Mkdir(symOrderPath, 0755)
-						if err != nil {
-							exitGracefully(errors.New("could not create symlink data directory"))
-						}
-					}
-					symOrderPatientPath := filepath.Join(symOrderPath, PatientID+PatientName)
-					if _, err := os.Stat(symOrderPatientPath); os.IsNotExist(err) {
-						err := os.Mkdir(symOrderPatientPath, 0755)
-						if err != nil {
-							exitGracefully(errors.New("could not create symlink data directory"))
-						}
-					}
-					symOrderPatientDatePath := filepath.Join(symOrderPatientPath, StudyDate+"_"+StudyTime)
-					if _, err := os.Stat(symOrderPatientDatePath); os.IsNotExist(err) {
-						err := os.Mkdir(symOrderPatientDatePath, 0755)
-						if err != nil {
-							exitGracefully(errors.New("could not create symlink data directory"))
-						}
-					}
-					symOrderPatientDateSeriesNumber := filepath.Join(symOrderPatientDatePath, SeriesNumber+"_"+SeriesDescription)
-					if _, err := os.Stat(symOrderPatientDateSeriesNumber); os.IsNotExist(err) {
-						err := os.Mkdir(symOrderPatientDateSeriesNumber, 0755)
-						if err != nil {
-							exitGracefully(errors.New("could not create symlink data directory"))
-						}
-					}
-					// now create symbolic link here to our outputPath + counter .dcm == outputPathFileName
-					symlink := filepath.Join(symOrderPatientDateSeriesNumber, fmt.Sprintf("%06d.dcm", counter))
-					relativeDataPath := fmt.Sprintf("../../../../%06d.dcm", counter)
-					os.Symlink(relativeDataPath, symlink)
-				}
-
-				//fmt.Println("path: ", fmt.Sprintf("%s/%06d.dcm", outputPath, counter))
-				counter = counter + 1
+	for p := range input_path_list {
+		err := filepath.Walk(input_path_list[p], func(path string, info os.FileInfo, err error) error {
+			if info.IsDir() {
+				return nil
 			}
+			if err != nil {
+				return err
+			}
+			//fmt.Println("look at file: ", path)
+			//fmt.Printf("\033[2J\n")
+
+			dataset, err := dicom.ParseFile(path, nil) // See also: dicom.Parse which has a generic io.Reader API.
+			if err == nil {
+				SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
+				if err == nil {
+					var SeriesInstanceUID string = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
+					if SeriesInstanceUID != SelectedSeriesInstanceUID {
+						return nil // ignore that file
+					}
+
+					// we can get a version of the image, scale it and print out on command line
+					showImage := true
+					if showImage {
+						showDataset(dataset, counter+1, path)
+					}
+
+					//fmt.Printf("%05d files\r", counter)
+					var SeriesDescription string
+					SeriesDescriptionVal, err := dataset.FindElementByTag(tag.SeriesDescription)
+					if err == nil {
+						SeriesDescription = dicom.MustGetStrings(SeriesDescriptionVal.Value)[0]
+						if SeriesDescription != "" {
+							description.SeriesDescription = SeriesDescription
+						}
+					}
+					var PatientID string
+					PatientIDVal, err := dataset.FindElementByTag(tag.PatientID)
+					if err == nil {
+						PatientID = dicom.MustGetStrings(PatientIDVal.Value)[0]
+						if PatientID != "" {
+							description.PatientID = PatientID
+						}
+					}
+					var PatientName string
+					PatientNameVal, err := dataset.FindElementByTag(tag.PatientName)
+					if err == nil {
+						PatientName = dicom.MustGetStrings(PatientNameVal.Value)[0]
+						if PatientName != "" {
+							description.PatientName = PatientName
+						}
+					}
+					var SequenceName string
+					SequenceNameVal, err := dataset.FindElementByTag(tag.SequenceName)
+					if err == nil {
+						SequenceName = dicom.MustGetStrings(SequenceNameVal.Value)[0]
+						if SequenceName != "" {
+							description.SequenceName = SequenceName
+						}
+					}
+					var StudyDate string
+					StudyDateVal, err := dataset.FindElementByTag(tag.StudyDate)
+					if err == nil {
+						StudyDate = dicom.MustGetStrings(StudyDateVal.Value)[0]
+						if StudyDate != "" {
+							description.StudyDate = StudyDate
+						}
+					}
+					var StudyTime string
+					StudyTimeVal, err := dataset.FindElementByTag(tag.StudyTime)
+					if err == nil {
+						StudyTime = dicom.MustGetStrings(StudyTimeVal.Value)[0]
+						if StudyTime != "" {
+							description.StudyTime = StudyTime
+						}
+					}
+					var SeriesTime string
+					SeriesTimeVal, err := dataset.FindElementByTag(tag.SeriesTime)
+					if err == nil {
+						SeriesTime = dicom.MustGetStrings(SeriesTimeVal.Value)[0]
+						if SeriesTime != "" {
+							description.SeriesTime = SeriesTime
+						}
+					}
+					var SeriesNumber string
+					SeriesNumberVal, err := dataset.FindElementByTag(tag.SeriesNumber)
+					if err == nil {
+						SeriesNumber = dicom.MustGetStrings(SeriesNumberVal.Value)[0]
+						if SeriesNumber != "" {
+							description.SeriesNumber = SeriesNumber
+						}
+					}
+					var StudyInstanceUID string
+					StudyInstanceUIDVal, err := dataset.FindElementByTag(tag.StudyInstanceUID)
+					if err == nil {
+						StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
+						if StudyInstanceUID != "" {
+							description.StudyInstanceUID = StudyInstanceUID
+						}
+					}
+
+					outputPath := destination_path
+					inputFile, _ := os.Open(path)
+					data, _ := ioutil.ReadAll(inputFile)
+					outputPathFileName := fmt.Sprintf("%s/%06d.dcm", outputPath, counter)
+					ioutil.WriteFile(outputPathFileName, data, 0644)
+
+					// We can do a better destination path here. The friendly way of doing this is
+					// to provide separate folders aka the BIDS way.
+					// We can create a shadow structure that uses symlinks and sorts everything into
+					// sub-folders. Lets name a directory "_" and place the info in that directory.
+					symOrder := sort_dicom
+					if symOrder {
+						symOrderPath := filepath.Join(destination_path, "_")
+						if _, err := os.Stat(symOrderPath); os.IsNotExist(err) {
+							err := os.Mkdir(symOrderPath, 0755)
+							if err != nil {
+								exitGracefully(errors.New("could not create symlink data directory"))
+							}
+						}
+						symOrderPatientPath := filepath.Join(symOrderPath, PatientID+PatientName)
+						if _, err := os.Stat(symOrderPatientPath); os.IsNotExist(err) {
+							err := os.Mkdir(symOrderPatientPath, 0755)
+							if err != nil {
+								exitGracefully(errors.New("could not create symlink data directory"))
+							}
+						}
+						symOrderPatientDatePath := filepath.Join(symOrderPatientPath, StudyDate+"_"+StudyTime)
+						if _, err := os.Stat(symOrderPatientDatePath); os.IsNotExist(err) {
+							err := os.Mkdir(symOrderPatientDatePath, 0755)
+							if err != nil {
+								exitGracefully(errors.New("could not create symlink data directory"))
+							}
+						}
+						symOrderPatientDateSeriesNumber := filepath.Join(symOrderPatientDatePath, SeriesNumber+"_"+SeriesDescription)
+						if _, err := os.Stat(symOrderPatientDateSeriesNumber); os.IsNotExist(err) {
+							err := os.Mkdir(symOrderPatientDateSeriesNumber, 0755)
+							if err != nil {
+								exitGracefully(errors.New("could not create symlink data directory"))
+							}
+						}
+						// now create symbolic link here to our outputPath + counter .dcm == outputPathFileName
+						symlink := filepath.Join(symOrderPatientDateSeriesNumber, fmt.Sprintf("%06d.dcm", counter))
+						relativeDataPath := fmt.Sprintf("../../../../%06d.dcm", counter)
+						os.Symlink(relativeDataPath, symlink)
+					}
+
+					//fmt.Println("path: ", fmt.Sprintf("%s/%06d.dcm", outputPath, counter))
+					counter = counter + 1
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			fmt.Println("Warning: could not walk this path")
 		}
-		return nil
-	})
-	if err != nil {
-		fmt.Println("Warning: could not walk this path")
 	}
 	description.NumFiles = counter
 	return counter, description
@@ -552,7 +575,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 	var input_path_list []string
 	if _, err := os.Stat(config.Data.Path); err != nil && os.IsNotExist(err) {
 		// could be list of paths if we have a glob string
-		input_path_list, err := filepath.Glob(config.Data.Path)
+		input_path_list, err = filepath.Glob(config.Data.Path)
 		if err != nil || len(input_path_list) < 1 {
 			exitGracefully(errors.New("data path does not exist or is empty"))
 		}
@@ -737,7 +760,7 @@ func main() {
 	configCommand.StringVar(&author_email, "author_email", "", "Author email used to publish your workflow.")
 	initCommand.StringVar(&author_email, "author_email", "", "Author email used to publish your workflow.")
 	var data_path string
-	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files.")
+	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files. If you want to specify a subset of folders\nuse double quotes for the path and the glob syntax. For example all folders that\nstart with numbers 008 and 009 would be read with --data \"path/to/data/0[8-9]\"")
 	var call_string string
 	configCommand.StringVar(&call_string, "call", "python ./stub.py", "The command line to call the workflow. A path-name with the data will be appended\n\tto this string.")
 	var project_name_string string
@@ -1145,6 +1168,7 @@ func main() {
 					runIdx = append(runIdx, i)
 				}
 			}
+			output_json_array := []string{}
 			for _, idx := range runIdx {
 				fmt.Printf("found %d matching series. Picked index %d, trigger series: %s\n", len(selectFromB), idx, selectFromB[idx])
 
@@ -1195,15 +1219,16 @@ func main() {
 					r := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`)
 					arr := r.FindAllString(cmd_str, -1)
 					arr = append(arr, string(dir))
-					fmt.Println(arr)
 					// cmd := exec.Command("python", "stub.py", dir)
 					var cmd *exec.Cmd
 					if trigger_container != "" {
 						cmd_string := []string{"docker", "run", "--rm", "-v",
-							fmt.Sprintf("\"%s\":/data", dir), trigger_container, "/bin/bash", "-c",
-							fmt.Sprintf("cd /app; %s /data/", strings.Join(arr, " "))}
+							fmt.Sprintf("%s:/data", strings.Replace(dir, " ", "\\ ", -1)), trigger_container, "/bin/bash", "-c",
+							fmt.Sprintf("cd /app; %s /data/", cmd_str)}
+						fmt.Println(strings.Join(cmd_string, " "))
 						cmd = exec.Command(cmd_string[0], cmd_string[1:]...)
 					} else {
+						fmt.Println(arr)
 						cmd = exec.Command(arr[0], arr[1:]...)
 					}
 					var outb, errb bytes.Buffer
@@ -1258,13 +1283,15 @@ func main() {
 					defer jsonFile.Close()
 
 					byteValue, _ := ioutil.ReadAll(jsonFile)
-					fmt.Println(string(byteValue))
+					output_json_array = append(output_json_array, string(byteValue))
+					//fmt.Println(string(byteValue))
 
 					//fmt.Println("Done.")
 				} else {
 					fmt.Println("Test only. Make sure you also use '--keep' and call something like this:\n\tpython ./stub.py " + dir)
 				}
 			}
+			fmt.Println("[", strings.Join(output_json_array[:], ", "), "]")
 		}
 	case "build":
 		if err := buildCommand.Parse(os.Args[2:]); err == nil {
