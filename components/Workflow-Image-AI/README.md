@@ -15,6 +15,18 @@ The *rpp* tool helps you to
 - trigger a processing task, and
 - build and test a containerized workflow package.
 
+The minimal workflow requires the following 8 commands to compute the signal-to-noise ratio of all DICOM series in our test data folder:
+```
+> rpp init snr
+> cd snr
+> rpp config --data ../data --temp_directory `pwd`
+> rpp trigger --keep
+> rpp build
+> pip list --format=freeze > .rpp/virt/requirements.txt
+> docker build --no-cache -t workflow_snr -f .rpp/virt/Dockerfile .
+> rpp trigger --keep --each --cont workflow_snr
+```
+
 ### Install on MacOS
 
 Download the rpp executable. Copy the file to a folder like /usr/local/bin/.
