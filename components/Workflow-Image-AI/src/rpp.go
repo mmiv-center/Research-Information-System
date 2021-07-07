@@ -91,6 +91,7 @@ type Config struct {
 	TempDirectory string
 	CallString    string
 	ProjectName   string
+	SortDICOM     bool
 }
 
 type SeriesInfo struct {
@@ -176,21 +177,37 @@ func reverse(s string) string {
 	return string(o)
 }
 
-func printImage2ASCII(img image.Image, w, h int) []byte {
+func complement2(x uint16) int16 {
+	return int16(^x) + 1
+}
+
+func printImage2ASCII(img image.Image, w, h, PixelRepresentation int) []byte {
 	//table := []byte(reverse(ASCIISTR))
 	table := []byte(reverse(ASCIISTR2))
 	//table := []byte(ASCIISTR3)
 	buf := new(bytes.Buffer)
 
+	// based on the pixel representation we need to interpret the data as either unsigned == 0
+	// or signed == 1
+	// we read them as unsigned always
+	//fmt.Println("Pixel representation is : ", PixelRepresentation)
+
 	g := color.Gray16Model.Convert(img.At(0, 0))
-	maxVal := reflect.ValueOf(g).FieldByName("Y").Uint()
+	maxVal := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+	if PixelRepresentation == 1 {
+		//fmt.Println("max value: ", maxVal, "pixel representation correct", float64(maxVal)-math.Pow(2, 15))
+		maxVal = int64(complement2(uint16(reflect.ValueOf(g).FieldByName("Y").Uint()))) // int64(complement2(uint16(maxVal)))
+	}
 	minVal := maxVal
 
 	for i := 0; i < h; i++ {
 		for j := 0; j < w; j++ {
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
-			y := reflect.ValueOf(g).FieldByName("Y").Uint()
+			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			if PixelRepresentation == 1 {
+				y = int64(complement2(uint16(reflect.ValueOf(g).FieldByName("Y").Uint()))) // int64(complement2(uint16(y))) // int64(math.Pow(2, 15))
+			}
 			if y > maxVal {
 				maxVal = y
 				//fmt.Println(y, g)
@@ -201,7 +218,7 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 		}
 	}
 	// todo: better to use a histogram to scale at 2%...99.9% per image
-	var histogram [1024]int
+	var histogram [1024]int64
 	bins := len(histogram)
 	for i := 0; i < bins; i++ {
 		histogram[i] = 0
@@ -211,7 +228,10 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 		for j := 0; j < w; j++ {
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
-			y := reflect.ValueOf(g).FieldByName("Y").Uint()
+			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			if PixelRepresentation == 1 {
+				y = int64(complement2(uint16(reflect.ValueOf(g).FieldByName("Y").Uint()))) // int64(complement2(uint16(y))) //int64(math.Pow(2, 15))
+			}
 			//if math.IsInf(float64(y), 0) || math.IsNaN(float64(y)) {
 			//	continue
 			//}
@@ -226,25 +246,25 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 	for i := 1; i < bins; i++ {
 		sum += histogram[i]
 	}
-	min2 := 0
+	var min2 int64 = minVal
 	s := histogram[0]
 	for i := 1; i < bins; i++ {
 		if float32(s) >= (float32(sum) * 2.0 / 100.0) { // sum / 100 = ? / 2
-			min2 = int(minVal) + int(float32(i)/float32(bins)*float32(maxVal-minVal))
+			min2 = minVal + int64(float32(i)/float32(bins)*float32(maxVal-minVal))
 			break
 		}
 		s += histogram[i]
 	}
-	max99 := 0
+	var max99 int64 = maxVal
 	s = histogram[0]
 	for i := 1; i < bins; i++ {
 		if float32(s) >= (float32(sum) * 98.0 / 100.0) { // sum / 100 = ? / 2
-			max99 = int(minVal) + int(float32(i)/float32(bins)*float32(maxVal-minVal))
+			max99 = minVal + int64(float32(i)/float32(bins)*float32(maxVal-minVal))
 			break
 		}
 		s += histogram[i]
 	}
-	//fmt.Println("min2:", min2, "max99:", max99, "true min:", minVal, "true max:", maxVal)
+	// fmt.Println("min2:", min2, "max99:", max99, "true min:", minVal, "true max:", maxVal)
 
 	// some pixel are very dark and we need more contast
 	//fmt.Println("max ", maxVal, "min", minVal)
@@ -257,7 +277,10 @@ func printImage2ASCII(img image.Image, w, h int) []byte {
 		for j := 0; j < w; j++ {
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
-			y := reflect.ValueOf(g).FieldByName("Y").Uint()
+			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			if PixelRepresentation == 1 {
+				y = int64(complement2(uint16(reflect.ValueOf(g).FieldByName("Y").Uint()))) // int64(math.Pow(2, 15))
+			}
 			//fmt.Println("got a number: ", img.At(j, i))
 			pos := int((float32(y) - float32(min2)) * float32(len(table)-1) / float32(denom))
 			pos = int(math.Min(float64(len(table)-1), math.Max(0, float64(pos))))
@@ -300,6 +323,12 @@ func showDataset(dataset dicom.Dataset, counter int, path string) {
 	if err != nil {
 		return
 	}
+	var PixelRepresentation int = 0
+	PixelRepresentationVal, err := dataset.FindElementByTag(tag.PixelRepresentation)
+	if err == nil {
+		PixelRepresentation = dicom.MustGetInts(PixelRepresentationVal.Value)[0]
+	}
+
 	pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
 	for _, fr := range pixelDataInfo.Frames {
 		fmt.Printf("\033[0;0f") // go to top of the screen
@@ -334,11 +363,13 @@ func showDataset(dataset dicom.Dataset, counter int, path string) {
 		// golang.org/x/image/draw
 		//newImage := Scale(img, image.Rect(0, 0, 196/2 , int(math.Round(196.0 / 2.0 / (80.0/30.0) ) )), draw.ApproxBiLinear)
 		newImage := image.NewGray16(image.Rect(0, 0, 196/2, int(math.Round(196.0/2.0/(80.0/30.0)))))
+		// TODO: might be a better place to compute the 2 complement of the image (before resizing)
+
 		draw.ApproxBiLinear.Scale(newImage, image.Rect(0, 0, 196/2, int(math.Round(196.0/2.0/(80.0/30.0)))), img, origbounds, draw.Over, nil)
 
 		bounds := newImage.Bounds()
 		width, height := bounds.Max.X, bounds.Max.Y
-		p := printImage2ASCII(newImage, width, height)
+		p := printImage2ASCII(newImage, width, height, PixelRepresentation)
 		fmt.Println(string(p))
 		fmt.Printf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
 	}
@@ -346,7 +377,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string) {
 
 // copyFiles will copy all DICOM files that fit the string to the dest_path directory.
 // we could display those images as well on the command line - just to impress
-func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string) (int, Description) {
+func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string, sort_dicom bool) (int, Description) {
 
 	destination_path := dest_path + "/input"
 
@@ -462,7 +493,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 				// to provide separate folders aka the BIDS way.
 				// We can create a shadow structure that uses symlinks and sorts everything into
 				// sub-folders. Lets name a directory "_" and place the info in that directory.
-				symOrder := true
+				symOrder := sort_dicom
 				if symOrder {
 					symOrderPath := filepath.Join(destination_path, "_")
 					if _, err := os.Stat(symOrderPath); os.IsNotExist(err) {
@@ -518,113 +549,134 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 	if config.Data.Path == "" {
 		return datasets, fmt.Errorf("no data path for example data has been specified. Use\n\trpp config --data \"path-to-data\" to set such a directory of DICOM data")
 	}
-
+	var input_path_list []string
 	if _, err := os.Stat(config.Data.Path); err != nil && os.IsNotExist(err) {
-		exitGracefully(errors.New("data path does not exist"))
+		// could be list of paths if we have a glob string
+		input_path_list, err := filepath.Glob(config.Data.Path)
+		if err != nil || len(input_path_list) < 1 {
+			exitGracefully(errors.New("data path does not exist or is empty"))
+		}
+	} else {
+		input_path_list = append(input_path_list, config.Data.Path)
 	}
 	fmt.Println("Found data directory, start parsing DICOM files...")
 	counter := 0
-	err := filepath.Walk(config.Data.Path, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		//fmt.Println("look at file: ", path)
-		dataset, err := dicom.ParseFile(path, nil) // See also: dicom.Parse which has a generic io.Reader API.
-		if err == nil {
-			StudyInstanceUIDVal, err := dataset.FindElementByTag(tag.StudyInstanceUID)
+	for p := range input_path_list {
+		err := filepath.Walk(input_path_list[p], func(path string, info os.FileInfo, err error) error {
+			if info.IsDir() {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			//fmt.Println("look at file: ", path)
+			dataset, err := dicom.ParseFile(path, nil) // See also: dicom.Parse which has a generic io.Reader API.
 			if err == nil {
-				var StudyInstanceUID string
-				var SeriesInstanceUID string
-				var SeriesDescription string
-				var SeriesNumber int
-				var SequenceName string
-				var StudyDescription string
-				var Modality string
-				var Manufacturer string
-				var ManufacturerModelName string
+				StudyInstanceUIDVal, err := dataset.FindElementByTag(tag.StudyInstanceUID)
+				if err == nil {
+					var StudyInstanceUID string
+					var SeriesInstanceUID string
+					var SeriesDescription string
+					var SeriesNumber int
+					var SequenceName string
+					var StudyDescription string
+					var Modality string
+					var Manufacturer string
+					var ManufacturerModelName string
 
-				showImages := true
-				if showImages {
-					showDataset(dataset, counter, path)
-				} else {
-					fmt.Printf("%05d files\r", counter)
-				}
-
-				counter = counter + 1
-				StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
-				SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
-				if err == nil {
-					SeriesInstanceUID = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
-				}
-				SeriesDescriptionVal, err := dataset.FindElementByTag(tag.SeriesDescription)
-				if err == nil {
-					SeriesDescription = dicom.MustGetStrings(SeriesDescriptionVal.Value)[0]
-				}
-				SeriesNumberVal, err := dataset.FindElementByTag(tag.SeriesNumber)
-				if err == nil {
-					SeriesNumber, err = strconv.Atoi(dicom.MustGetStrings(SeriesNumberVal.Value)[0])
-					if err != nil {
-						SeriesNumber = 0
+					showImages := true
+					if showImages {
+						showDataset(dataset, counter, path)
+					} else {
+						fmt.Printf("%05d files\r", counter)
 					}
-				}
-				SequenceNameVal, err := dataset.FindElementByTag(tag.SequenceName)
-				if err == nil {
-					SequenceName = dicom.MustGetStrings(SequenceNameVal.Value)[0]
-				}
-				StudyDescriptionVal, err := dataset.FindElementByTag(tag.StudyDescription)
-				if err == nil {
-					StudyDescription = dicom.MustGetStrings(StudyDescriptionVal.Value)[0]
-				}
-				ModalityVal, err := dataset.FindElementByTag(tag.Modality)
-				if err == nil {
-					Modality = dicom.MustGetStrings(ModalityVal.Value)[0]
-				}
-				ManufacturerVal, err := dataset.FindElementByTag(tag.Manufacturer)
-				if err == nil {
-					Manufacturer = dicom.MustGetStrings(ManufacturerVal.Value)[0]
-				}
-				ManufacturerModelNameVal, err := dataset.FindElementByTag(tag.ManufacturerModelName)
-				if err == nil {
-					ManufacturerModelName = dicom.MustGetStrings(ManufacturerModelNameVal.Value)[0]
-				}
-				abs_path, err := filepath.Abs(path)
-				if err != nil {
-					abs_path = path
-				}
-				var path_pieces string = filepath.Dir(abs_path)
 
-				if _, ok := datasets[StudyInstanceUID]; ok {
-					if val, ok := datasets[StudyInstanceUID][SeriesInstanceUID]; ok {
-						// largest common path
-						var lcp string = "-1"
-						var l1 = strings.Split(val.Path, string(os.PathSeparator))
-						var l2 = strings.Split(path_pieces, string(os.PathSeparator))
-						//fmt.Println(l1, l2)
-						for i, j := 0, 0; i < len(l1) && j < len(l2); i, j = i+1, j+1 {
-							if l1[i] == l2[j] {
-								if lcp == "-1" {
-									lcp = l1[i]
-								} else {
-									lcp = fmt.Sprintf("%s%s%s", lcp, string(os.PathSeparator), l1[i])
-								}
-							} else {
-								//fmt.Printf("Break at \"%s\", for \"%s\", \"%s\"\n", lcp, l1, l2)
-								break
-							}
+					counter = counter + 1
+					StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
+					SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
+					if err == nil {
+						SeriesInstanceUID = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
+					}
+					SeriesDescriptionVal, err := dataset.FindElementByTag(tag.SeriesDescription)
+					if err == nil {
+						SeriesDescription = dicom.MustGetStrings(SeriesDescriptionVal.Value)[0]
+					}
+					SeriesNumberVal, err := dataset.FindElementByTag(tag.SeriesNumber)
+					if err == nil {
+						SeriesNumber, err = strconv.Atoi(dicom.MustGetStrings(SeriesNumberVal.Value)[0])
+						if err != nil {
+							SeriesNumber = 0
 						}
+					}
+					SequenceNameVal, err := dataset.FindElementByTag(tag.SequenceName)
+					if err == nil {
+						SequenceName = dicom.MustGetStrings(SequenceNameVal.Value)[0]
+					}
+					StudyDescriptionVal, err := dataset.FindElementByTag(tag.StudyDescription)
+					if err == nil {
+						StudyDescription = dicom.MustGetStrings(StudyDescriptionVal.Value)[0]
+					}
+					ModalityVal, err := dataset.FindElementByTag(tag.Modality)
+					if err == nil {
+						Modality = dicom.MustGetStrings(ModalityVal.Value)[0]
+					}
+					ManufacturerVal, err := dataset.FindElementByTag(tag.Manufacturer)
+					if err == nil {
+						Manufacturer = dicom.MustGetStrings(ManufacturerVal.Value)[0]
+					}
+					ManufacturerModelNameVal, err := dataset.FindElementByTag(tag.ManufacturerModelName)
+					if err == nil {
+						ManufacturerModelName = dicom.MustGetStrings(ManufacturerModelNameVal.Value)[0]
+					}
+					abs_path, err := filepath.Abs(path)
+					if err != nil {
+						abs_path = path
+					}
+					var path_pieces string = filepath.Dir(abs_path)
 
-						datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: val.NumImages + 1,
-							SeriesDescription:     SeriesDescription,
-							SeriesNumber:          SeriesNumber,
-							SequenceName:          SequenceName,
-							Modality:              Modality,
-							Manufacturer:          Manufacturer,
-							ManufacturerModelName: ManufacturerModelName,
-							StudyDescription:      StudyDescription,
-							Path:                  lcp,
+					if _, ok := datasets[StudyInstanceUID]; ok {
+						if val, ok := datasets[StudyInstanceUID][SeriesInstanceUID]; ok {
+							// largest common path
+							var lcp string = "-1"
+							var l1 = strings.Split(val.Path, string(os.PathSeparator))
+							var l2 = strings.Split(path_pieces, string(os.PathSeparator))
+							//fmt.Println(l1, l2)
+							for i, j := 0, 0; i < len(l1) && j < len(l2); i, j = i+1, j+1 {
+								if l1[i] == l2[j] {
+									if lcp == "-1" {
+										lcp = l1[i]
+									} else {
+										lcp = fmt.Sprintf("%s%s%s", lcp, string(os.PathSeparator), l1[i])
+									}
+								} else {
+									//fmt.Printf("Break at \"%s\", for \"%s\", \"%s\"\n", lcp, l1, l2)
+									break
+								}
+							}
+
+							datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: val.NumImages + 1,
+								SeriesDescription:     SeriesDescription,
+								SeriesNumber:          SeriesNumber,
+								SequenceName:          SequenceName,
+								Modality:              Modality,
+								Manufacturer:          Manufacturer,
+								ManufacturerModelName: ManufacturerModelName,
+								StudyDescription:      StudyDescription,
+								Path:                  lcp,
+							}
+						} else {
+							// if there is no SeriesInstanceUID but there is a StudyInstanceUID we could have
+							// other series already in the list
+							datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1,
+								SeriesDescription:     SeriesDescription,
+								SeriesNumber:          SeriesNumber,
+								SequenceName:          SequenceName,
+								Modality:              Modality,
+								Manufacturer:          Manufacturer,
+								ManufacturerModelName: ManufacturerModelName,
+								StudyDescription:      StudyDescription,
+								Path:                  path_pieces,
+							}
 						}
 					} else {
 						datasets[StudyInstanceUID] = make(map[string]SeriesInfo)
@@ -640,26 +692,14 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 						}
 					}
 				} else {
-					datasets[StudyInstanceUID] = make(map[string]SeriesInfo)
-					datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1,
-						SeriesDescription:     SeriesDescription,
-						SeriesNumber:          SeriesNumber,
-						SequenceName:          SequenceName,
-						Modality:              Modality,
-						Manufacturer:          Manufacturer,
-						ManufacturerModelName: ManufacturerModelName,
-						StudyDescription:      StudyDescription,
-						Path:                  path_pieces,
-					}
+					return nil
 				}
-			} else {
-				return nil
 			}
+			return nil
+		})
+		if err != nil {
+			fmt.Println("Warning: could not walk this path")
 		}
-		return nil
-	})
-	if err != nil {
-		fmt.Println("Warning: could not walk this path")
 	}
 
 	return datasets, nil
@@ -675,7 +715,7 @@ func main() {
 	const (
 		defaultInputDir    = "Specify where you want to setup shop"
 		defaultTriggerTime = "A wait time in seconds or minutes before the computation is triggered"
-		errorConfigFile    = "the current directory is not an rpp directory. Change to the correct directory first or create a new folder by running\n\n\trpp init project01"
+		errorConfigFile    = "the current directory is not an rpp directory. Change to the correct directory first or create a new folder by running\n\n\trpp init project01\n"
 	)
 
 	initCommand := flag.NewFlagSet("init", flag.ContinueOnError)
@@ -686,6 +726,9 @@ func main() {
 
 	var input_dir string
 	initCommand.StringVar(&input_dir, "input_dir", ".", defaultInputDir)
+	var init_help bool
+	initCommand.BoolVar(&init_help, "help", false, "Show help for init.")
+
 	//initCommand.StringVar(&input_dir, "i", ".", defaultInputDir)
 	var author_name string
 	configCommand.StringVar(&author_name, "author_name", "", "Author name used to publish your workflow.")
@@ -697,6 +740,12 @@ func main() {
 	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files.")
 	var call_string string
 	configCommand.StringVar(&call_string, "call", "python ./stub.py", "The command line to call the workflow. A path-name with the data will be appended\n\tto this string.")
+	var project_name_string string
+	configCommand.StringVar(&project_name_string, "project_name", "", "The name of the project. This string will be used in the container name.")
+	var no_sort_dicom bool
+	configCommand.BoolVar(&no_sort_dicom, "no_sort_dicom", false, "Do not create an additional input/_/ folder that contains sorted DICOM files by\nstudy and series. If set (--no_sort_dicom=1) DICOM files are written into input/,\nno sub-folder is created. If not set (--no_sort_dicom=0) DICOM files are written\ninto input/ and an additional input/_/ folder will contain a directory structure\nby participant, study, and series with symbolic links to the input/ files.")
+	var config_help bool
+	configCommand.BoolVar(&config_help, "help", false, "Print help for config.")
 
 	var triggerWaitTime string
 	triggerCommand.StringVar(&triggerWaitTime, "delay", "0s", defaultTriggerTime)
@@ -706,13 +755,22 @@ func main() {
 	triggerCommand.BoolVar(&trigger_keep, "keep", false, "Keep the created directory around for testing.")
 	var trigger_each bool
 	triggerCommand.BoolVar(&trigger_each, "each", false, "Trigger for each found series, not just for a single random one.")
+	var trigger_container string
+	triggerCommand.StringVar(&trigger_container, "cont", "", "Trigger using a container instead of a local workflow.")
+	var trigger_help bool
+	triggerCommand.BoolVar(&trigger_help, "help", false, "Show help for trigger")
 
 	var status_detailed bool
 	statusCommand.BoolVar(&status_detailed, "detailed", false, "Parse the data folder and extract number of studies and series for the trigger.")
+	var status_help bool
+	statusCommand.BoolVar(&status_help, "help", false, "Show help for status.")
+
+	var build_help bool
+	buildCommand.BoolVar(&build_help, "help", false, "Show help for build.")
 
 	var config_series_filter string
 	configCommand.StringVar(&config_series_filter, "series_filter", ".*",
-		"Filter applied to series before trigger. This regular expression should\nmatch anything in the string build by StudyInstanceUID: %%s, \nSeriesInstanceUID: %%s, SeriesDescription: %%s, NumImages: %%d, SeriesNumber: %%d\n")
+		"Filter applied to series before trigger. This regular expression should\nmatch anything in the string build by StudyInstanceUID: %s, \nSeriesInstanceUID: %s, SeriesDescription: %s, ... As an example you might search\nfor a any series with a SeriesDescription starting with \"T1\" and ending in \"_2mm\"\nwith --series_filter \"SeriesDescription: T1.*_2mm\". The default value matches any\nseries")
 
 	var config_temp_directory string
 	configCommand.StringVar(&config_temp_directory, "temp_directory", "", "Specify a directory for the temporary folders used in the trigger")
@@ -756,7 +814,15 @@ func main() {
 
 	switch os.Args[1] {
 	case "init":
+		if len(os.Args[2:]) == 0 {
+			initCommand.PrintDefaults()
+			return
+		}
 		if err := initCommand.Parse(os.Args[2:]); err == nil {
+			if init_help {
+				initCommand.PrintDefaults()
+				return
+			}
 			// we expect a path first
 			values := initCommand.Args()
 			if len(values) != 1 {
@@ -826,6 +892,7 @@ func main() {
 						Email: author_email,
 					},
 					CallString:  "python ./stub.py",
+					SortDICOM:   true,
 					ProjectName: path.Base(input_dir),
 				}
 				file, _ := json.MarshalIndent(data, "", " ")
@@ -915,7 +982,16 @@ func main() {
 				"a long time. Test with a few hundred DICOM files first.")
 		}
 	case "config":
+		if len(os.Args[2:]) == 0 {
+			configCommand.PrintDefaults()
+			return
+		}
 		if err := configCommand.Parse(os.Args[2:]); err == nil {
+			if config_help {
+				configCommand.PrintDefaults()
+				return
+			}
+
 			//fmt.Println("Config")
 			// are we init already?
 			dir_path := input_dir + "/.rpp/config"
@@ -927,7 +1003,11 @@ func main() {
 			var studies map[string]map[string]SeriesInfo
 			if data_path != "" {
 				if _, err := os.Stat(data_path); os.IsNotExist(err) {
-					exitGracefully(errors.New("this data path does not exist"))
+					// the data path could also be a glob string (has to be enclosed on double quotes)
+					files, err := filepath.Glob(data_path)
+					if err != nil || len(files) < 1 {
+						exitGracefully(errors.New("this data path does not exist or contains no data"))
+					}
 				}
 				config.Data.Path = data_path
 				studies, err = dataSets(config)
@@ -957,6 +1037,16 @@ func main() {
 			if call_string != "" {
 				config.CallString = call_string
 			}
+			if no_sort_dicom {
+				config.SortDICOM = false
+			} else {
+				config.SortDICOM = true
+			}
+			if project_name_string != "" {
+				project_name_string = strings.Replace(project_name_string, " ", "_", -1)
+				project_name_string = strings.ToLower(project_name_string)
+				config.ProjectName = project_name_string
+			}
 			if config_temp_directory != "" {
 				if _, err := os.Stat(config_temp_directory); os.IsNotExist(err) {
 					exitGracefully(errors.New("this temp_directory path does not exist"))
@@ -970,6 +1060,11 @@ func main() {
 		}
 	case "status":
 		if err := statusCommand.Parse(os.Args[2:]); err == nil {
+			if status_help {
+				statusCommand.PrintDefaults()
+				return
+			}
+
 			// we might have a folder name after all the arguments to look into
 			values := statusCommand.Args()
 			if len(values) == 1 {
@@ -1005,6 +1100,11 @@ func main() {
 		}
 	case "trigger":
 		if err := triggerCommand.Parse(os.Args[2:]); err == nil {
+			if trigger_help {
+				triggerCommand.PrintDefaults()
+				return
+			}
+
 			dir_path := input_dir + "/.rpp/config"
 			// we have a couple of example datasets that we can select
 			config, err := readConfig(dir_path)
@@ -1074,7 +1174,7 @@ func main() {
 					closestPath = config.Data.Path
 				}
 
-				numFiles, description := copyFiles(selectFromB[idx], closestPath, dir)
+				numFiles, description := copyFiles(selectFromB[idx], closestPath, dir, config.SortDICOM)
 				fmt.Println("Found", numFiles, "files.")
 				// write out a description
 				file, _ := json.MarshalIndent(description, "", " ")
@@ -1097,7 +1197,15 @@ func main() {
 					arr = append(arr, string(dir))
 					fmt.Println(arr)
 					// cmd := exec.Command("python", "stub.py", dir)
-					cmd := exec.Command(arr[0], arr[1:]...)
+					var cmd *exec.Cmd
+					if trigger_container != "" {
+						cmd_string := []string{"docker", "run", "--rm", "-v",
+							fmt.Sprintf("\"%s\":/data", dir), trigger_container, "/bin/bash", "-c",
+							fmt.Sprintf("cd /app; %s /data/", strings.Join(arr, " "))}
+						cmd = exec.Command(cmd_string[0], cmd_string[1:]...)
+					} else {
+						cmd = exec.Command(arr[0], arr[1:]...)
+					}
 					var outb, errb bytes.Buffer
 					cmd.Stdout = &outb
 					cmd.Stderr = &errb
@@ -1160,6 +1268,10 @@ func main() {
 		}
 	case "build":
 		if err := buildCommand.Parse(os.Args[2:]); err == nil {
+			if build_help {
+				buildCommand.PrintDefaults()
+				return
+			}
 			// we should just gather the requirements for now
 			dir_path := input_dir + "/.rpp/config"
 			// we have a couple of example datasets that we can select
@@ -1173,15 +1285,17 @@ func main() {
 			projectName = strings.ToLower(projectName)
 			fmt.Println("\nWe will assume a python/pip based workflow and fall back to using conda.")
 			fmt.Println("There is no automated build yet, please follow these instructions.")
-			fmt.Println("\nRun pip freeze to update the list of python packages (requires pip):")
+			fmt.Println("\nThere are only two steps that need to be done, create a list of")
+			fmt.Println("requirements and build a container. Run pip freeze to update the")
+			fmt.Println("list of python packages (requires pip):")
 			fmt.Println("\n\tpip list --format=freeze >", path.Join(input_dir, ".rpp", "virt", "requirements.txt"))
 			fmt.Println("\nCreate a container of your workflow:")
 			fmt.Println("\n\tdocker build --no-cache -t", fmt.Sprintf("workflow_%s", projectName), "-f", path.Join(input_dir, ".rpp", "virt", "Dockerfile"), ".")
-			fmt.Println("\nNote: This build might fail if pip is not able to resolve all the requirements inside the container.")
+			fmt.Println("\nNote: This build might fail if pip is not able to resolve all the requirements")
 			//fmt.Println("In this case it might help to update all packages first with something like:")
 			//fmt.Println("\n\tpip list --outdated --format=freeze | grep -v '^\\-e' | cut -d = -f 1 | xargs -n1 pip install -U ")
-			fmt.Println("\nIf the above steps fail it is best to use a virtual environment. The list")
-			fmt.Println("of dependencies inside a new virtual environment easier to handle as only")
+			fmt.Println("inside the container. If that is the case it is best to use a virtual environment.")
+			fmt.Println("The list of dependencies inside a new virtual environment easier to handle as only")
 			fmt.Println("the essential packages for your workflow will be part of the container.")
 			fmt.Println("\nCreate a new conda environment with")
 			fmt.Printf("\n\tconda create --name workflow_%s python=3.8\n", projectName)
