@@ -1,16 +1,16 @@
 # A tool to create a research PACS integration
-    
-Integration of algorithms into the research information system allows projects to react to events like new data arriving. A pipeline can be triggered based on these events and code of the project can be run on the new data. Results are either tabulated data added to REDCap or new image data which can be added to the research PACS.
 
-Using the tools in this section you should be able to start developing and testing a processing pipeline in a simulated research PACS. As a final step build and upload the pipelines to the research PACS to enable it for your projects.
+Integration of algorithms into the research information system allows projects to react to events like new data arriving. A pipeline can be triggered based on these events and your code is run on the incoming data. Results are either tabulated data (added to REDCap) or new image data (added to the research PACS).
+
+Using the rpp tool explained in this section you should be able to start developing and testing a workflow in a simulated research PACS. As a final step build and upload the pipelines to the research PACS to enable it for your research projects.
 
 ## Setup and first steps
 
-Processing workflows are developed locally on your computer in a simulated research information system. The rpp tool is used to emulate the system so that we can trigger processing workflows, access local test data and generate tested workflows that can be moved around.
+Processing workflows are developed locally on your computer in a simulated research information system. The rpp tool is used to emulate that system. It can trigger processing workflows, access local test data and generate tested workflows that can be moved from one machine to another.
 
-In order to development workflow projects use the *rpp* tool. It helps you to
+The *rpp* tool helps you to
 
-- create a first project directory, 
+- create a first project directory,
 - find suitable DICOM files on your disc,
 - trigger a processing task, and
 - build and test a containerized workflow package.
@@ -75,12 +75,14 @@ To capture the setup run:
 ```
 rpp build
 ```
-which will inform you of the basic steps to a) capture your dependend libraries and b) create a container based on those requirements. For testing you can run afterwards the same workflow locally on your machine but from the container.
+which will inform you of the basic steps to a) capture your dependend libraries and b) create a container based on those requirements. This step might not be trivial because it depends on a perfect copy of your local environment inside the container. Usually its best to start with a virtualized environment as explained by the `rpp build` output.
+
+For testing the containerized workflow on all your data you can trigger using the `--cont <workflow>` option specifying your container name:
 ```
-rpp trigger -keep --cont workflow_project01
+rpp trigger -keep --each --cont workflow_project01
 ```
 
-
+After this last step we have a containerized workflow that accepts and processes data provided by the research information system. The specification of the container needs to be submitted to a workflow slot for your project. The specification will be used inside the research information system to recreate your workflow.
 
 ### Specify a subset of the image series for processing
 
