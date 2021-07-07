@@ -6,13 +6,18 @@ Using the tools in this section you should be able to start developing and testi
 
 ## Setup and first steps
 
-The processing pipelines are submitted as containers. This is done to ensure that pipelines running on the same underlying hardware don't interfere with each other. They can depends on different versions of python for example if each one is inside a containerized environment. Tools like conda (anaconda/minconda) can be used inside the container.
+Processing workflows are developed locally on your computer in a simulated research information system. The rpp tool is used to emulate the system so that we can trigger processing workflows, access local test data and generate tested workflows that can be moved around.
 
-In order to start a new development project you can use the *rpp* tool. It helps you create a first project directory, link to image data and trigger a processing task just like it will be done on the research information system. Use this workflow to find and fix any issues locally before submitting your processing pipeline.
+In order to development workflow projects use the *rpp* tool. It helps you to
+
+- create a first project directory, 
+- find suitable DICOM files on your disc,
+- trigger a processing task, and
+- build and test a containerized workflow package.
 
 ### Install on MacOS
 
-Download the executable. Copy the file to a folder like /usr/local/bin/.
+Download the rpp executable. Copy the file to a folder like /usr/local/bin/.
 ```
 wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/macos-amd64/rpp > /usr/local/bin/rpp
 chmod +x /usr/local/bin/rpp
@@ -20,14 +25,14 @@ chmod +x /usr/local/bin/rpp
 
 ### Install on Windows
 
-Download the executable. Copy the program to your program files folder. The line below will only work in the cmd terminal and with administrator rights. If you don't have those rights copy the executable into one of your own directories and add that to the PATH environment variable in system settings.
+Download the rpp.exe. Copy the program to your program files folder. The line below will only work in the cmd terminal and with administrator rights. If you don't have those rights copy the executable into one of your own directories and add that to the PATH environment variable in system settings.
 ```
 wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/windows-amd64/rpp.exe > %ProgramFiles%/rpp.exe
 ```
 
 ### Install on Linux
 
-Download the executable. Copy the file to a folder like /usr/local/bin/.
+Download the executable. Copy the file to a folder like /usr/local/bin/ that is in your path.
 ```
 wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/linux-amd64/rpp > /usr/local/bin/rpp
 chmod +x /usr/local/bin/rpp
