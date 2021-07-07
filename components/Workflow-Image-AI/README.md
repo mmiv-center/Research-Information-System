@@ -64,7 +64,18 @@ DICOM tags: `<PatientID_PatientName>/<StudyDate>_<StudyTime>/<SeriesNumber>_<Ser
 
 ### Integration into the research PACS
 
-The current framework is sufficient to test the processing pipeline in a somewhat realistic way. The next step is to publish the algorithm. That will ensure that the pipeline is called for every incoming dataset.
+The next step is to capture the setup of your machine so that we can re-create it inside the research information system. The last step is to publish the workflow to the research information system, which will ensure that the pipeline is run automatically for every incoming dataset.
+
+To capture the setup run:
+```
+rpp build
+```
+which will inform you of the basic steps to a) capture your dependend libraries and b) create a container based on those requirements. For testing you can run afterwards the same workflow locally on your machine but from the container.
+```
+rpp trigger -keep --cont workflow_project01
+```
+
+
 
 ### Specify a subset of the image series for processing
 
@@ -76,4 +87,8 @@ This search text, a regular expression, is matched against a long string that co
 ```{json}
 "StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, NumImages: %d, SeriesNumber: %d"
 ```
-All image series that match will be a potential test image series for the trigger command and from those one image series is selected at random.
+All image series that match will be a potential test image series for the trigger command and from those one image series is selected at random. If you want to test the workflow with all matching series you can trigger with the additional '--each' option to process all matching image series. The corresponding call would look like this:
+```
+rpp trigger --keep --each
+```
+
