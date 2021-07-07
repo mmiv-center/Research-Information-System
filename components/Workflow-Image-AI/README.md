@@ -15,7 +15,7 @@ The *rpp* tool helps you to
 - trigger a processing task, and
 - build and test a containerized workflow package.
 
-The minimal workflow requires the following 8 commands to compute the signal-to-noise ratio of all DICOM series in our test data folder:
+A minimal workflow requires 8 commands to deploy a workflow to compute the signal-to-noise ratio of all DICOM series in our test data folder:
 ```
 > rpp init snr
 > cd snr
@@ -26,6 +26,9 @@ The minimal workflow requires the following 8 commands to compute the signal-to-
 > docker build --no-cache -t workflow_snr -f .rpp/virt/Dockerfile .
 > rpp trigger --keep --each --cont workflow_snr
 ```
+
+![Minimal workflow from start to deployment](images/workflowA-Z.gif)
+
 
 ### Install on MacOS
 
@@ -98,7 +101,7 @@ After this last step we have a containerized workflow that accepts and processes
 
 ### Specify a subset of the image series for processing
 
-If your processing pipeline depends on specific image series you can filter out all other series. To configure what image series are processed define a trigger filter like the following (all series with the DICOM tag SeriesNumber equals to "2")
+If your processing pipeline depends on specific image series you can filter out all other series. To configure what image series are processed define a search filter like the following (all series with the DICOM tag SeriesNumber equals to "2")
 ```
 rpp config --series_filter "SeriesNumber: 2"
 ```
