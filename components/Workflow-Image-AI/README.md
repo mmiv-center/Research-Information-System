@@ -10,12 +10,13 @@ Processing workflows are developed locally on your computer in a simulated resea
 
 The *rpp* tool helps you to
 
-- create a first project directory,
-- find suitable DICOM files on your disc,
-- trigger a processing task, and
-- build and test a containerized workflow package.
+- create a first project directory (todo: project types ai+viz),
+- find suitable DICOM files on your disc (working, might crash on some non-DICOM files),
+- trigger a processing task (working), and
+- build and test a containerized workflow package (in progress),
+- create a package and submit to research informatino system (todo: automate).
 
-A minimal workflow requires 8 commands to deploy a workflow to compute the signal-to-noise ratio of all DICOM series in our test data folder:
+A minimal workflow requires 8 commands to compute the signal-to-noise ratio of all DICOM series in our test data folder:
 ```
 > rpp init snr
 > cd snr
@@ -32,7 +33,7 @@ A minimal workflow requires 8 commands to deploy a workflow to compute the signa
 
 ### Install on MacOS
 
-Download the rpp executable. Copy the file to a folder like /usr/local/bin/.
+Download the rpp executable. Copy the file to a folder like /usr/local/bin/ that is in your path. This will make it easier afterwards to work with the tool as you can use `rpp` instead of the full path.
 ```
 wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/macos-amd64/rpp > /usr/local/bin/rpp
 chmod +x /usr/local/bin/rpp
@@ -97,7 +98,7 @@ For testing the containerized workflow on all your data you can trigger using th
 rpp trigger -keep --each --cont workflow_project01
 ```
 
-After this last step we have a containerized workflow that accepts and processes data provided by the research information system. The specification of the container needs to be submitted to a workflow slot for your project. The specification will be used inside the research information system to recreate your workflow.
+After this last step we have a containerized workflow that accepts and processes data provided by the research information system. The specification of the container needs to be submitted to a workflow slot for your project. The specification will be used inside the research information system to recreate your workflow.t
 
 ### Specify a subset of the image series for processing
 
@@ -114,3 +115,6 @@ All image series that match will be a potential test image series for the trigge
 rpp trigger --keep --each
 ```
 
+## Acknowlegements
+
+This project depends on other software. It is written in golang - thanks to the developers and maintainers of that language. The project uses docker as a container environment, the github.com/suyashkumar/dicom library to handle raw data and lots of inspiration from git on how to create a support tool for complex workflows.
