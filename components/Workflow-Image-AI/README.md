@@ -117,6 +117,8 @@ All image series that match will be a potential test image series for the trigge
 rpp trigger --keep --each
 ```
 
+The *ClassifyTypes* entry is calculated from the DICOM meta-data using (baked-in) rules. Those rules will likely not fit your DICOM data as they depend on the sequence programming on scanner for example. They are pretty self-explanatory so if you like to see them, have a look at the classifyRules.json document.
+
 ## Acknowlegements
 
 This project depends on other software. It is written in golang - thanks to the developers and maintainers of that language. The project uses docker as a container environment, conda/pip to help with creating encapsulated workflows, the github.com/suyashkumar/dicom library to handle raw data and lots of inspiration from git on how to create a support tool for complex workflows.
