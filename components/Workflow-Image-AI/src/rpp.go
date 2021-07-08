@@ -104,6 +104,7 @@ type SeriesInfo struct {
 	Manufacturer          string
 	ManufacturerModelName string
 	Path                  string
+	Classify              []string
 }
 
 // readConfig parses a provided config file as JSON.
@@ -686,6 +687,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 								ManufacturerModelName: ManufacturerModelName,
 								StudyDescription:      StudyDescription,
 								Path:                  lcp,
+								Classify:              ClassifyDICOM(dataset),
 							}
 						} else {
 							// if there is no SeriesInstanceUID but there is a StudyInstanceUID we could have
