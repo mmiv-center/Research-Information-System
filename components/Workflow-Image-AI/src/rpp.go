@@ -148,6 +148,7 @@ type Description struct {
 	SeriesTime        string
 	SeriesNumber      string
 	ProcessDataPath   string
+	ClassifyTypes     []string
 }
 
 // img.At(x, y).RGBA() returns four uint32 values; we want a Pixel
@@ -379,7 +380,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string) {
 
 // copyFiles will copy all DICOM files that fit the string to the dest_path directory.
 // we could display those images as well on the command line - just to impress
-func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string, sort_dicom bool) (int, Description) {
+func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string, sort_dicom bool, classifyTypes []string) (int, Description) {
 
 	destination_path := dest_path + "/input"
 
@@ -392,6 +393,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 	var description Description
 	description.SeriesInstanceUID = SelectedSeriesInstanceUID
 	description.ProcessDataPath = dest_path
+	description.ClassifyTypes = classifyTypes
 	counter := 0
 	fmt.Printf("\033[2J\n") // clear the screen
 
@@ -426,7 +428,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 						return nil // ignore that file
 					}
 
-					// we can get a version of the image, scale it and print out on command line
+					// we can get a version of the image, scale it and print out on the command line
 					showImage := true
 					if showImage {
 						showDataset(dataset, counter+1, path)
@@ -598,8 +600,8 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 			if err == nil {
 				StudyInstanceUIDVal, err := dataset.FindElementByTag(tag.StudyInstanceUID)
 				if err == nil {
-					var StudyInstanceUID string
-					var SeriesInstanceUID string
+					var StudyInstanceUID string = ""
+					var SeriesInstanceUID string = ""
 					var SeriesDescription string
 					var SeriesNumber int
 					var SequenceName string
@@ -617,9 +619,18 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 
 					counter = counter + 1
 					StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
+					if StudyInstanceUID == "" {
+						// no study instance uid found, skip this series because we cannot reference it later
+						return nil
+					}
+
 					SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
 					if err == nil {
 						SeriesInstanceUID = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
+					}
+					if SeriesInstanceUID == "" {
+						// no series instance uid skip this file
+						return nil
 					}
 					SeriesDescriptionVal, err := dataset.FindElementByTag(tag.SeriesDescription)
 					if err == nil {
@@ -687,7 +698,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 								ManufacturerModelName: ManufacturerModelName,
 								StudyDescription:      StudyDescription,
 								Path:                  lcp,
-								Classify:              ClassifyDICOM(dataset),
+								Classify:              val.Classify, // only parse the first image?
 							}
 						} else {
 							// if there is no SeriesInstanceUID but there is a StudyInstanceUID we could have
@@ -701,6 +712,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 								ManufacturerModelName: ManufacturerModelName,
 								StudyDescription:      StudyDescription,
 								Path:                  path_pieces,
+								Classify:              ClassifyDICOM(dataset),
 							}
 						}
 					} else {
@@ -714,6 +726,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							ManufacturerModelName: ManufacturerModelName,
 							StudyDescription:      StudyDescription,
 							Path:                  path_pieces,
+							Classify:              ClassifyDICOM(dataset),
 						}
 					}
 				} else {
@@ -1141,9 +1154,10 @@ func main() {
 			var selectFromB []string = nil
 			for StudyInstanceUID, value := range config.Data.DataInfo {
 				for SeriesInstanceUID, value2 := range value {
-					selectFromA[SeriesInstanceUID] = fmt.Sprintf("StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, NumImages: %d, SeriesNumber: %d, SequenceName: %s, Modality: %s, Manufacturer: %s, ManufacturerModelName: %s, StudyDescription: %s",
+					selectFromA[SeriesInstanceUID] = fmt.Sprintf("StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, NumImages: %d, SeriesNumber: %d, SequenceName: %s, Modality: %s, Manufacturer: %s, ManufacturerModelName: %s, StudyDescription: %s, ClassifyType: %s",
 						StudyInstanceUID, SeriesInstanceUID, value2.SeriesDescription, value2.NumImages, value2.SeriesNumber, value2.SequenceName, value2.Modality,
 						value2.Manufacturer, value2.ManufacturerModelName, value2.StudyDescription,
+						strings.Join(value2.Classify, " "),
 					)
 				}
 			}
@@ -1188,10 +1202,12 @@ func main() {
 				// the study we want is this one selectFromB[idx]
 				// look for the path stored in that study
 				var closestPath string = ""
+				var classifyTypes []string
 				for _, value := range config.Data.DataInfo {
 					for SeriesInstanceUID, value2 := range value {
 						if SeriesInstanceUID == selectFromB[idx] {
 							closestPath = value2.Path
+							classifyTypes = value2.Classify
 						}
 					}
 				}
@@ -1200,7 +1216,7 @@ func main() {
 					closestPath = config.Data.Path
 				}
 
-				numFiles, description := copyFiles(selectFromB[idx], closestPath, dir, config.SortDICOM)
+				numFiles, description := copyFiles(selectFromB[idx], closestPath, dir, config.SortDICOM, classifyTypes)
 				fmt.Println("Found", numFiles, "files.")
 				// write out a description
 				file, _ := json.MarshalIndent(description, "", " ")

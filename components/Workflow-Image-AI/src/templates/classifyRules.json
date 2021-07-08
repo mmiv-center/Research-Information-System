@@ -1,0 +1,2307 @@
+[
+  {
+    "type": "GE",
+    "id": "GEBYMANUFACTURER",
+    "description": "This scan is from GE",
+    "rules": [
+      {
+        "tag": [
+          "0x08",
+          "0x70"
+        ],
+        "value": "^GE MEDICAL"
+      }
+    ]
+  },
+  {
+    "type": "SIEMENS",
+    "id": "SIEMENSBYMANUFACTURER",
+    "description": "This scan is from SIEMENS",
+    "rules": [
+      {
+        "tag": [
+          "0x08",
+          "0x70"
+        ],
+        "value": "^SIEMENS"
+      }
+    ]
+  },
+  {
+    "type": "PHILIPS",
+    "id": "PHILIPSBYMANUFACTURER",
+    "description": "This scan is from Philips",
+    "rules": [
+      {
+        "tag": [
+          "0x08",
+          "0x70"
+        ],
+        "value": "^Philips"
+      }
+    ]
+  },
+  {
+    "type": "mosaic",
+    "description": "Siemens Mosaic format",
+    "id": "MOSAIC",
+    "rules": [
+      {
+        "tag": [
+          "0x08",
+          "0x08"
+        ],
+        "value": "MOSAIC",
+        "operator": "contains"
+      },
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      }
+    ]
+  },
+  {
+    "type": "original",
+    "description": "original Image format (not derived)",
+    "id": "ORIGINAL",
+    "rules": [
+      {
+        "tag": [
+          "0x08",
+          "0x08"
+        ],
+        "value": "ORIGINAL",
+        "operator": "contains"
+      }
+    ]
+  },
+  {
+    "type": "localizer",
+    "description": "A localizer scan, has been classified before as axial, sagittal and coronal",
+    "rules": [
+      {
+        "tag": [
+          "ClassifyType"
+        ],
+        "value": "axial",
+        "operator": "contains"
+      },
+      {
+        "tag": [
+          "ClassifyType"
+        ],
+        "value": "coronal",
+        "operator": "contains"
+      },
+      {
+        "tag": [
+          "ClassifyType"
+        ],
+        "value": "sagittal",
+        "operator": "contains"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-T1",
+    "description": "A T1 weighted image from GE with ABCD resolution",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "0, 256, 256, 0"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^.*mprage_promo"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x22"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "FILTERED_GEMS"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-T1-NORM",
+    "description": "A T1 weighted image from GE with ABCD resolution",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "0, 256, 256, 0"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^.*mprage_promo"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x22"
+        ],
+        "operator": "contains",
+        "value": "FILTERED_GEMS"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-T1",
+    "description": "A T1 weighted image from Philips with ABCD resolution",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "0, 256, 256, 0"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x20"
+        ],
+        "value": "GR"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x21"
+        ],
+        "value": "MP"
+      },
+      {
+        "tag": [
+          "0x08",
+          "0x08"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "PROJECTION IMAGE"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-T1-NORM",
+    "description": "A T1 weighted image from Siemens with ABCD resolution",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x28",
+          "0x10"
+        ],
+        "operator": "==",
+        "value": "256"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "255"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "0, 256, 256, 0"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "tfl3d1_16ns"
+      },
+      {
+        "tag": [
+          "0x08",
+          "0x08"
+        ],
+        "operator": "contains",
+        "value": "NORM"
+      },
+      {
+        "tag": [
+          "0x08",
+          "0x08"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "DIS"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-T1",
+    "description": "A T1 weighted image from Siemens with ABCD resolution",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x28",
+          "0x10"
+        ],
+        "operator": "==",
+        "value": "256"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "255"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "0, 256, 256, 0"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "tfl3d1_16ns"
+      },
+      {
+        "tag": [
+          "0x08",
+          "0x08"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "NORM"
+      },
+      {
+        "tag": [
+          "0x08",
+          "0x08"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "DIS"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-T2",
+    "description": "A T2 weighted image from Siemens with ABCD resolution",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x28",
+          "0x10"
+        ],
+        "operator": "==",
+        "value": "256"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "227"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "0, 256, 256, 0"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "spc_200ns"
+      },
+      {
+        "tag": [
+          "0x08",
+          "0x08"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "NORM"
+      },
+      {
+        "tag": [
+          "0x08",
+          "0x08"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "DIS"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-T2-NORM",
+    "description": "A T2 weighted image from Siemens with ABCD resolution",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x28",
+          "0x10"
+        ],
+        "operator": "==",
+        "value": "256"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "227"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "0, 256, 256, 0"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "spc_200ns"
+      },
+      {
+        "tag": [
+          "0x08",
+          "0x08"
+        ],
+        "operator": "contains",
+        "value": "NORM"
+      },
+      {
+        "tag": [
+          "0x08",
+          "0x08"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "DIS"
+      }
+    ]
+  },
+  {
+    "type": "Coil Error",
+    "description": "Required Coil Elements Inactive",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x51",
+          "0x100f"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "BC"
+      },
+      {
+        "tag": [
+          "0x51",
+          "0x100f"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "HEA;HEP"
+      },
+      {
+        "tag": [
+          "0x51",
+          "0x100f"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "HC1-7"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Diffusion-FM-PA",
+    "description": "Field Maps for ABCD Diffusion scan",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x28",
+          "0x10"
+        ],
+        "operator": "==",
+        "value": "140"
+      },
+      {
+        "tag": [
+          "NumSlices"
+        ],
+        "value": "81"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 140"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "105"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "ep_b0"
+      },
+      {
+        "tag": [
+          "PhaseEncodingDirectionPositive"
+        ],
+        "operator": "==",
+        "value": "0"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Diffusion-FM-AP",
+    "description": "Field Maps for ABCD Diffusion scan",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x28",
+          "0x10"
+        ],
+        "operator": "==",
+        "value": "140"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "105"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 140"
+      },
+      {
+        "tag": [
+          "NumSlices"
+        ],
+        "value": "81"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "ep_b0"
+      },
+      {
+        "tag": [
+          "PhaseEncodingDirectionPositive"
+        ],
+        "operator": "==",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-DTI",
+    "description": "ABCD Diffusion scan",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "rule": "MOSAIC"
+      },
+      {
+        "tag": [
+          "0x28",
+          "0x10"
+        ],
+        "operator": "==",
+        "value": "1260"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 140"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "105"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "ep_b"
+      },
+      {
+        "tag": [
+          "NumSlices"
+        ],
+        "value": "81"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "_QA_dMRI"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-rsfMRI",
+    "description": "ABCD Resting State fMRI scan",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x28",
+          "0x10"
+        ],
+        "operator": "==",
+        "value": "720"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "90"
+      },
+      {
+        "tag": [
+          "NumSlices"
+        ],
+        "value": "60"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "SequenceName"
+        ],
+        "value": "epf..2d1_90"
+      },
+      {
+        "tag": [
+          "AcquisitionLength"
+        ],
+        "value": "TA 05:11"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Physio",
+    "description": "Siemens PMU physio files",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x08",
+          "0x16"
+        ],
+        "value": "1.3.12.2.1107.5.9.1"
+      },
+      {
+        "tag": [
+          "NumSlices"
+        ],
+        "operator": "==",
+        "negate": "yes",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-MRS",
+    "description": "Siemens MRS DICOM files",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x08",
+          "0x16"
+        ],
+        "value": "1.3.12.2.1107.5.9.1"
+      },
+      {
+        "tag": [
+          "NumSlices"
+        ],
+        "operator": "==",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-SWI",
+    "description": "ABCD Susceptibility Weighted Images",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "fl3d8r$"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-MID-fMRI",
+    "description": "ABCD MID fMRI scan",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x28",
+          "0x10"
+        ],
+        "operator": "==",
+        "value": "720"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "90"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "NumSlices"
+        ],
+        "value": "60"
+      },
+      {
+        "tag": [
+          "SequenceName"
+        ],
+        "value": "epf..2d1_90"
+      },
+      {
+        "tag": [
+          "AcquisitionLength"
+        ],
+        "value": "TA 05:33"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-SST-fMRI",
+    "description": "ABCD SST fMRI scan",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x28",
+          "0x10"
+        ],
+        "operator": "==",
+        "value": "720"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "90"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "NumSlices"
+        ],
+        "value": "60"
+      },
+      {
+        "tag": [
+          "SequenceName"
+        ],
+        "value": "epf..2d1_90"
+      },
+      {
+        "tag": [
+          "AcquisitionLength"
+        ],
+        "value": "TA 06:00"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-nBack-fMRI",
+    "description": "ABCD nBack fMRI scan",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x28",
+          "0x10"
+        ],
+        "operator": "==",
+        "value": "720"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "90"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "NumSlices"
+        ],
+        "value": "60"
+      },
+      {
+        "tag": [
+          "SequenceName"
+        ],
+        "value": "epf..2d1_90"
+      },
+      {
+        "tag": [
+          "AcquisitionLength"
+        ],
+        "value": "TA 05:00"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-fMRI-FM-PA",
+    "description": "Field Maps for ABCD fMRI scans",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x28",
+          "0x10"
+        ],
+        "operator": "==",
+        "value": "90"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "90"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "NumSlices"
+        ],
+        "value": "60"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "epse2d1_90"
+      },
+      {
+        "tag": [
+          "PhaseEncodingDirectionPositive"
+        ],
+        "operator": "==",
+        "value": "0"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-MB-fMRI-QA",
+    "description": "Multiband ABCD Phantom QA",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "epf..2d1_90"
+      },
+      {
+        "tag": [
+          "NumSlices"
+        ],
+        "value": "60"
+      },
+      {
+        "tag": [
+          "AcquisitionLength"
+        ],
+        "value": "TA 06:44"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-fBIRN-QA",
+    "description": "Non-multiband ABCD Phantom QA",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "64, 0, 0, 64"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "epfid2d1_64"
+      },
+      {
+        "tag": [
+          "AcquisitionLength"
+        ],
+        "value": "TA 06:44"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Coil-QA",
+    "description": "Siemens phantom coil scan",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "fl2d1"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "233"
+      },
+      {
+        "tag": [
+          "0x51",
+          "0x100f"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "HEA;HEP"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "value": "_uncombined$"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Diffusion-QA",
+    "description": "ABCD Diffusion Phantom QA",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "rule": "MOSAIC"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 140"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "ep_b"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "value": "...._QA_dMRI"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-fMRI-FM-PA",
+    "description": "Field Maps for ABCD fMRI scans",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "92, 0, 0, 89"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "SEEPI"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "value": "P$"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-rsfMRI",
+    "description": "Field Maps for ABCD fMRI scans",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "92, 0, 0, 89"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "FEEPI"
+      },
+      {
+        "tag": [
+          "NumberOfTemporalPositions"
+        ],
+        "value": "383"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-DTI",
+    "description": "ABCD DTI scan",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 141"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "DwiSE"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "value": "^DTI"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "value": "[0-4]$"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Diffusion-FM-PA",
+    "description": "PA Field Map for ABCD DTI scan",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 141"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "SEEPI"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "value": "P$"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Diffusion-FM-AP",
+    "description": "AP Field Map for ABCD DTI scan",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 141"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "SEEPI"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "value": "A$"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Diffusion-FM-PA",
+    "description": "PA Field Map for ABCD DTI scan",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 141"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "DwiSE"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "value": "P$"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Diffusion-FM-AP",
+    "description": "AP Field Map for ABCD DTI scan",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 141"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "DwiSE"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "value": "A$"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-SST-fMRI",
+    "description": "ABCD SST fMRI scan",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "92, 0, 0, 89"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "FEEPI"
+      },
+      {
+        "tag": [
+          "NumberOfTemporalPositions"
+        ],
+        "value": "445"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-nBack-fMRI",
+    "description": "ABCD nBack fMRI scan",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "92, 0, 0, 89"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "FEEPI"
+      },
+      {
+        "tag": [
+          "NumberOfTemporalPositions"
+        ],
+        "value": "370"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-MID-fMRI",
+    "description": "ABCD MID fMRI scan",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "92, 0, 0, 89"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "FEEPI"
+      },
+      {
+        "tag": [
+          "NumberOfTemporalPositions"
+        ],
+        "value": "411"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-T2",
+    "description": "A T2 weighted image from Philips with ABCD resolution",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "0, 256, 256, 0"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x20"
+        ],
+        "value": "SE"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x21"
+        ],
+        "value": "SK"
+      },
+      {
+        "tag": [
+          "0x08",
+          "0x08"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "PROJECTION IMAGE"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-fMRI-FM-AP",
+    "description": "Field Maps for ABCD fMRI scans",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "92, 0, 0, 89"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "SEEPI"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "value": "A$"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-fMRI-FM-AP",
+    "description": "Field Maps for ABCD fMRI scans",
+    "rules": [
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "0x28",
+          "0x10"
+        ],
+        "operator": "==",
+        "value": "90"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x89"
+        ],
+        "operator": "==",
+        "value": "90"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "NumSlices"
+        ],
+        "value": "60"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x24"
+        ],
+        "value": "epse2d1_90"
+      },
+      {
+        "tag": [
+          "PhaseEncodingDirectionPositive"
+        ],
+        "operator": "==",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-fBIRN-QA",
+    "description": "ABCD Philips fBIRN QA (non-Multiband)",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "64, 0, 0, 63"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "FEEPI"
+      },
+      {
+        "tag": [
+          "NumberOfTemporalPositions"
+        ],
+        "value": "200"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-MB-fMRI-QA",
+    "description": "ABCD Philips fBIRN QA (Multiband)",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "92, 0, 0, 89"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "FEEPI"
+      },
+      {
+        "tag": [
+          "NumberOfTemporalPositions"
+        ],
+        "value": "395"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Diffusion-QA",
+    "description": "ABCD Philips fBIRN QA (non-Multiband)",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 141"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "DwiSE"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "value": "^ABCD"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Coil-QA",
+    "description": "ABCD Philips Coil QA",
+    "rules": [
+      {
+        "rule": "PHILIPSBYMANUFACTURER"
+      },
+      {
+        "rule": "ORIGINAL"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "128, 0, 0, 128"
+      },
+      {
+        "tag": [
+          "SequenceType"
+        ],
+        "value": "T1FFE"
+      },
+      {
+        "tag": [
+          "SliceThickness"
+        ],
+        "value": "2"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-DTI",
+    "id": "GEDTI",
+    "description": "GE based MMIL DTI format",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/muxepi2"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 140"
+      },
+      {
+        "tag": [
+          "ImagesInAcquisition"
+        ],
+        "value": "2916"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-DTI",
+    "id": "GEDTI",
+    "description": "GE based MMIL DTI format for DV26",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/muxepi2"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 140"
+      },
+      {
+        "tag": [
+          "ImagesInAcquisition"
+        ],
+        "value": "8424"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-DTI",
+    "id": "GEDTI",
+    "description": "GE based MMIL DTI format for DV29/RX28",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/muxepi2"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 140"
+      },
+      {
+        "tag": [
+          "ImagesInAcquisition"
+        ],
+        "value": "16929"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "operator": "contains",
+        "value": "ORIG"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Diffusion-FM",
+    "description": "GE based DTI field map",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/muxepi2"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 140"
+      },
+      {
+        "tag": [
+          "ImagesInAcquisition"
+        ],
+        "value": "189"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Diffusion-FM",
+    "description": "GE based DTI field map",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/muxepi2"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 140"
+      },
+      {
+        "tag": [
+          "ImagesInAcquisition"
+        ],
+        "value": "16929"
+      },
+      {
+        "tag": [
+          "SeriesDescription"
+        ],
+        "operator": "contains",
+        "value": "REV_POL"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Diffusion-FM",
+    "description": "GE based DTI field map for DV26",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/muxepi2"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 140"
+      },
+      {
+        "tag": [
+          "ImagesInAcquisition"
+        ],
+        "value": "648"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-fMRI-FM",
+    "description": "Field Maps for ABCD fMRI scan",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/epi_pepolar"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x10b3"
+        ],
+        "value": "2.000000"
+      },
+      {
+        "tag": [
+          "0x21",
+          "0x104f"
+        ],
+        "value": "60"
+      },
+      {
+        "tag": [
+          "0x20",
+          "0x105"
+        ],
+        "operator": ">",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Diffusion-QA",
+    "description": "QA for diffusion on GE scanners",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/muxepi2"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 140"
+      },
+      {
+        "tag": [
+          "ImagesInAcquisition"
+        ],
+        "value": "297"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Diffusion-QA",
+    "description": "QA for diffusion on GE scanners for DV26",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/muxepi2"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "140, 0, 0, 140"
+      },
+      {
+        "tag": [
+          "ImagesInAcquisition"
+        ],
+        "value": "810"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-fBIRN-QA",
+    "description": "GE fBIRN QA (non-Multiband)",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "epi_pepolar$"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "64, 0, 0, 64"
+      },
+      {
+        "tag": [
+          "0x20",
+          "0x1002"
+        ],
+        "value": "6000"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x80"
+        ],
+        "value": "2000"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Coil-QA",
+    "description": "GE phantom coil scan",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/efgre3d"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "0, 32, 32, 0"
+      },
+      {
+        "tag": [
+          "0x20",
+          "0x1002"
+        ],
+        "value": "4224"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-Coil-QA",
+    "description": "GE phantom coil scan",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/efgre3d"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "0, 32, 32, 0"
+      },
+      {
+        "tag": [
+          "0x20",
+          "0x1002"
+        ],
+        "value": "924"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-rsfMRI",
+    "description": "GE ABCD rsfMRI",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/muxepi$"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x105a"
+        ],
+        "value": "312800384.0"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-MID-fMRI",
+    "description": "GE ABCD fMRI MID task",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/ABCD/muxepi$"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x105a"
+        ],
+        "value": "335200416.0"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-SST-fMRI",
+    "description": "GE ABCD fMRI SST task",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/ABCD/muxepi$"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x105a"
+        ],
+        "value": "362400448.0"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-nBack-fMRI",
+    "description": "GE ABCD fMRI nBack task",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/ABCD/muxepi$"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x105a"
+        ],
+        "value": "302400384.0"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-MB-fMRI-QA",
+    "description": "GE ABCD fMRI MultiBand QA",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/muxepi$"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "0x20",
+          "0x1002"
+        ],
+        "value": "3750"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-MB-fMRI-QA",
+    "description": "GE ABCD fMRI MultiBand QA for DV26",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^research/.*/muxepi$"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "90, 0, 0, 90"
+      },
+      {
+        "tag": [
+          "0x20",
+          "0x1002"
+        ],
+        "value": "22500"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-T2-NORM",
+    "description": "A Normalized T2 weighted image from GE with ABCD resolution",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "0, 256, 256, 0"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^.*3dfse_promo"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x22"
+        ],
+        "operator": "contains",
+        "value": "FILTERED_GEMS"
+      }
+    ]
+  },
+  {
+    "type": "ABCD-T2",
+    "description": "A T2 weighted image from GE with ABCD resolution",
+    "rules": [
+      {
+        "rule": "GEBYMANUFACTURER"
+      },
+      {
+        "tag": [
+          "AcquisitionMatrix"
+        ],
+        "value": "0, 256, 256, 0"
+      },
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^.*3dfse_promo"
+      },
+      {
+        "tag": [
+          "0x18",
+          "0x22"
+        ],
+        "operator": "contains",
+        "negate": "yes",
+        "value": "FILTERED_GEMS"
+      }
+    ]
+  },
+  {
+    "type": "GERSI",
+    "id": "GERSI",
+    "description": "GE based MMIL RSI format",
+    "rules": [
+      {
+        "tag": [
+          "0x19",
+          "0x109c"
+        ],
+        "value": "^epi2_pepolarFLEX"
+      },
+      {
+        "rule": "GEBYMANUFACTURER"
+      }
+    ]
+  },
+  {
+    "type": "diffusion",
+    "id": "DIFFUSION",
+    "description": "SIEMENS diffusion weighted",
+    "rules": [
+      {
+        "tag": [
+          "SequenceName"
+        ],
+        "value": "*ep_b",
+        "operator": "contains"
+      },
+      {
+        "rule": "SIEMENSBYMANUFACTURER"
+      }
+    ]
+  }
+]
