@@ -28,7 +28,7 @@ A minimal workflow requires 8 commands to compute the signal-to-noise ratio of a
 > rpp trigger --keep --each --cont workflow_snr
 ```
 
-Below is a window capture from one start to finish run of the tool. This workflow is established to compute the signal-to-noise ratio of each DICOM series in the data/ directory.
+Below is a window capture from one start to finish run of the tool. This workflow is established to compute the signal-to-noise ratio of each DICOM series in the data/ directory. The movie is not quite fair as it assumes that we are already running in a clean virtual environment provided by conda.
 
 ![Minimal workflow from start to deployment](images/workflowA-Z.gif)
 
@@ -119,4 +119,4 @@ rpp trigger --keep --each
 
 ## Acknowlegements
 
-This project depends on other software. It is written in golang - thanks to the developers and maintainers of that language. The project uses docker as a container environment, the github.com/suyashkumar/dicom library to handle raw data and lots of inspiration from git on how to create a support tool for complex workflows.
+This project depends on other software. It is written in golang - thanks to the developers and maintainers of that language. The project uses docker as a container environment, conda/pip to help with creating encapsulated workflows, the github.com/suyashkumar/dicom library to handle raw data and lots of inspiration from git on how to create a support tool for complex workflows.
