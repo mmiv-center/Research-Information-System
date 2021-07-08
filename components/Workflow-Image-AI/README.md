@@ -28,6 +28,8 @@ A minimal workflow requires 8 commands to compute the signal-to-noise ratio of a
 > rpp trigger --keep --each --cont workflow_snr
 ```
 
+Below is a window capture from one start to finish run of the tool. This workflow is established to compute the signal-to-noise ratio of each DICOM series in the data/ directory.
+
 ![Minimal workflow from start to deployment](images/workflowA-Z.gif)
 
 
@@ -69,7 +71,7 @@ rpp config --data ./data --temp_directory `pwd`
 ```
 Notice: In order to speed up testing you should not have too many DICOM files in the data directory. You can also specify a subset of the folders in the data directory if you use double quotes (prevents the shell from interpreting your path) and the special characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006\* to 009\* with `--data \"./data/00[6-9]\*\".
 
-Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .rpp directory.
+Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .rpp directory. More work has to be done to make this sub-command useful.
 ```
 rpp status
 ```
