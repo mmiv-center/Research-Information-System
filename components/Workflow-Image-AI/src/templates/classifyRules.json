@@ -2288,7 +2288,7 @@
     ]
   },
   {
-    "type": "diffusion",
+    "type": "DIFFUSION",
     "id": "DIFFUSION",
     "description": "SIEMENS diffusion weighted",
     "rules": [

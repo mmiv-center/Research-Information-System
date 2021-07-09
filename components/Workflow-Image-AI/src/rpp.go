@@ -753,7 +753,7 @@ func main() {
 	const (
 		defaultInputDir    = "Specify where you want to setup shop"
 		defaultTriggerTime = "A wait time in seconds or minutes before the computation is triggered"
-		errorConfigFile    = "the current directory is not an rpp directory. Change to the correct directory first or create a new folder by running\n\n\trpp init project01\n"
+		errorConfigFile    = "the current directory is not an rpp directory. Change to the correct directory first or create a new folder by running\n\n\trpp init project01\n "
 	)
 
 	initCommand := flag.NewFlagSet("init", flag.ContinueOnError)
@@ -971,6 +971,18 @@ func main() {
 				if err := os.Mkdir(virt_path, 0755); os.IsExist(err) {
 					exitGracefully(errors.New("directory exist already"))
 				}
+				// classification rules so we can overwrite what rpp does on its own
+				classify_dicom_path2 := input_dir + "/.rpp/classifyDICOM.json"
+				if _, err := os.Stat(classify_dicom_path2); !os.IsNotExist(err) {
+					fmt.Println("This directory already contains a classifyDICOM.json, don't overwrite. Skip writing...")
+				} else {
+					f, err := os.Create(classify_dicom_path2)
+					check(err)
+					_, err = f.WriteString(classifyRules)
+					check(err)
+					f.Sync()
+				}
+
 				requirements_path2 := virt_path + "/requirements.txt"
 				if _, err := os.Stat(requirements_path2); !os.IsNotExist(err) {
 					fmt.Println("This directory already contains a requirements.txt, don't overwrite. Skip writing...")
@@ -1148,6 +1160,20 @@ func main() {
 			config, err := readConfig(dir_path)
 			if err != nil {
 				exitGracefully(errors.New(errorConfigFile))
+			}
+
+			// make sure we have updated classifyRules.json loaded here ... just if the user
+			// puts his/her own rules into .rpp/classifyRules.json
+			classifyDICOM_path := input_dir + "/.rpp/classifyDICOM.json"
+			if _, err := os.Stat(classifyDICOM_path); !os.IsNotExist(err) {
+				// read the classifyDICOM
+				classifyDICOMFile, err := os.Open(classifyDICOM_path)
+				if err != nil {
+					classifyRules_new_set, err := ioutil.ReadAll(classifyDICOMFile)
+					if err != nil {
+						classifyRules = string(classifyRules_new_set)
+					}
+				}
 			}
 
 			selectFromA := make(map[string]string)

@@ -105,7 +105,7 @@ func evalRules(dataset dicom.Dataset, ruleList []Rule, classifications Classes, 
 				} else if dataElement.Value.ValueType() == dicom.Ints {
 					tagValue = strings.Trim(strings.Join(strings.Split(fmt.Sprint(dataElement.Value.GetValue().([]int)), " "), ", "), "[]")
 				} else {
-					tagValue = fmt.Sprintf("tag value is not string but: %s", dataElement.Value.ValueType())
+					tagValue = fmt.Sprintf("tag value is not string but: %d", dataElement.Value.ValueType())
 				}
 				//tagValue = dataElement.Value
 				//fmt.Println("tag value is:", tagValue, "does it match with", r.Value, "?")
