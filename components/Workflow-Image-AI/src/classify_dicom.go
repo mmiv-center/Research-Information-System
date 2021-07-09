@@ -141,7 +141,7 @@ func evalRules(dataset dicom.Dataset, ruleList []Rule, classifications Classes, 
 
 func applyOperator(r Rule, tagValue string) bool {
 	operator := r.Operator
-	var thisCheck bool = true
+	var thisCheck bool = true // the rule applies (we will find all the ways the rule does not apply)
 	if operator == "contains" {
 		// create a regexp
 		if !strings.Contains(tagValue, r.Value) {
@@ -161,7 +161,20 @@ func applyOperator(r Rule, tagValue string) bool {
 		} //else {
 		//	fmt.Println("YES MATCHES, test next")
 		//}
-
+	} else if operator == "<" {
+		var1, err1 := strconv.ParseFloat(tagValue, 32)
+		var2, err2 := strconv.ParseFloat(r.Value, 32)
+		if err1 != nil && err2 != nil && var1 >= var2 {
+			//fmt.Println("== sign operator false for", tagValue, r.Value)
+			thisCheck = false
+		}
+	} else if operator == ">" {
+		var1, err1 := strconv.ParseFloat(tagValue, 32)
+		var2, err2 := strconv.ParseFloat(r.Value, 32)
+		if err1 != nil && err2 != nil && var1 <= var2 {
+			//fmt.Println("== sign operator false for", tagValue, r.Value)
+			thisCheck = false
+		}
 	} else {
 		fmt.Println("ERROR UNKNOWN OPERATOR: ", r.Operator)
 	}

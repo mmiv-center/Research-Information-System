@@ -48,6 +48,9 @@ var readme string
 //go:embed templates/stub.py
 var stub_py string
 
+//go:embed templates/stub.ipynb
+var stub_ipynb string
+
 //go:embed templates/stub.sh
 var stub_sh string
 
@@ -688,7 +691,16 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 									break
 								}
 							}
-
+							tmp_with_double := append(val.Classify, ClassifyDICOM(dataset)...)
+							// compute a unique list of entries in val.Classify
+							var unique_map map[string]string = make(map[string]string)
+							for _, v := range tmp_with_double {
+								unique_map[v] = ""
+							}
+							val.Classify = []string{}
+							for k := range unique_map {
+								val.Classify = append(val.Classify, k)
+							}
 							datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: val.NumImages + 1,
 								SeriesDescription:     SeriesDescription,
 								SeriesNumber:          SeriesNumber,
@@ -698,7 +710,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 								ManufacturerModelName: ManufacturerModelName,
 								StudyDescription:      StudyDescription,
 								Path:                  lcp,
-								Classify:              val.Classify, // only parse the first image?
+								Classify:              val.Classify, // only parse the first image? No, we need to parse all because we have to collect all possible classes for Localizer (aixal + coronal + sagittal)
 							}
 						} else {
 							// if there is no SeriesInstanceUID but there is a StudyInstanceUID we could have
@@ -953,6 +965,16 @@ func main() {
 					f, err := os.Create(stub_path)
 					check(err)
 					_, err = f.WriteString(stub_py)
+					check(err)
+					f.Sync()
+				}
+				stubipynb_path := input_dir + "/stub.ipynb"
+				if _, err := os.Stat(stubipynb_path); !os.IsNotExist(err) {
+					fmt.Println("This directory already contains a stub.ipynb, don't overwrite. Skip writing...")
+				} else {
+					f, err := os.Create(stubipynb_path)
+					check(err)
+					_, err = f.WriteString(stub_ipynb)
 					check(err)
 					f.Sync()
 				}
