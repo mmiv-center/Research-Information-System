@@ -60,6 +60,9 @@ var requirements string
 //go:embed templates/Dockerfile
 var dockerfile string
 
+//go:embed templates/Dockerfile_bash
+var dockerfile_bash string
+
 //go:embed templates/.dockerignore
 var dockerignore string
 
@@ -521,10 +524,10 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 					// We can do a better destination path here. The friendly way of doing this is
 					// to provide separate folders aka the BIDS way.
 					// We can create a shadow structure that uses symlinks and sorts everything into
-					// sub-folders. Lets name a directory "_" and place the info in that directory.
+					// sub-folders. Lets create a data view and place the info in that directory.
 					symOrder := sort_dicom
 					if symOrder {
-						symOrderPath := filepath.Join(destination_path, "_")
+						symOrderPath := filepath.Join(dest_path, "input_view_dicom_series")
 						if _, err := os.Stat(symOrderPath); os.IsNotExist(err) {
 							err := os.Mkdir(symOrderPath, 0755)
 							if err != nil {
@@ -797,7 +800,7 @@ func main() {
 	var project_name_string string
 	configCommand.StringVar(&project_name_string, "project_name", "", "The name of the project. This string will be used in the container name.")
 	var no_sort_dicom bool
-	configCommand.BoolVar(&no_sort_dicom, "no_sort_dicom", false, "Do not create an additional input/_/ folder that contains sorted DICOM files by\nstudy and series. If set (--no_sort_dicom=1) DICOM files are written into input/,\nno sub-folder is created. If not set (--no_sort_dicom=0) DICOM files are written\ninto input/ and an additional input/_/ folder will contain a directory structure\nby participant, study, and series with symbolic links to the input/ files.")
+	configCommand.BoolVar(&no_sort_dicom, "no_sort_dicom", false, "Do not create an additional input_view_dicom_series/ folder that contains sorted DICOM files by\nstudy and series. If set (--no_sort_dicom=1) DICOM files are written into input/,\nno sub-folder is created. If not set (--no_sort_dicom=0) DICOM files are written\ninto input/ and an additional input_view_dicom_series/ folder will contain a directory structure\nby participant, study, and series with symbolic links to the input/ files.")
 	var config_help bool
 	configCommand.BoolVar(&config_help, "help", false, "Print help for config.")
 
@@ -961,12 +964,11 @@ func main() {
 					SortDICOM:   true,
 					ProjectName: path.Base(input_dir),
 				}
-				file, _ := json.MarshalIndent(data, "", " ")
-				_ = ioutil.WriteFile(dir_path+"/config", file, 0644)
-
 				if data.ProjectType == "bash" {
 					data.CallString = "./stub.sh"
 				}
+				file, _ := json.MarshalIndent(data, "", " ")
+				_ = ioutil.WriteFile(dir_path+"/config", file, 0644)
 
 				readme_path := input_dir + "/README.md"
 				if _, err := os.Stat(readme_path); !os.IsNotExist(err) {
@@ -1058,11 +1060,15 @@ func main() {
 				} else {
 					f, err := os.Create(dockerfile_path2)
 					check(err)
-					_, err = f.WriteString(dockerfile)
+					if data.ProjectType == "bash" {
+						_, err = f.WriteString(dockerfile_bash)
+					} else if data.ProjectType == "python" || data.ProjectType == "notebook" {
+						_, err = f.WriteString(dockerfile)
+					}
 					check(err)
 					f.Sync()
 				}
-				dockercompose_path2 := virt_path + "/docker-compose.yml"
+				/*dockercompose_path2 := virt_path + "/docker-compose.yml"
 				if _, err := os.Stat(dockercompose_path2); !os.IsNotExist(err) {
 					fmt.Println("This directory already contains a docker-compose.yml, don't overwrite. Skip writing...")
 				} else {
@@ -1071,7 +1077,7 @@ func main() {
 					_, err = f.WriteString(dockercompose)
 					check(err)
 					f.Sync()
-				}
+				}*/
 
 			}
 			fmt.Printf("\nInit new project folder \"%s\" done.\n", input_dir)

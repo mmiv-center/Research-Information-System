@@ -82,7 +82,7 @@ rpp trigger --keep
 ```
 This call will create a new folder in the temp system folder (change with 'rpp config --temp_directory <new location>'). Inside that folder rpp creates a copy of the selected image series (input/ folder). Using '--keep' option the folder will stay around after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated should be placed in the 'output/' folder.
 
-Whereas all selected DICOM files appear in the input folder there is another folder "input/_/" which contains a directory structure with a symbolic link to each DICOM file. The structure is created from the
+Whereas all selected DICOM files appear in the input folder there is another folder "input_new_dicom_series/" which contains a directory structure with a symbolic link to each DICOM file. The structure is created from the
 DICOM tags: `<PatientID_PatientName>/<StudyDate>_<StudyTime>/<SeriesNumber>_<SeriesDescription>/`. If you workflow has problems accepting such a folder switch off this feature with `rpp config --no_sort_dicom=1`. Future calls to trigger should not generate that sub-folder anymore.
 
 ### Integration into the research PACS

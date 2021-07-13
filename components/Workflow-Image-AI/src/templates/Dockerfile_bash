@@ -1,0 +1,12 @@
+FROM ubuntu:20.04
+
+RUN apt update
+RUN apt install -y dcmtk jq && apt clean
+
+RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app
+USER appuser
+
+WORKDIR /app
+COPY . /app
+
+CMD ["bash", "./stub.sh"]
