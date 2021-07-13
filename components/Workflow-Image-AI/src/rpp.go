@@ -95,6 +95,7 @@ type Config struct {
 	CallString    string
 	ProjectName   string
 	SortDICOM     bool
+	ProjectType   string
 }
 
 type SeriesInfo struct {
@@ -786,6 +787,9 @@ func main() {
 	var author_email string
 	configCommand.StringVar(&author_email, "author_email", "", "Author email used to publish your workflow.")
 	initCommand.StringVar(&author_email, "author_email", "", "Author email used to publish your workflow.")
+	var init_type string
+	initCommand.StringVar(&init_type, "type", "", "Type of project. The supported types are \"python\", \"notebook\", \"bash\", \"webapp\". Based on\nthis choice you will get a different initial directory structure.")
+
 	var data_path string
 	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files. If you want to specify a subset of folders\nuse double quotes for the path and the glob syntax. For example all folders that\nstart with numbers 008 and 009 would be read with --data \"path/to/data/0[8-9]*\"")
 	var call_string string
@@ -929,7 +933,18 @@ func main() {
 							fmt.Println("Does not look like an email - but you know best.")
 						}
 					}
-
+					if init_type == "" {
+						fmt.Printf("Project type (python, notebook, bash, webapp): ")
+						init_type, err = reader.ReadString('\n')
+						if err != nil {
+							init_type = "notebook"
+						}
+						init_type = strings.TrimSuffix(init_type, "\n")
+						if init_type != "python" && init_type != "notebook" && init_type != "bash" && init_type != "webapp" {
+							init_type = "notebook"
+							fmt.Println("We will give you a python notebook project to get started.")
+						}
+					}
 				}
 
 				if err := os.Mkdir(dir_path, 0755); os.IsExist(err) {
@@ -942,11 +957,16 @@ func main() {
 						Email: author_email,
 					},
 					CallString:  "python ./stub.py",
+					ProjectType: init_type,
 					SortDICOM:   true,
 					ProjectName: path.Base(input_dir),
 				}
 				file, _ := json.MarshalIndent(data, "", " ")
 				_ = ioutil.WriteFile(dir_path+"/config", file, 0644)
+
+				if data.ProjectType == "bash" {
+					data.CallString = "./stub.sh"
+				}
 
 				readme_path := input_dir + "/README.md"
 				if _, err := os.Stat(readme_path); !os.IsNotExist(err) {
@@ -958,35 +978,41 @@ func main() {
 					check(err)
 					f.Sync()
 				}
-				stub_path := input_dir + "/stub.py"
-				if _, err := os.Stat(stub_path); !os.IsNotExist(err) {
-					fmt.Println("This directory already contains a stub.py, don't overwrite. Skip writing...")
-				} else {
-					f, err := os.Create(stub_path)
-					check(err)
-					_, err = f.WriteString(stub_py)
-					check(err)
-					f.Sync()
+				if data.ProjectType == "python" { // plain python
+					stub_path := input_dir + "/stub.py"
+					if _, err := os.Stat(stub_path); !os.IsNotExist(err) {
+						fmt.Println("This directory already contains a stub.py, don't overwrite. Skip writing...")
+					} else {
+						f, err := os.Create(stub_path)
+						check(err)
+						_, err = f.WriteString(stub_py)
+						check(err)
+						f.Sync()
+					}
 				}
-				stubipynb_path := input_dir + "/stub.ipynb"
-				if _, err := os.Stat(stubipynb_path); !os.IsNotExist(err) {
-					fmt.Println("This directory already contains a stub.ipynb, don't overwrite. Skip writing...")
-				} else {
-					f, err := os.Create(stubipynb_path)
-					check(err)
-					_, err = f.WriteString(stub_ipynb)
-					check(err)
-					f.Sync()
+				if data.ProjectType == "notebook" {
+					stubipynb_path := input_dir + "/stub.ipynb"
+					if _, err := os.Stat(stubipynb_path); !os.IsNotExist(err) {
+						fmt.Println("This directory already contains a stub.ipynb, don't overwrite. Skip writing...")
+					} else {
+						f, err := os.Create(stubipynb_path)
+						check(err)
+						_, err = f.WriteString(stub_ipynb)
+						check(err)
+						f.Sync()
+					}
 				}
-				stub_path2 := input_dir + "/stub.sh"
-				if _, err := os.Stat(stub_path2); !os.IsNotExist(err) {
-					fmt.Println("This directory already contains a stub.sh, don't overwrite. Skip writing...")
-				} else {
-					f, err := os.Create(stub_path2)
-					check(err)
-					_, err = f.WriteString(stub_sh)
-					check(err)
-					f.Sync()
+				if data.ProjectType == "bash" {
+					stub_path2 := input_dir + "/stub.sh"
+					if _, err := os.Stat(stub_path2); !os.IsNotExist(err) {
+						fmt.Println("This directory already contains a stub.sh, don't overwrite. Skip writing...")
+					} else {
+						f, err := os.Create(stub_path2)
+						check(err)
+						_, err = f.WriteString(stub_sh)
+						check(err)
+						f.Sync()
+					}
 				}
 				// virtualization environment
 				virt_path := input_dir + "/.rpp/virt"
@@ -1004,16 +1030,17 @@ func main() {
 					check(err)
 					f.Sync()
 				}
-
-				requirements_path2 := virt_path + "/requirements.txt"
-				if _, err := os.Stat(requirements_path2); !os.IsNotExist(err) {
-					fmt.Println("This directory already contains a requirements.txt, don't overwrite. Skip writing...")
-				} else {
-					f, err := os.Create(requirements_path2)
-					check(err)
-					_, err = f.WriteString(requirements)
-					check(err)
-					f.Sync()
+				if data.ProjectType == "python" || data.ProjectType == "notebook" {
+					requirements_path2 := virt_path + "/requirements.txt"
+					if _, err := os.Stat(requirements_path2); !os.IsNotExist(err) {
+						fmt.Println("This directory already contains a requirements.txt, don't overwrite. Skip writing...")
+					} else {
+						f, err := os.Create(requirements_path2)
+						check(err)
+						_, err = f.WriteString(requirements)
+						check(err)
+						f.Sync()
+					}
 				}
 				dockerignore_path2 := virt_path + "/.dockerignore"
 				if _, err := os.Stat(dockerignore_path2); !os.IsNotExist(err) {
