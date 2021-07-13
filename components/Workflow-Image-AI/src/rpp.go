@@ -557,7 +557,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 						}
 						// now create symbolic link here to our outputPath + counter .dcm == outputPathFileName
 						symlink := filepath.Join(symOrderPatientDateSeriesNumber, fmt.Sprintf("%06d.dcm", counter))
-						relativeDataPath := fmt.Sprintf("../../../../%06d.dcm", counter)
+						relativeDataPath := fmt.Sprintf("../../../../input/%06d.dcm", counter)
 						os.Symlink(relativeDataPath, symlink)
 					}
 
@@ -796,7 +796,7 @@ func main() {
 	var data_path string
 	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files. If you want to specify a subset of folders\nuse double quotes for the path and the glob syntax. For example all folders that\nstart with numbers 008 and 009 would be read with --data \"path/to/data/0[8-9]*\"")
 	var call_string string
-	configCommand.StringVar(&call_string, "call", "python ./stub.py", "The command line to call the workflow. A path-name with the data will be appended\n\tto this string.")
+	configCommand.StringVar(&call_string, "call", "", "The command line to call the workflow. A path-name with the data will be appended\n\tto this string.")
 	var project_name_string string
 	configCommand.StringVar(&project_name_string, "project_name", "", "The name of the project. This string will be used in the container name.")
 	var no_sort_dicom bool
@@ -964,7 +964,7 @@ func main() {
 					SortDICOM:   true,
 					ProjectName: path.Base(input_dir),
 				}
-				if data.ProjectType == "bash" {
+				if init_type == "bash" {
 					data.CallString = "./stub.sh"
 				}
 				file, _ := json.MarshalIndent(data, "", " ")
@@ -1014,6 +1014,11 @@ func main() {
 						_, err = f.WriteString(stub_sh)
 						check(err)
 						f.Sync()
+						// make the file executable
+						err = os.Chmod(stub_path2, 0755)
+						if err != nil {
+							fmt.Println("Warning: could not make the stub.sh executable, try your luck on your own.")
+						}
 					}
 				}
 				// virtualization environment
