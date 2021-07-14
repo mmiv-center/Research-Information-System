@@ -69,9 +69,9 @@ Now you have a folder for your project's source code. In order to develop our pi
 ```
 rpp config --data ./data --temp_directory `pwd`
 ```
-Notice: In order to speed up testing you should not have too many DICOM files in the data directory. You can also specify a subset of the folders in the data directory if you use double quotes (prevents the shell from interpreting your path) and the special characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006\* to 009\* with `--data \"./data/00[6-9]\*\".
+Notice: In order to speed up testing you should not have too many DICOM files in the data directory. You can also specify a subset of the folders in the data directory if you use double quotes (prevents the shell from interpreting your path) and the special characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006\* to 009\* with `--data \"./data/00[6-9]\*\"` (double quotes are important here to prevent the shell from replacing the value prematurely).
 
-Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .rpp directory. More work has to be done to make this sub-command useful.
+Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .rpp directory (need to do more work to make this sub-command more useful).
 ```
 rpp status
 ```
@@ -80,7 +80,7 @@ To simulate what the system does for testing purposes we can trigger the process
 ```
 rpp trigger --keep 
 ```
-This call will create a new folder in the temp system folder (change with 'rpp config --temp_directory <new location>'). Inside that folder rpp creates a copy of the selected image series (input/ folder). Using '--keep' option the folder will stay around after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated should be placed in the 'output/' folder.
+This call will create a new folder in the temp system folder (change with `rpp config --temp_directory <new location>`). Inside that folder rpp creates a copy of the selected image series (input/ folder). Using '--keep' option the folder will stay around after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated should be placed in the 'output/' folder.
 
 Whereas all selected DICOM files appear in the input folder there is another folder "input_new_dicom_series/" which contains a directory structure with a symbolic link to each DICOM file. The structure is created from the
 DICOM tags: `<PatientID_PatientName>/<StudyDate>_<StudyTime>/<SeriesNumber>_<SeriesDescription>/`. If you workflow has problems accepting such a folder switch off this feature with `rpp config --no_sort_dicom=1`. Future calls to trigger should not generate that sub-folder anymore.
