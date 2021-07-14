@@ -68,10 +68,10 @@ The above call will create a new directory project01. The directory contains a s
 
 The available starter project types are currently:
 
-- python: provides a vanilla python v3.8 stub.py that depends on pydicom, numpy and matplotlib.
-- notebook: similar to the "python" type but additionally a jupyter notebook file is provided that during development overwrites the stub.py.
-- bash: a shell script that depends on dcmtk, dcm2niix and jq
-- webapp: a visualization environment providing a single page web-application
+- python: provides a vanilla python v3.8 stub.py that depends on pydicom, numpy and matplotlib. The example will load a DICOM series, convert it into a numpy array and use matplotlib to show a multi-planar reconstruction.
+- notebook: similar to the "python" type but additionally a jupyter notebook is provided for development that overwrites the stub.py.
+- bash: a shell script that depends on dcmtk, dcm2niix and jq. The example application converts all image series into Nifti and extract the matrix size from one of the DICOM files.
+- webapp: a visualization environment providing a single page web-application (todo)
 
 Now you have a folder for your project's source code. In order to develop our pipeline we will use another data folder with test DICOM images. Also, set the temporay directory to our current directory. This will ensure we can see the way the pipeline is executed.
 ```
