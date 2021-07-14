@@ -66,8 +66,29 @@ var dockerfile_bash string
 //go:embed templates/.dockerignore
 var dockerignore string
 
-//go:embed templates/docker-compose.yml
-var dockercompose string
+//go:embed templates/webapp/index.html
+var webapp_index string
+
+//go:embed templates/webapp/js/all.js
+var webapp_js_all string
+
+//go:embed templates/webapp/js/bootstrap.min.js
+var webapp_js_boostrap string
+
+//go:embed templates/webapp/js/colorbrewer.js
+var webapp_js_colorbrewer string
+
+//go:embed templates/webapp/js/jquery-3.2.1.min.js
+var webapp_js_jquery string
+
+//go:embed templates/webapp/js/popper.min.js
+var webapp_js_popper string
+
+//go:embed templates/webapp/css/style.css
+var webapp_css_style string
+
+//go:embed templates/webapp/css/bootstrap.min.css
+var webapp_css_bootstrap string
 
 func exitGracefully(err error) {
 	fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -759,6 +780,22 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 	return datasets, nil
 }
 
+func createStub(p string, str string) {
+	if _, err := os.Stat(p); !os.IsNotExist(err) {
+		fmt.Println("This directory already contains an " + filepath.Base(p) + ", don't overwrite. Skip writing...")
+	} else {
+		err := os.MkdirAll(filepath.Dir(p), 0777)
+		if err != nil {
+			fmt.Println("Error creating the required directories for ", filepath.Dir(p))
+		}
+		f, err := os.Create(p)
+		check(err)
+		_, err = f.WriteString(str)
+		check(err)
+		f.Sync()
+	}
+}
+
 func main() {
 
 	rand.Seed(time.Now().UnixNano())
@@ -1003,6 +1040,31 @@ func main() {
 						check(err)
 						f.Sync()
 					}
+				}
+				if data.ProjectType == "webapp" {
+					webapp_index_path := filepath.Join(input_dir, "index.html")
+					createStub(webapp_index_path, webapp_index)
+
+					webapp_all_path := filepath.Join(input_dir, "js", "all.js")
+					createStub(webapp_all_path, webapp_js_all)
+
+					webapp_js_bootstrap_path := filepath.Join(input_dir, "js", "bootstrap.min.js")
+					createStub(webapp_js_bootstrap_path, webapp_js_boostrap)
+
+					webapp_js_colorbrewer_path := filepath.Join(input_dir, "js", "colorbrewer.js")
+					createStub(webapp_js_colorbrewer_path, webapp_js_colorbrewer)
+
+					webapp_js_jquery_path := filepath.Join(input_dir, "js", "jquery-3.2.1.min.js")
+					createStub(webapp_js_jquery_path, webapp_js_jquery)
+
+					webapp_js_popper_path := filepath.Join(input_dir, "js", "popper.min.js")
+					createStub(webapp_js_popper_path, webapp_js_popper)
+
+					webapp_css_style_path := filepath.Join(input_dir, "css", "style.css")
+					createStub(webapp_css_style_path, webapp_css_style)
+
+					webapp_css_bootstrap_path := filepath.Join(input_dir, "css", "bootstrap.min.css")
+					createStub(webapp_css_bootstrap_path, webapp_css_bootstrap)
 				}
 				if data.ProjectType == "bash" {
 					stub_path2 := input_dir + "/stub.sh"

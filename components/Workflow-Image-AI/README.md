@@ -73,12 +73,12 @@ The available starter project types are currently:
 - bash: a shell script that depends on dcmtk, dcm2niix and jq. The example application converts all image series into Nifti and extract the matrix size from one of the DICOM files.
 - webapp: a visualization environment providing a single page web-application (todo)
 
-Now you have a folder for your project's source code. In order to develop our pipeline we will use another data folder with test DICOM images. Also, set the temporay directory to our current directory. This will ensure we can see the way the pipeline is executed.
+Now you have a folder for your project's source code. In order to develop our pipeline we will use another data folder with test DICOM images. Also, set the temporay directory to our current directory. This will ensure we can see the data folder used as input to our workflow.
 ```
 cd project01
 rpp config --data ./data --temp_directory `pwd`
 ```
-Notice: In order to speed up testing you should not have too many DICOM files in the data directory. You can also specify a subset of the folders in the data directory if you use double quotes (prevents the shell from interpreting your path) and the special characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006 up to and including 009 with `--data \"./data/00[6-9]\*\"` (double quotes are important here to prevent the shell from replacing the value prematurely).
+Notice: In order to speed up testing you should not have too many DICOM files in the data directory. Specify a subset of the folders in the data directory by using double quotes (prevents the shell from interpreting your path) and the special glob-characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006 up to and including 009 with `--data \"./data/00[6-9]\*\"` (double quotes are important here to prevent the shell from replacing the value prematurely).
 
 Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .rpp directory (need to do more work to make this sub-command more useful).
 ```
