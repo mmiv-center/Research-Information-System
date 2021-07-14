@@ -45,22 +45,22 @@ var own_name string = "rpp"
 //go:embed templates/README.md
 var readme string
 
-//go:embed templates/stub.py
+//go:embed templates/python/stub.py
 var stub_py string
 
-//go:embed templates/stub.ipynb
+//go:embed templates/notebook/stub.ipynb
 var stub_ipynb string
 
-//go:embed templates/stub.sh
+//go:embed templates/bash/stub.sh
 var stub_sh string
 
-//go:embed templates/requirements.txt
+//go:embed templates/python/requirements.txt
 var requirements string
 
-//go:embed templates/Dockerfile
+//go:embed templates/python/Dockerfile
 var dockerfile string
 
-//go:embed templates/Dockerfile_bash
+//go:embed templates/bash/Dockerfile_bash
 var dockerfile_bash string
 
 //go:embed templates/.dockerignore

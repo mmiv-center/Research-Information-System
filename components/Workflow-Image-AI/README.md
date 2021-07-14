@@ -10,7 +10,7 @@ Processing workflows are developed locally on your computer in a simulated resea
 
 The *rpp* tool helps you to
 
-- create a first project directory (todo: project types ai+viz),
+- create a first project directory,
 - find suitable DICOM files on your disc (working, might crash on some non-DICOM files),
 - trigger a processing task (working), and
 - build and test a containerized workflow package (in progress),
@@ -68,8 +68,8 @@ The above call will create a new directory project01. The directory contains a s
 
 The available starter project types are currently:
 
-- python: provides a vanilla python v3.8 stub.py that depends on pydicom, numpy and matplotlib. The example will load a DICOM series, convert it into a numpy array and use matplotlib to show a multi-planar reconstruction.
-- notebook: similar to the "python" type but additionally a jupyter notebook is provided for development that overwrites the stub.py.
+- python: provides a vanilla python v3.8 stub.py that depends on pydicom, numpy and matplotlib. The example will load a DICOM series, convert them into numpy arrays and use matplotlib to show a multi-planar reconstruction.
+- notebook: similar functionality to the "python" type with a jupyter notebook for development. The notebook overwrites the stub.py during deployment.
 - bash: a shell script that depends on dcmtk, dcm2niix and jq. The example application converts all image series into Nifti and extract the matrix size from one of the DICOM files.
 - webapp: a visualization environment providing a single page web-application (todo)
 
@@ -78,7 +78,7 @@ Now you have a folder for your project's source code. In order to develop our pi
 cd project01
 rpp config --data ./data --temp_directory `pwd`
 ```
-Notice: In order to speed up testing you should not have too many DICOM files in the data directory. You can also specify a subset of the folders in the data directory if you use double quotes (prevents the shell from interpreting your path) and the special characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006\* to 009\* with `--data \"./data/00[6-9]\*\"` (double quotes are important here to prevent the shell from replacing the value prematurely).
+Notice: In order to speed up testing you should not have too many DICOM files in the data directory. You can also specify a subset of the folders in the data directory if you use double quotes (prevents the shell from interpreting your path) and the special characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006 up to and including 009 with `--data \"./data/00[6-9]\*\"` (double quotes are important here to prevent the shell from replacing the value prematurely).
 
 Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .rpp directory (need to do more work to make this sub-command more useful).
 ```
@@ -91,8 +91,8 @@ rpp trigger --keep
 ```
 This call will create a new folder in the temp system folder (change with `rpp config --temp_directory <new location>`). Inside that folder rpp creates a copy of the selected image series (input/ folder). Using '--keep' option the folder will stay around after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated should be placed in the 'output/' folder.
 
-Whereas all selected DICOM files appear in the input folder there is another folder "input_new_dicom_series/" which contains a directory structure with a symbolic link to each DICOM file. The structure is created from the
-DICOM tags: `<PatientID_PatientName>/<StudyDate>_<StudyTime>/<SeriesNumber>_<SeriesDescription>/`. If you workflow has problems accepting such a folder switch off this feature with `rpp config --no_sort_dicom=1`. Future calls to trigger should not generate that sub-folder anymore.
+Whereas all selected DICOM files appear in the input folder there is another folder "input_new_dicom_series/" which contains a directory structure with symbolic links to each DICOM file. The structure is created from the
+DICOM tags: `<PatientID_PatientName>/<StudyDate>_<StudyTime>/<SeriesNumber>_<SeriesDescription>/`. If you workflow has problems accepting such a folder switch off this feature with `rpp config --no_sort_dicom=1`. Future calls to trigger should not generate this folder. We would like to support additional views in the future. For example a view that provides the DICOM data as Nifti. Currently this can be done inside the workflow (see the project type bash).
 
 ### Integration into the research PACS
 
