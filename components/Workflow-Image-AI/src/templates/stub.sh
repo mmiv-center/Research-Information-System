@@ -44,7 +44,7 @@ cat "${output}"/output.json | jq --arg shape_y ${COLS} '. + {shape_y: $shape_y}'
 mv "${output}"/bla.json "${output}"/output.json
 
 # Lets compute an nii file for each of the Series
-find "${input}"/../input_view_dicom_series/ -mindepth 2 -maxdepth 2 -type d | xargs -I'{}' dcm2niix {}
+find "${input}"/../input_view_dicom_series/ -mindepth 2 -maxdepth 2 -type d | xargs -I'{}' dcm2niix -o "${output}" {}
 
 ##################################################
 # Put your code here. 
