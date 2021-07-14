@@ -90,6 +90,9 @@ var webapp_css_style string
 //go:embed templates/webapp/css/bootstrap.min.css
 var webapp_css_bootstrap string
 
+//go:embed templates/webapp/Dockerfile_webapp
+var webapp_dockerfile string
+
 func exitGracefully(err error) {
 	fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	os.Exit(1)
@@ -1131,6 +1134,8 @@ func main() {
 						_, err = f.WriteString(dockerfile_bash)
 					} else if data.ProjectType == "python" || data.ProjectType == "notebook" {
 						_, err = f.WriteString(dockerfile)
+					} else if data.ProjectType == "webapp" {
+						_, err = f.WriteString(webapp_dockerfile)
 					}
 					check(err)
 					f.Sync()
