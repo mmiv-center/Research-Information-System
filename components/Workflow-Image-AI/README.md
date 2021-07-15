@@ -10,7 +10,7 @@ Processing workflows are developed locally on your computer in a simulated resea
 
 The *rpp* tool helps you to
 
-- create a first project directory (todo: project types ai+viz),
+- create a first project directory,
 - find suitable DICOM files on your disc (working, might crash on some non-DICOM files),
 - trigger a processing task (working), and
 - build and test a containerized workflow package (in progress),
@@ -60,18 +60,27 @@ chmod +x /usr/local/bin/rpp
 
 ```
 rpp init project01
-cd ./project01
 ```
 
-The above call will create a new directory project01. The directory contains a starter package, a README.md and a stub.py text file. Init will also create a hidden .rpp/config file that is used by rpp to remember your settings and information about your project.
+The above call will create a new directory project01. The directory contains a starter package of a certain type and a README.md. Init will also create a hidden .rpp/config file that is used by rpp to remember your settings and information about your project.
 
-Now you have a folder for your project's source code. In order to develop our pipeline we will use another data folder with test DICOM images. Also, set the temporay directory to our current directory. This will ensure we can see the way the pipeline is executed.
+![Create a new workflow](images/workflowCreateProject.gif)
+
+The available starter project types are currently:
+
+- python: provides a vanilla python v3.8 stub.py that depends on pydicom, numpy and matplotlib. The example will load a DICOM series, convert them into numpy arrays and use matplotlib to show a multi-planar reconstruction.
+- notebook: similar functionality to the "python" type with a jupyter notebook for development. The notebook overwrites the stub.py during deployment.
+- bash: a shell script that depends on dcmtk, dcm2niix and jq. The example application converts all image series into Nifti and extract the matrix size from one of the DICOM files.
+- webapp: a visualization environment providing a single page web-application (todo)
+
+Now you have a folder for your project's source code. In order to develop our pipeline we will use another data folder with test DICOM images. Also, set the temporay directory to our current directory. This will ensure we can see the data folder used as input to our workflow.
 ```
+cd project01
 rpp config --data ./data --temp_directory `pwd`
 ```
-Notice: In order to speed up testing you should not have too many DICOM files in the data directory. You can also specify a subset of the folders in the data directory if you use double quotes (prevents the shell from interpreting your path) and the special characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006\* to 009\* with `--data \"./data/00[6-9]\*\".
+Notice: In order to speed up testing you should not have too many DICOM files in the data directory. Specify a subset of the folders in the data directory by using double quotes (prevents the shell from interpreting your path) and the special glob-characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006 up to and including 009 with `--data \"./data/00[6-9]\*\"` (double quotes are important here to prevent the shell from replacing the value prematurely).
 
-Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .rpp directory. More work has to be done to make this sub-command useful.
+Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .rpp directory (need to do more work to make this sub-command more useful).
 ```
 rpp status
 ```
@@ -80,10 +89,10 @@ To simulate what the system does for testing purposes we can trigger the process
 ```
 rpp trigger --keep 
 ```
-This call will create a new folder in the temp system folder (change with 'rpp config --temp_directory <new location>'). Inside that folder rpp creates a copy of the selected image series (input/ folder). Using '--keep' option the folder will stay around after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated should be placed in the 'output/' folder.
+This call will create a new folder in the temp system folder (change with `rpp config --temp_directory <new location>`). Inside that folder rpp creates a copy of the selected image series (input/ folder). Using '--keep' option the folder will stay around after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated should be placed in the 'output/' folder.
 
-Whereas all selected DICOM files appear in the input folder there is another folder "input_new_dicom_series/" which contains a directory structure with a symbolic link to each DICOM file. The structure is created from the
-DICOM tags: `<PatientID_PatientName>/<StudyDate>_<StudyTime>/<SeriesNumber>_<SeriesDescription>/`. If you workflow has problems accepting such a folder switch off this feature with `rpp config --no_sort_dicom=1`. Future calls to trigger should not generate that sub-folder anymore.
+Whereas all selected DICOM files appear in the input folder there is another folder "input_new_dicom_series/" which contains a directory structure with symbolic links to each DICOM file. The structure is created from the
+DICOM tags: `<PatientID_PatientName>/<StudyDate>_<StudyTime>/<SeriesNumber>_<SeriesDescription>/`. If you workflow has problems accepting such a folder switch off this feature with `rpp config --no_sort_dicom=1`. Future calls to trigger should not generate this folder. We would like to support additional views in the future. For example a view that provides the DICOM data as Nifti. Currently this can be done inside the workflow (see the project type bash).
 
 ### Integration into the research PACS
 

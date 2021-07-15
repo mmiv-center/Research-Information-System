@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/style.css">
+
+    <title>Research Information System of Helse Vest</title>
+  </head>
+  <body>
+    <header class="p-3 bg-dark text-white">
+      <div class="container">
+        <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start">
+          <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">
+            <li><a href="#" class="nav-link px-2 text-secondary">Example project</a></li>
+          </ul>
+          <div class="text-end" id="filename"></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="container">
+      <div class="row">
+        <div class="md-12" style="margin-top: 15px;">
+          <div>
+            <p>An example web-application for visualization workflows inside the hospital.</p>
+          </div>
+          <div>
+            <div class="form-group">
+              <label for="exampleInput">Provide a value</label>
+              <input type="number" class="form-control" id="exampleInput" aria-describedby="exampleInputHelp" placeholder="Enter a value" value="40">
+              <small id="exampleInputHelp" class="form-text text-muted">We will do great things with your input.</small>
+            </div>
+          </div>
+          <div id="result"></div>
+          <div>
+            <canvas id="canvas" style="height: 500px; border: 1px solid gray; border-radius: 3px;"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="js/jquery-3.2.1.min.js"></script>
+    <script src="js/popper.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/colorbrewer.js"></script>
+    <script type="module" src="js/all.js"></script>
+  </body>
+</html>
