@@ -159,6 +159,32 @@ rpp config --series_filter "ClassifyType: .*DIFFUSION"
 ```
 
 TODO: What remains here is to establish a way to generate sets of image data that are more complex than single specific image series. We would like to be able to specify a unit of processing as complex as "a diffusion image series with a closest in time T1-weighted image series", or "all resting state image series with a suitable field map", or "all T1 weighted image series in the study from the first time point by patient, use the best quality scan if there is more than one for a patient". One way to do this might be to mimic GraphQL where properties of the result objects are described. Goal is to create a flexible enough type system to map to the above use cases.
+```
+{
+    patient|study|series|image {
+        qualifier: [ "one", "any", "all", "best-by-measure", "largest", "last-by-order", "first-by-order", "Nth-by-order" ]
+        order: [ "StudyDateTime", "StudyDate", "StudyTime", "SeriesDateTime", "SeriesDate", "SeriesTime" ]
+    }
+}
+{
+    all {
+        study {
+            and {
+                one {
+                    series
+                    ClassifyType has "DIFFUSION"
+                }
+                best(SNR) {
+                    series
+                    ClassifyType has "T1"
+                }
+            }
+        }
+    }
+}
+Select * from study where one series with ClassifyType as "DIFFUSION" and best series by SNR with ClassifyType as "T1"
+```
+Hmmm... not successful with GraphQL, this is just a type of SQL... but easy on the tui. Implementation could be done like in https://github.com/benbjohnson/sql-parser/.
 
 
 For a series_filter all image series that match will be a potential test image series for the trigger command and from those one image series is selected at random. If you want to test the workflow with all matching series you can trigger with the additional '--each' option to process all matching image series. The corresponding call would look like this:
