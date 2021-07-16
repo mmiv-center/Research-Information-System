@@ -985,7 +985,7 @@ func main() {
 						init_type = strings.TrimSuffix(init_type, "\n")
 						if init_type != "python" && init_type != "notebook" && init_type != "bash" && init_type != "webapp" {
 							init_type = "notebook"
-							fmt.Println("We will give you a python notebook project to get started.")
+							fmt.Println("Warning: That is not a type we know. We will give you a python notebook project to get started.")
 						}
 					}
 				}
@@ -1010,39 +1010,16 @@ func main() {
 				file, _ := json.MarshalIndent(data, "", " ")
 				_ = ioutil.WriteFile(dir_path+"/config", file, 0644)
 
-				readme_path := input_dir + "/README.md"
-				if _, err := os.Stat(readme_path); !os.IsNotExist(err) {
-					fmt.Println("This directory already contains a README.md, don't overwrite. Skip writing...")
-				} else {
-					f, err := os.Create(readme_path)
-					check(err)
-					_, err = f.WriteString(readme)
-					check(err)
-					f.Sync()
-				}
+				readme_path := filepath.Join(input_dir, "README.md")
+				createStub(readme_path, readme)
+
 				if data.ProjectType == "python" { // plain python
-					stub_path := input_dir + "/stub.py"
-					if _, err := os.Stat(stub_path); !os.IsNotExist(err) {
-						fmt.Println("This directory already contains a stub.py, don't overwrite. Skip writing...")
-					} else {
-						f, err := os.Create(stub_path)
-						check(err)
-						_, err = f.WriteString(stub_py)
-						check(err)
-						f.Sync()
-					}
+					stub_path := filepath.Join(input_dir, "stub.py")
+					createStub(stub_path, stub_py)
 				}
 				if data.ProjectType == "notebook" {
-					stubipynb_path := input_dir + "/stub.ipynb"
-					if _, err := os.Stat(stubipynb_path); !os.IsNotExist(err) {
-						fmt.Println("This directory already contains a stub.ipynb, don't overwrite. Skip writing...")
-					} else {
-						f, err := os.Create(stubipynb_path)
-						check(err)
-						_, err = f.WriteString(stub_ipynb)
-						check(err)
-						f.Sync()
-					}
+					stubipynb_path := filepath.Join(input_dir, "stub.ipynb")
+					createStub(stubipynb_path, stub_ipynb)
 				}
 				if data.ProjectType == "webapp" {
 					webapp_index_path := filepath.Join(input_dir, "index.html")
@@ -1093,52 +1070,22 @@ func main() {
 				}
 				// classification rules so we can overwrite what rpp does on its own
 				classify_dicom_path2 := input_dir + "/.rpp/classifyDICOM.json"
-				if _, err := os.Stat(classify_dicom_path2); !os.IsNotExist(err) {
-					fmt.Println("This directory already contains a classifyDICOM.json, don't overwrite. Skip writing...")
-				} else {
-					f, err := os.Create(classify_dicom_path2)
-					check(err)
-					_, err = f.WriteString(classifyRules)
-					check(err)
-					f.Sync()
-				}
+				createStub(classify_dicom_path2, classifyRules)
+
 				if data.ProjectType == "python" || data.ProjectType == "notebook" {
-					requirements_path2 := virt_path + "/requirements.txt"
-					if _, err := os.Stat(requirements_path2); !os.IsNotExist(err) {
-						fmt.Println("This directory already contains a requirements.txt, don't overwrite. Skip writing...")
-					} else {
-						f, err := os.Create(requirements_path2)
-						check(err)
-						_, err = f.WriteString(requirements)
-						check(err)
-						f.Sync()
-					}
+					requirements_path2 := filepath.Join(virt_path, "requirements.txt")
+					createStub(requirements_path2, requirements)
 				}
-				dockerignore_path2 := virt_path + "/.dockerignore"
-				if _, err := os.Stat(dockerignore_path2); !os.IsNotExist(err) {
-					fmt.Println("This directory already contains a .dockerignore, don't overwrite. Skip writing...")
-				} else {
-					f, err := os.Create(dockerignore_path2)
-					check(err)
-					_, err = f.WriteString(dockerignore)
-					check(err)
-					f.Sync()
-				}
-				dockerfile_path2 := virt_path + "/Dockerfile"
-				if _, err := os.Stat(dockerfile_path2); !os.IsNotExist(err) {
-					fmt.Println("This directory already contains a Dockerfile, don't overwrite. Skip writing...")
-				} else {
-					f, err := os.Create(dockerfile_path2)
-					check(err)
-					if data.ProjectType == "bash" {
-						_, err = f.WriteString(dockerfile_bash)
-					} else if data.ProjectType == "python" || data.ProjectType == "notebook" {
-						_, err = f.WriteString(dockerfile)
-					} else if data.ProjectType == "webapp" {
-						_, err = f.WriteString(webapp_dockerfile)
-					}
-					check(err)
-					f.Sync()
+				dockerignore_path2 := filepath.Join(virt_path, ".dockerignore")
+				createStub(dockerignore_path2, dockerignore)
+
+				dockerfile_path2 := filepath.Join(virt_path, "Dockerfile")
+				if data.ProjectType == "bash" {
+					createStub(dockerfile_path2, dockerfile_bash)
+				} else if data.ProjectType == "python" || data.ProjectType == "notebook" {
+					createStub(dockerfile_path2, dockerfile)
+				} else if data.ProjectType == "webapp" {
+					createStub(dockerfile_path2, webapp_dockerfile)
 				}
 				/*dockercompose_path2 := virt_path + "/docker-compose.yml"
 				if _, err := os.Stat(dockercompose_path2); !os.IsNotExist(err) {
@@ -1259,19 +1206,22 @@ func main() {
 				studies, err := dataSets(config)
 				check(err)
 				// update the config file now
-				config, err := readConfig(dir_path)
+				config, err = readConfig(dir_path)
 				if err != nil {
 					exitGracefully(errors.New(errorConfigFile))
 				}
 				config.Data.DataInfo = studies
 				file, _ := json.MarshalIndent(config, "", " ")
 				_ = ioutil.WriteFile(dir_path, file, 0644)
-
-				for key, element := range studies {
-					fmt.Println("Study:", key)
-					for key2, element2 := range element {
-						fmt.Printf("\t%s num images: %d, series number: %d, description: \"%s\"\n", key2, element2.NumImages, element2.SeriesNumber, element2.SeriesDescription)
-					}
+			}
+			counter := 0
+			for key, element := range config.Data.DataInfo {
+				counter = counter + 1
+				fmt.Println("Study:", key, fmt.Sprintf("(%d/%d)", len(config.Data.DataInfo), counter))
+				counter2 := 0
+				for key2, element2 := range element {
+					counter2 = counter2 + 1
+					fmt.Printf("\t%s (%d/%d) num images: %d, series number: %d, description: \"%s\"\n", key2, counter2, len(element), element2.NumImages, element2.SeriesNumber, element2.SeriesDescription)
 				}
 			}
 		}
