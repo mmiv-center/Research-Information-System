@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,12 +25,14 @@ type Class struct {
 	Rules       []Rule `json:"rules"`
 }
 
+var jsonObj interface{}
+
 type Rule struct {
-	Tag      []string `json:"tag"`
-	Value    string   `json:"value"`
-	Operator string   `json:"operator"`
-	Negate   string   `json:"negate"`
-	Rule     string   `json:"rule"`
+	Tag      []string    `json:"tag"`
+	Value    interface{} `json:"value"` // value can be a string or an array, we have to find out which is which first
+	Operator string      `json:"operator"`
+	Negate   string      `json:"negate"`
+	Rule     string      `json:"rule"`
 }
 
 func evalRules(dataset dicom.Dataset, ruleList []Rule, classifications Classes, typesList []string) bool {
@@ -140,11 +143,62 @@ func evalRules(dataset dicom.Dataset, ruleList []Rule, classifications Classes, 
 }
 
 func applyOperator(r Rule, tagValue string) bool {
+	// what is r.Value?
+	var value_string string
+	var value_array []float32
+	//fmt.Printf("TYPE: %T %s\n", r.Value, reflect.TypeOf(r.Value))
+	switch obj := r.Value.(type) {
+	case string:
+		tmp := []string([]string{obj})
+		value_string = strings.Join(tmp, "")
+		//fmt.Println("Found a string", value_string)
+	case float32:
+		//fmt.Println("Found an array of float32")
+		tmp := []float32([]float32{obj})
+		value_array = tmp
+		//fmt.Println("Found an array of float32", value_array)
+	case float64:
+		//fmt.Println("Found an array of float32")
+		tmp := []float64([]float64{obj})
+		for _, v := range tmp {
+			value_array = append(value_array, float32(v))
+			//fmt.Println("FOund an INT: ", v)
+		}
+		//fmt.Println("Found an array of float32", value_array)
+	case int32:
+		tmp := []int32([]int32{obj})
+		for _, v := range tmp {
+			value_array = append(value_array, float32(v))
+			//fmt.Println("FOund an INT: ", v)
+		}
+		//tmp := []float32([]float64{obj})
+		//value_array = tmp
+		//fmt.Println("Found an array of float32", value_array)
+	case []interface{}:
+		//fmt.Println("Found an array of interfaces of type:", reflect.TypeOf(r.Value).Elem())
+		tmp2 := []interface{}([]interface{}{obj})
+		s := fmt.Sprintf("%f", tmp2)
+		s = strings.Replace(s, "[[", "", -1)
+		s = strings.Replace(s, "]]", "", -1)
+		s_array := strings.Split(s, " ")
+		for _, v := range s_array {
+			vv_val, err := strconv.ParseFloat(v, 32)
+			if err == nil {
+				value_array = append(value_array, float32(vv_val))
+			}
+		}
+		//fmt.Println("s is now: ", value_array)
+		//fmt.Println("Found array as :", s, " with parsed values: ", value_array)
+	default:
+		fmt.Println("Error, unknown value type for ", obj)
+		fmt.Printf("type: %T\n", r.Value)
+	}
+
 	operator := r.Operator
 	var thisCheck bool = true // the rule applies (we will find all the ways the rule does not apply)
 	if operator == "contains" {
 		// create a regexp
-		if !strings.Contains(tagValue, r.Value) {
+		if !strings.Contains(tagValue, value_string) {
 			thisCheck = false
 		}
 	} else if operator == "==" {
@@ -155,7 +209,7 @@ func applyOperator(r Rule, tagValue string) bool {
 	} else if operator == "" {
 		// if operator is empty string we assume regexp?
 		//fmt.Println("operator is empty, assume we have a regular expression")
-		var rRegex = regexp.MustCompile(r.Value)
+		var rRegex = regexp.MustCompile(value_string)
 		if !rRegex.MatchString(tagValue) {
 			thisCheck = false
 		} //else {
@@ -163,18 +217,43 @@ func applyOperator(r Rule, tagValue string) bool {
 		//}
 	} else if operator == "<" {
 		var1, err1 := strconv.ParseFloat(tagValue, 32)
-		var2, err2 := strconv.ParseFloat(r.Value, 32)
+		var2, err2 := strconv.ParseFloat(value_string, 32)
 		if err1 != nil && err2 != nil && var1 >= var2 {
 			//fmt.Println("== sign operator false for", tagValue, r.Value)
 			thisCheck = false
 		}
 	} else if operator == ">" {
 		var1, err1 := strconv.ParseFloat(tagValue, 32)
-		var2, err2 := strconv.ParseFloat(r.Value, 32)
+		var2, err2 := strconv.ParseFloat(value_string, 32)
 		if err1 != nil && err2 != nil && var1 <= var2 {
 			//fmt.Println("== sign operator false for", tagValue, r.Value)
 			thisCheck = false
 		}
+	} else if operator == "approx" {
+		// tagValue, r.Value
+		// split tagValue into array of floats
+		tmp := strings.Split(tagValue, ", ")
+		var tag_array []float32
+		for _, v := range tmp {
+			v, err := strconv.ParseFloat(v, 32)
+			if err == nil {
+				tag_array = append(tag_array, float32(v))
+			} else {
+				fmt.Println("Could not read as float32!")
+			}
+		}
+		// now check each pair, if one pair has a larger value count the whole list as false
+		var e float32 = 1e-3
+		//var ok = true
+		//fmt.Println(len(tag_array), " and ", len(value_array))
+		for i, j := 0, 0; i < len(tag_array) && j < len(value_array); i, j = i+1, j+1 {
+			//fmt.Println("CHECK ", tag_array[i], value_array[j], "value is:", math.Abs(float64(tag_array[i]-value_array[j])), ">", e)
+			if math.Abs(float64(tag_array[i]-value_array[j])) > float64(e) {
+				thisCheck = false
+				break
+			}
+		}
+		//fmt.Println("APPROX for: ", tag_array, "and", value_array, "rule:", r, "check is: ", thisCheck)
 	} else {
 		fmt.Println("ERROR UNKNOWN OPERATOR: ", r.Operator)
 	}

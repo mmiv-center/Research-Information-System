@@ -191,7 +191,8 @@ TODO: What remains here is to establish a way to generate sets of image data tha
         }
     }
 }
-Select * from study where one series with ClassifyType as "DIFFUSION" and best series by SNR with ClassifyType as "T1"
+Select DICOM where one series has ClassifyType contains "DIFFUSION" and same series has NumImages > 100 and best series by SNR has ClassifyType contains "T1"
+Select DICOM where first series has ClassifyType contains "DIFFUSION" and NumImages > 100 and second best series by SNR has ClassifyType contains "T1"
 ```
 Hmmm... not successful with GraphQL, this is just a type of SQL... but easy on the tui. Implementation could be done like in https://github.com/benbjohnson/sql-parser/.
 

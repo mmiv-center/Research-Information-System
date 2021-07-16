@@ -2303,5 +2303,39 @@
         "rule": "SIEMENSBYMANUFACTURER"
       }
     ]
+  },
+  {
+    "type" : "sagittal",
+    "description": "A sagittal scan",
+    "id": "ORIENTATIONSAG",
+    "rules" : [
+      { "tag" : [ "0x20","0x37" ],
+        "value" : [0,1,0,0,0,-1],
+        "operator": "approx"
+      }
+    ]
+  },
+  {
+    "type" : "axial",
+    "description": "An axial scan",
+    "id": "ORIENTATIONAX",
+    "rules" : [
+      { "tag" : [ "0x20","0x37" ],
+        "value" : [1,0,0,0,1,0],
+        "operator": "approx",
+        "approxLevel": "0.0004"
+      }
+    ]
+  },
+  {
+    "type" : "coronal",
+    "description": "A coronal scan",
+    "id": "ORIENTATIONCOR",
+    "rules" : [
+        { "tag" : [ "0x20","0x37" ],
+          "value" : [1,0,0,0,0,-1],
+          "operator": "approx"
+        }
+    ]
   }
 ]
