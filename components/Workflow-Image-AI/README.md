@@ -193,8 +193,19 @@ TODO: What remains here is to establish a way to generate sets of image data tha
 }
 Select DICOM where one series has ClassifyType contains "DIFFUSION" and same series has NumImages > 100 and best series by SNR has ClassifyType contains "T1"
 Select DICOM where first series has ClassifyType contains "DIFFUSION" and NumImages > 100 and second best series by SNR has ClassifyType contains "T1"
+
+Select [earliest study] [by patient] [as DICOM] where [each study] has [[1 or 2] series] where [series] has [[ClassifyType containing "DIFFUSION”] and 
+[NumImages > 100]] and [[other series] has [ClassifyType containing "T1”]]
+
+Select series from [earliest study] [by patient] [as DICOM] where [each study] has [[1 or 2] series] where [series] has [[ClassifyType containing "DIFFUSION”] and 
+[NumImages > 100]] and [[other series] has [ClassifyType containing "T1”]]
+
+This is working for now:
+select patient from study where series has ClassifyType containing T1 and SeriesDescription containing axial also where series has ClassifyType containing DIFFUSION also where series has ClassifyType containing RESTING
+
+
 ```
-Hmmm... not successful with GraphQL, this is just a type of SQL... but easy on the tui. Implementation could be done like in https://github.com/benbjohnson/sql-parser/.
+Hmmm... not successful with GraphQL, this is just a type of SQL... but easy on the tui. Implement with goyacc.
 
 
 For a series_filter all image series that match will be a potential test image series for the trigger command and from those one image series is selected at random. If you want to test the workflow with all matching series you can trigger with the additional '--each' option to process all matching image series. The corresponding call would look like this:

@@ -25,14 +25,93 @@ type Class struct {
 	Rules       []Rule `json:"rules"`
 }
 
-var jsonObj interface{}
-
 type Rule struct {
 	Tag      []string    `json:"tag"`
 	Value    interface{} `json:"value"` // value can be a string or an array, we have to find out which is which first
 	Operator string      `json:"operator"`
 	Negate   string      `json:"negate"`
 	Rule     string      `json:"rule"`
+}
+
+func (data SeriesInfo) evalRules(ruleList []Rule) bool {
+	// we assume that in the rulelist we reference only values from the data as type SeriesInfo
+	var matches bool = true
+	// lets convert the struct to a map
+
+	// all rules have to match!
+	for _, val := range ruleList {
+		// in a rule list all rules have to fit
+		foundValue := false
+		t := val.Tag
+		o := val.Operator
+		v := val.Value
+		dataData := []string{""}
+		if t[0] == "ClassifyType" {
+			dataData = data.ClassifyTypes
+		} else if t[0] == "SeriesDescription" {
+			dataData = []string{data.SeriesDescription}
+		} else if t[0] == "NumImages" {
+			dataData = []string{fmt.Sprintf("%d", data.NumImages)}
+		} else if t[0] == "SeriesNumber" {
+			dataData = []string{fmt.Sprintf("%d", data.SeriesNumber)}
+		} else if t[0] == "SequenceName" {
+			dataData = []string{data.SequenceName}
+		} else if t[0] == "Modality" {
+			dataData = []string{data.Modality}
+		} else if t[0] == "StudyDescription" {
+			dataData = []string{data.StudyDescription}
+		} else if t[0] == "Manufacturer" {
+			dataData = []string{data.Manufacturer}
+		} else if t[0] == "ManufacturerModelName" {
+			dataData = []string{data.ManufacturerModelName}
+		} else if t[0] == "Path" {
+			dataData = []string{data.Path}
+		} else if t[0] == "PatientID" {
+			dataData = []string{data.PatientID}
+		} else if t[0] == "PatientName" {
+			dataData = []string{data.PatientName}
+		}
+		if o == "contains" {
+			for _, vv := range dataData {
+				if vv == v {
+					foundValue = true
+				}
+			}
+		} else if o == "<" {
+			for _, vv := range dataData {
+				numValue, err := strconv.ParseFloat(vv, 32)
+				if err != nil {
+					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n", vv)
+				}
+				numValue2, err := strconv.ParseFloat(fmt.Sprintf("%v", v), 32)
+				if err != nil {
+					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n", v)
+				}
+				if numValue < numValue2 {
+					foundValue = true
+				}
+			}
+		} else if o == ">" {
+			for _, vv := range dataData {
+				numValue, err := strconv.ParseFloat(vv, 32)
+				if err != nil {
+					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n", vv)
+				}
+				numValue2, err := strconv.ParseFloat(fmt.Sprintf("%v", v), 32)
+				if err != nil {
+					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n", v)
+				}
+				if numValue > numValue2 {
+					foundValue = true
+				}
+			}
+		}
+		if !foundValue {
+			matches = false
+		}
+	}
+
+	return matches
 }
 
 func evalRules(dataset dicom.Dataset, ruleList []Rule, classifications Classes, typesList []string) bool {

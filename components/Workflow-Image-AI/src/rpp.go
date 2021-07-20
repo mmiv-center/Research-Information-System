@@ -42,6 +42,8 @@ const version string = "0.0.1"
 
 var own_name string = "rpp"
 
+//go:generate /Users/hauke/go/bin/goyacc -o select_group.go select_group.y
+
 //go:embed templates/README.md
 var readme string
 
@@ -114,15 +116,16 @@ type DataInfo struct {
 }
 
 type Config struct {
-	Date          string
-	Data          DataInfo
-	SeriesFilter  string
-	Author        AuthorInfo
-	TempDirectory string
-	CallString    string
-	ProjectName   string
-	SortDICOM     bool
-	ProjectType   string
+	Date             string
+	Data             DataInfo
+	SeriesFilter     string
+	SeriesFilterType string
+	Author           AuthorInfo
+	TempDirectory    string
+	CallString       string
+	ProjectName      string
+	SortDICOM        bool
+	ProjectType      string
 }
 
 type SeriesInfo struct {
@@ -135,7 +138,9 @@ type SeriesInfo struct {
 	Manufacturer          string
 	ManufacturerModelName string
 	Path                  string
-	Classify              []string
+	PatientID             string
+	PatientName           string
+	ClassifyTypes         []string
 }
 
 // readConfig parses a provided config file as JSON.
@@ -640,6 +645,8 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 					var Modality string
 					var Manufacturer string
 					var ManufacturerModelName string
+					var PatientID string
+					var PatientName string
 
 					showImages := true
 					if showImages {
@@ -653,6 +660,15 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 					if StudyInstanceUID == "" {
 						// no study instance uid found, skip this series because we cannot reference it later
 						return nil
+					}
+
+					PatientIDVal, err := dataset.FindElementByTag(tag.PatientID)
+					if err == nil {
+						PatientID = dicom.MustGetStrings(PatientIDVal.Value)[0]
+					}
+					PatientNameVal, err := dataset.FindElementByTag(tag.PatientName)
+					if err == nil {
+						PatientName = dicom.MustGetStrings(PatientNameVal.Value)[0]
 					}
 
 					SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
@@ -719,15 +735,15 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 									break
 								}
 							}
-							tmp_with_double := append(val.Classify, ClassifyDICOM(dataset)...)
+							tmp_with_double := append(val.ClassifyTypes, ClassifyDICOM(dataset)...)
 							// compute a unique list of entries in val.Classify
 							var unique_map map[string]string = make(map[string]string)
 							for _, v := range tmp_with_double {
 								unique_map[v] = ""
 							}
-							val.Classify = []string{}
+							val.ClassifyTypes = []string{}
 							for k := range unique_map {
-								val.Classify = append(val.Classify, k)
+								val.ClassifyTypes = append(val.ClassifyTypes, k)
 							}
 							datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: val.NumImages + 1,
 								SeriesDescription:     SeriesDescription,
@@ -738,7 +754,9 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 								ManufacturerModelName: ManufacturerModelName,
 								StudyDescription:      StudyDescription,
 								Path:                  lcp,
-								Classify:              val.Classify, // only parse the first image? No, we need to parse all because we have to collect all possible classes for Localizer (aixal + coronal + sagittal)
+								PatientID:             PatientID,
+								PatientName:           PatientName,
+								ClassifyTypes:         val.ClassifyTypes, // only parse the first image? No, we need to parse all because we have to collect all possible classes for Localizer (aixal + coronal + sagittal)
 							}
 						} else {
 							// if there is no SeriesInstanceUID but there is a StudyInstanceUID we could have
@@ -751,8 +769,10 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 								Manufacturer:          Manufacturer,
 								ManufacturerModelName: ManufacturerModelName,
 								StudyDescription:      StudyDescription,
+								PatientID:             PatientID,
+								PatientName:           PatientName,
 								Path:                  path_pieces,
-								Classify:              ClassifyDICOM(dataset),
+								ClassifyTypes:         ClassifyDICOM(dataset),
 							}
 						}
 					} else {
@@ -765,8 +785,10 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							Manufacturer:          Manufacturer,
 							ManufacturerModelName: ManufacturerModelName,
 							StudyDescription:      StudyDescription,
+							PatientID:             PatientID,
+							PatientName:           PatientName,
 							Path:                  path_pieces,
-							Classify:              ClassifyDICOM(dataset),
+							ClassifyTypes:         ClassifyDICOM(dataset),
 						}
 					}
 				} else {
@@ -867,7 +889,18 @@ func main() {
 
 	var config_series_filter string
 	configCommand.StringVar(&config_series_filter, "series_filter", ".*",
-		"Filter applied to series before trigger. This regular expression should\nmatch anything in the string build by StudyInstanceUID: %s, \nSeriesInstanceUID: %s, SeriesDescription: %s, ... As an example you might search\nfor a any series with a SeriesDescription starting with \"T1\" and ending in \"_2mm\"\nwith --series_filter \"SeriesDescription: T1.*_2mm\". The default value matches any\nseries")
+		"Filter applied to series before trigger. This regular expression should\n"+
+			"match anything in the string build by StudyInstanceUID: %s, \n"+
+			"SeriesInstanceUID: %s, SeriesDescription: %s, ... As an example you might search\n"+
+			"for a any series with a SeriesDescription starting with \"T1\" and ending in \"_2mm\"\n"+
+			"with --series_filter \"SeriesDescription: T1.*_2mm\". The default value matches any\nseries.\n"+
+			"Also, it is now possible to specify more complex selections using a variant of the\n"+
+			"standard query language. Here an example:\n"+
+			"\t\"select patient from study where series has ClassifyTypes containing T1\n"+
+			"\tand SeriesDescription containing axial also where series has ClassifyType\n"+
+			"\tcontaining DIFFUSION also where series has ClassifyTypes containing RESTING\"\n"+
+			"This filter should export all studies of a patient that has at least one matching\n"+
+			"study with a T1, a Diffusion and a resting state scan.")
 
 	var config_temp_directory string
 	configCommand.StringVar(&config_temp_directory, "temp_directory", "", "Specify a directory for the temporary folders used in the trigger")
@@ -907,6 +940,35 @@ func main() {
 	if len(os.Args) < 2 {
 		flag.Usage()
 		os.Exit(-1)
+	}
+
+	if false {
+		//
+		// test the expression parser for select
+		//
+		InitParser()
+		line := []byte("select patient from study")
+		fmt.Printf("TEST EXPRESSION PARSER: %s\n", string(line))
+		yyParse(&exprLex{line: line})
+		s, _ := json.MarshalIndent(ast, "", "  ")
+		fmt.Printf("ast is: %s\n", string(s))
+
+		InitParser()
+		line = []byte("select patient from study where series has ClassifyType containing T1 and SeriesDescription containing axial")
+		fmt.Printf("TEST EXPRESSION PARSER: %s\n", string(line))
+		program = string(line)
+		yyParse(&exprLex{line: line})
+		s, _ = json.MarshalIndent(ast, "", "  ")
+		fmt.Printf("ast is: %s\n", string(s))
+
+		InitParser()
+		line = []byte("select patient from study where series has ClassifyType containing T1 and SeriesDescription containing axial also where series has ClassifyType containing DIFFUSION also where series has ClassifyType containing RESTING")
+		fmt.Printf("TEST EXPRESSION PARSER: %s\n", string(line))
+		program = string(line)
+		yyParse(&exprLex{line: line})
+		s, _ = json.MarshalIndent(ast, "", "  ")
+		fmt.Printf("ast is: %s\n", string(s))
+
 	}
 
 	switch os.Args[1] {
@@ -1156,6 +1218,18 @@ func main() {
 				config.Author.Email = author_email
 			}
 			if config_series_filter != "" {
+				InitParser()
+				line := []byte(config_series_filter)
+				yyParse(&exprLex{line: line})
+				if !errorOnParse {
+					s, _ := json.MarshalIndent(ast, "", "  ")
+					fmt.Printf("Parsed series filter sucessfully as\n%s\n", string(s))
+					config.SeriesFilterType = "select"
+				} else {
+					// maybe its a simple glob expression? We should add in any case
+					fmt.Printf("We tried to parse the series filter but failed. Maybe you just want to grep?")
+					config.SeriesFilterType = "glob"
+				}
 				config.SeriesFilter = config_series_filter
 			}
 			if call_string != "" {
@@ -1239,7 +1313,7 @@ func main() {
 				exitGracefully(errors.New(errorConfigFile))
 			}
 
-			// make sure we have updated classifyRules.json loaded here ... just if the user
+			// make sure we have updated classifyRules.json loaded here ... just in case if the user
 			// puts his/her own rules into .rpp/classifyRules.json
 			classifyDICOM_path := input_dir + "/.rpp/classifyDICOM.json"
 			if _, err := os.Stat(classifyDICOM_path); !os.IsNotExist(err) {
@@ -1257,10 +1331,12 @@ func main() {
 			var selectFromB []string = nil
 			for StudyInstanceUID, value := range config.Data.DataInfo {
 				for SeriesInstanceUID, value2 := range value {
-					selectFromA[SeriesInstanceUID] = fmt.Sprintf("StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, NumImages: %d, SeriesNumber: %d, SequenceName: %s, Modality: %s, Manufacturer: %s, ManufacturerModelName: %s, StudyDescription: %s, ClassifyType: %s",
+					selectFromA[SeriesInstanceUID] = fmt.Sprintf("StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, "+
+						"NumImages: %d, SeriesNumber: %d, SequenceName: %s, Modality: %s, Manufacturer: %s, ManufacturerModelName: %s, "+
+						"StudyDescription: %s, PatientID: %s, PatientName: %s, ClassifyType: %s",
 						StudyInstanceUID, SeriesInstanceUID, value2.SeriesDescription, value2.NumImages, value2.SeriesNumber, value2.SequenceName, value2.Modality,
-						value2.Manufacturer, value2.ManufacturerModelName, value2.StudyDescription,
-						strings.Join(value2.Classify, " "),
+						value2.Manufacturer, value2.ManufacturerModelName, value2.StudyDescription, value2.PatientID, value2.PatientName,
+						strings.Join(value2.ClassifyTypes, " "),
 					)
 				}
 			}
@@ -1268,11 +1344,44 @@ func main() {
 				exitGracefully(fmt.Errorf("there is no data. Did you forget to specify a data folder?\n\n\t%s config --data <folder>", own_name))
 			}
 
-			mm := regexp.MustCompile(config.SeriesFilter)
-			for key, value := range selectFromA {
-				if mm.MatchString(value) {
-					selectFromB = append(selectFromB, key)
+			// check if we have a trivial filter (glob) or a proper rule filter
+			if config.SeriesFilterType == "glob" {
+				mm := regexp.MustCompile(config.SeriesFilter)
+				for key, value := range selectFromA {
+					if mm.MatchString(value) {
+						selectFromB = append(selectFromB, key)
+					}
 				}
+			} else if config.SeriesFilterType == "select" {
+				// its a rule so behave accordingly, check for each rule set if the current series matches
+				InitParser()
+				line := []byte(config.SeriesFilter)
+				program = string(line)
+				yyParse(&exprLex{line: line})
+				if !errorOnParse {
+					// can only access the informaiton in config.Data for these matches
+					for _, value := range config.Data.DataInfo {
+						// we can check on the study or the series level or the patient level
+						for SeriesInstanceUID, value2 := range value {
+							// we assume here that we are in the series level...
+							var matches bool = false
+							for _, ruleset := range ast.Rules {
+								if value2.evalRules(ruleset) { // check if this ruleset fits with this series
+									matches = true
+									break
+								}
+							}
+							if matches {
+								selectFromB = append(selectFromB, SeriesInstanceUID)
+							}
+						}
+					}
+				}
+				//s, _ = json.MarshalIndent(ast, "", "  ")
+				//fmt.Printf("ast is: %s\n", string(s))
+
+			} else {
+				exitGracefully(fmt.Errorf("Error: unknown SeriesFilterType"))
 			}
 			if selectFromB == nil {
 				exitGracefully(fmt.Errorf("there is no matching data. Did you specify a filter that does not work?\n\n\t%s status", own_name))
@@ -1310,7 +1419,7 @@ func main() {
 					for SeriesInstanceUID, value2 := range value {
 						if SeriesInstanceUID == selectFromB[idx] {
 							closestPath = value2.Path
-							classifyTypes = value2.Classify
+							classifyTypes = value2.ClassifyTypes
 						}
 					}
 				}
