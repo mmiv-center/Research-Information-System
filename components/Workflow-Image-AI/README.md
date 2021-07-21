@@ -51,14 +51,14 @@ wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/
 ### Install on Linux
 
 Download the executable. Copy the file to a folder like /usr/local/bin/ that is in your path.
-```
+```bash
 wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/linux-amd64/rpp > /usr/local/bin/rpp
 chmod +x /usr/local/bin/rpp
 ```
 
 ### Create a first project
 
-```
+```bash
 rpp init project01
 ```
 
@@ -71,10 +71,10 @@ The available starter project types are currently:
 - python: provides a vanilla python v3.8 stub.py that depends on pydicom, numpy and matplotlib. The example will load a DICOM series, convert them into numpy arrays and use matplotlib to show a multi-planar reconstruction.
 - notebook: similar functionality to the "python" type with a jupyter notebook for development. The notebook overwrites the stub.py during deployment.
 - bash: a shell script that depends on dcmtk, dcm2niix and jq. The example application converts all image series into Nifti and extract the matrix size from one of the DICOM files.
-- webapp: a visualization environment providing a single page web-application (todo)
+- webapp: a visualization environment providing a single page web-application
 
 Now you have a folder for your project's source code. In order to develop our pipeline we will use another data folder with test DICOM images. Also, set the temporay directory to our current directory. This will ensure we can see the data folder used as input to our workflow.
-```
+```bash
 cd project01
 rpp config --data ./data --temp_directory `pwd`
 ```
