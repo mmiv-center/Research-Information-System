@@ -19,6 +19,7 @@ import (
 type AST struct {
     Output_level string
     Select_level string
+    Select_level_by_rule []string
     Rules [][]Rule // we need sets of rules for each series we describe
 }
 
@@ -76,6 +77,9 @@ select_stmt:
 base_select:
     SELECT level_types FROM level_types where_clauses 
     {
+        // the FROM should be more complex. Something like:
+        // FROM earliest study BY StudyDate AS DICOM
+
         ast.Output_level = string($2)
         ast.Select_level = string($4)
         currentRules = nil
@@ -108,6 +112,7 @@ where_clause:
         if len(currentRules) > 0 {
             // add the currentRules if they are not already in the list
             ast.Rules = append(ast.Rules, currentRules)
+            ast.Select_level_by_rule = append(ast.Select_level_by_rule, $2)
             currentRules = nil
         }
         $$ = fmt.Sprintf("found a where clause with: %s and ruleset %s", $2, $4)

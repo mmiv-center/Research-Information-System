@@ -1353,12 +1353,19 @@ func main() {
 					}
 				}
 			} else if config.SeriesFilterType == "select" {
+				// We need to do things differently if we select Output_level that is not
+				// "series"
+
 				// its a rule so behave accordingly, check for each rule set if the current series matches
 				InitParser()
 				line := []byte(config.SeriesFilter)
 				program = string(line)
 				yyParse(&exprLex{line: line})
 				if !errorOnParse {
+					if ast.Output_level != "series" {
+						exitGracefully(fmt.Errorf("we only support \"Select <series>\" for now as the output level"))
+					}
+
 					// can only access the informaiton in config.Data for these matches
 					for _, value := range config.Data.DataInfo {
 						// we can check on the study or the series level or the patient level

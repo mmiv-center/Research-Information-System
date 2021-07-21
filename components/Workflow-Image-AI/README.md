@@ -162,17 +162,18 @@ This search text, a regular expression, is matched against a long string that co
 ```{json}
 "StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, NumImages: %d, SeriesNumber: %d, SequenceName: %s, Modality: %s, Manufacturer: %s, ManufacturerModelName: %s, StudyDescription: %s, ClassifyType: %s"
 ```
-where ClassifyType is a comma separated array of classification types. To identify the diffusion scans from above the series filter could look like this:
+where ClassifyType is a comma separated array of classification types. To identify the diffusion scans from above the series filter could look like this (glob style filter):
 ```
 rpp config --series_filter "ClassifyType: .*DIFFUSION"
 ```
 
 TODO: What remains here is to establish a way to generate sets of image data that are more complex than single specific image series. We would like to be able to specify a unit of processing as complex as "a diffusion image series with a closest in time T1-weighted image series", or "all resting state image series with a suitable field map", or "all T1 weighted image series in the study from the first time point by patient, use the best quality scan if there is more than one for a patient". One way to do this might be to mimic GraphQL where properties of the result objects are described. Goal is to create a flexible enough type system to map to the above use cases.
 
-I end up with what I know, an SQL like grammar :-/. 
+I end up with what I know, an SQL like grammar :-/. So this is working right now:
 ```
-Select patient from study where series has ClassifyType containing T1 and SeriesDescription containing axial also where series has ClassifyType containing DIFFUSION also where series has ClassifyType containing RESTING
+Select patient from study where series has ClassifyType containing T1 and SeriesDescription containing axial also where series has ClassifyType containing DIFFUSION also where series has ClassifyType containing RESTING and NumImages > 10
 ```
+The structure of this domain specific language is to specify first a level at which the data is exported ('Select patient'). We might export individual series or a whole study or all data for a patient. In the above selection all images, series, studies for any patient that matches will be exported (todo, currently only series level exports work). The 'from study' is not functional at the moment. In the future it is supposed to allow a construct like 'from earliest study by StudyDate as DICOM'. The third part is a list of where clauses delimited by 'also where' to separate selections to different series. Each where clause is a list of rules that use the tags available for each series (rpp status). This function is limited to existing tags only. If a new tag needs to be included add the tag first to a classify rule. Afterwards a new tag would appear in ClassifyTypes to be used in select.
 
 For a series_filter all image series that match will be a potential test image series for the trigger command and from those one image series is selected at random. If you want to test the workflow with all matching series you can trigger with the additional '--each' option to process all matching image series. The corresponding call would look like this:
 ```
