@@ -105,6 +105,13 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 					foundValue = true
 				}
 			}
+		} else if o == "regexp" { // on every single item
+			for _, vv := range dataData {
+				var rRegex = regexp.MustCompile(fmt.Sprintf("%v", v))
+				if rRegex.MatchString(vv) {
+					foundValue = true
+				}
+			}
 		}
 		if !foundValue {
 			matches = false

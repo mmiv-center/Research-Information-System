@@ -9,6 +9,7 @@ import (
 	"log"
 	//"math/big"
 	"unicode/utf8"
+    "unicode"
     // "encoding/json"
     "strings"
     "strconv"
@@ -37,12 +38,12 @@ var errorOnParse = false
 
 %type <word> command, select_stmt, base_select, level_types, rule_list, rule, where_clause, where_clauses
 
-%token '+' '-' '*' '/' '(' ')'
+%token '+' '-' '*' '/' '(' ')' '"' '\''
 %token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND ALSO
-%token CONTAINING SMALLER LARGER
+%token CONTAINING SMALLER LARGER REGEXP NOT
 
 %token	<num>	NUM
-%token  <word>  STRING
+%token  <word>  STRING NOT
 
 %start top
 
@@ -127,7 +128,20 @@ rule_list:
     }
 
 rule:
-    STRING EQUALS STRING
+    '(' rule_list ')'
+    {
+        $$ = fmt.Sprintf("%s, brackets %s", $$, $2)
+    }
+|   NOT rule
+    {
+        if currentRules[len(currentRules)-1].Negate == "" || currentRules[len(currentRules)-1].Negate == "no" {
+            currentRules[len(currentRules)-1].Negate = "yes"
+        } else {
+            currentRules[len(currentRules)-1].Negate = "no"
+        }
+        $$ = fmt.Sprintf("%s NOT %s", $$, $1)
+    }
+|   STRING EQUALS STRING
     {
         r := Rule{
             Tag: []string{$1},
@@ -164,6 +178,17 @@ rule:
         r := Rule{
             Tag: []string{$1},
             Operator: ">",
+            Value: $3,
+        }
+        currentRules = append(currentRules, r)
+
+        $$ = fmt.Sprintf("Variable %s contains %s", $1, $3)
+    }
+|   STRING REGEXP STRING
+    {
+        r := Rule{
+            Tag: []string{$1},
+            Operator: "regexp",
             Value: $3,
         }
         currentRules = append(currentRules, r)
@@ -238,16 +263,18 @@ func (x *exprLex) Lex(yylval *yySymType) int {
             charpos = charpos + 1
 			return '/'
         case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z':
-            return x.word(c, yylval)
+            return x.word(c, yylval, rune(0))
         case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
-            return x.word(c, yylval)
+            return x.word(c, yylval, rune(0))
         case '<':
             return SMALLER
         case '>':
             return LARGER
         case '=':
             return EQUALS
-
+        case '"':
+            // read until the next delimiter (eat up spaces as well)
+            return x.word(c, yylval, rune('"'))
 		case ' ', '\t', '\n', '\r':
             charpos = charpos + 1
 		default:
@@ -257,16 +284,27 @@ func (x *exprLex) Lex(yylval *yySymType) int {
 }
 
 // Lex a word.
-func (x *exprLex) word(c rune, yylval *yySymType) int {
+func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
 	add := func(b *bytes.Buffer, c rune) {
 		if _, err := b.WriteRune(c); err != nil {
 			log.Fatalf("WriteRune: %s", err)
 		}
 	}
 	var b bytes.Buffer
-	add(&b, c)
+    if delimiter == rune(0) {
+	    add(&b, c)
+    }
 	L: for {
 		c = x.next()
+        if unicode.IsSpace(c) {
+            if delimiter == rune(0) {
+                break L
+            } else {
+                add(&b, c)
+                charpos = charpos + 1
+                continue L
+            }
+        }
 		switch c {
 		case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z':
 			add(&b, c)
@@ -277,6 +315,10 @@ func (x *exprLex) word(c rune, yylval *yySymType) int {
         case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			add(&b, c)
             charpos = charpos + 1
+        case delimiter:
+            c = x.next() // make sure we will not look at it if it stays in peek
+            charpos = charpos + 1
+            break L
 		default:
 			break L
 		}
@@ -307,6 +349,10 @@ func (x *exprLex) word(c rune, yylval *yySymType) int {
         return WHERE
     } else if strings.ToLower(b.String()) == "also" {
         return ALSO
+    } else if strings.ToLower(b.String()) == "regexp" {
+        return REGEXP
+    } else if strings.ToLower(b.String()) == "not" {
+        return NOT
     } else {
 		log.Printf("unknown word %s", b.String())
         yylval.word = b.String()
@@ -366,6 +412,7 @@ func (x *exprLex) next() rune {
 	x.line = x.line[size:]
 	if c == utf8.RuneError && size == 1 {
 		log.Print("invalid utf8")
+        fmt.Printf("invalid utf8 found %s", utf8.RuneError)
 		return x.next()
 	}
 	return c

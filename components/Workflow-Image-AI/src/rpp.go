@@ -1384,7 +1384,7 @@ func main() {
 				exitGracefully(fmt.Errorf("Error: unknown SeriesFilterType"))
 			}
 			if selectFromB == nil {
-				exitGracefully(fmt.Errorf("there is no matching data. Did you specify a filter that does not work?\n\n\t%s status", own_name))
+				exitGracefully(fmt.Errorf("found %d series, but there is no matching data after applying your series_filter. Did you specify a filter that does not work or is too restrictive?\n\n\t%s\n\n", len(selectFromA), config.SeriesFilter))
 			}
 			// if trigger_each we want to run this for all of them, not just a single one
 			var runIdx []int
