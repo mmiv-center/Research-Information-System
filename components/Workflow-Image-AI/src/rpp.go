@@ -659,6 +659,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 					StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
 					if StudyInstanceUID == "" {
 						// no study instance uid found, skip this series because we cannot reference it later
+						fmt.Printf("We could not find a StudyInstanceUID here: %v\n", StudyInstanceUIDVal)
 						return nil
 					}
 
@@ -677,6 +678,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 					}
 					if SeriesInstanceUID == "" {
 						// no series instance uid skip this file
+						fmt.Printf("We could not find a SeriesInstanceUID here: %v\n", SeriesInstanceUIDVal)
 						return nil
 					}
 					SeriesDescriptionVal, err := dataset.FindElementByTag(tag.SeriesDescription)
@@ -761,6 +763,8 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 						} else {
 							// if there is no SeriesInstanceUID but there is a StudyInstanceUID we could have
 							// other series already in the list
+
+							fmt.Printf("WE have this study, add another SERIES NOW %d\n", len(datasets[StudyInstanceUID]))
 							datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1,
 								SeriesDescription:     SeriesDescription,
 								SeriesNumber:          SeriesNumber,
@@ -888,7 +892,7 @@ func main() {
 	buildCommand.BoolVar(&build_help, "help", false, "Show help for build.")
 
 	var config_series_filter string
-	configCommand.StringVar(&config_series_filter, "series_filter", ".*",
+	configCommand.StringVar(&config_series_filter, "series_filter", "",
 		"Filter applied to series before trigger. This regular expression should\n"+
 			"match anything in the string build by StudyInstanceUID: %s, \n"+
 			"SeriesInstanceUID: %s, SeriesDescription: %s, ... As an example you might search\n"+
@@ -1061,10 +1065,12 @@ func main() {
 						Name:  author_name,
 						Email: author_email,
 					},
-					CallString:  "python ./stub.py",
-					ProjectType: init_type,
-					SortDICOM:   true,
-					ProjectName: path.Base(input_dir),
+					CallString:       "python ./stub.py",
+					SeriesFilter:     ".*",
+					SeriesFilterType: "glob",
+					ProjectType:      init_type,
+					SortDICOM:        true,
+					ProjectName:      path.Base(input_dir),
 				}
 				if init_type == "bash" {
 					data.CallString = "./stub.sh"
