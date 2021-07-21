@@ -52,6 +52,8 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 			dataData = []string{data.SeriesDescription}
 		} else if t[0] == "NumImages" {
 			dataData = []string{fmt.Sprintf("%d", data.NumImages)}
+		} else if t[0] == "NumSlices" {
+			dataData = []string{fmt.Sprintf("%d", data.NumImages)}
 		} else if t[0] == "SeriesNumber" {
 			dataData = []string{fmt.Sprintf("%d", data.SeriesNumber)}
 		} else if t[0] == "SequenceName" {
@@ -70,6 +72,8 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 			dataData = []string{data.PatientID}
 		} else if t[0] == "PatientName" {
 			dataData = []string{data.PatientName}
+		} else {
+			fmt.Println("Warning: unknown value selected")
 		}
 		if o == "contains" {
 			for _, vv := range dataData {
@@ -112,8 +116,10 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 					foundValue = true
 				}
 			}
+		} else {
+			fmt.Printf("Error: unknown operator: %s\n", o)
 		}
-		if !foundValue {
+		if !foundValue { // any one rule that does not match will result in false
 			matches = false
 		}
 	}
@@ -205,10 +211,11 @@ func evalRules(dataset dicom.Dataset, ruleList []Rule, classifications Classes, 
 					theseRulesWork = false
 					return theseRulesWork
 				}
-			} //else {
-			//	fmt.Println("Tag", t, "does not exist in dataset ", t)
-			// we assume everything is still fine
-			//}
+			} else {
+				//fmt.Println("Tag", t, "does not exist in dataset ", t, "SHOULD WE PANIC HERE?")
+				return false
+				// we assume everything is still fine
+			}
 		} else {
 			// even if there is no tag we might still have something like "ClassifyType" in the first argument
 			if len(r.Tag) == 1 && r.Tag[0] == "ClassifyType" {
@@ -294,7 +301,7 @@ func applyOperator(r Rule, tagValue string) bool {
 		}
 	} else if operator == "" {
 		// if operator is empty string we assume regexp?
-		//fmt.Println("operator is empty, assume we have a regular expression")
+		// fmt.Printf("operator is empty, assume we have a regular expression \"%s\" compare with %s\n", value_string, tagValue)
 		var rRegex = regexp.MustCompile(value_string)
 		if !rRegex.MatchString(tagValue) {
 			thisCheck = false

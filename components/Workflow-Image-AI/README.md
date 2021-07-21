@@ -78,7 +78,7 @@ Now you have a folder for your project's source code. In order to develop our pi
 cd project01
 rpp config --data ./data --temp_directory `pwd`
 ```
-Notice: In order to speed up testing you should not have too many DICOM files in the data directory. Specify a subset of the folders in the data directory by using double quotes (prevents the shell from interpreting your path) and the special glob-characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006 up to and including 009 with `--data \"./data/00[6-9]\*\"` (double quotes are important here to prevent the shell from replacing the value prematurely).
+Notice: In order to speed up testing you should not have too many DICOM files in the data directory. Specify a subset of the folders in the data directory by using double quotes (prevents the shell from interpreting your path) and the special glob-characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006 up to and including 009 with `--data "./data/00[6-9]*"` (double quotes are important here to prevent the shell from replacing the value prematurely).
 
 Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .rpp directory (need to do more work to make this sub-command more useful).
 ```bash

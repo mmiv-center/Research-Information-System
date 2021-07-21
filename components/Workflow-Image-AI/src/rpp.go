@@ -764,7 +764,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							// if there is no SeriesInstanceUID but there is a StudyInstanceUID we could have
 							// other series already in the list
 
-							fmt.Printf("WE have this study, add another SERIES NOW %d\n", len(datasets[StudyInstanceUID]))
+							//fmt.Printf("WE have this study, add another SERIES NOW %d\n", len(datasets[StudyInstanceUID]))
 							datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1,
 								SeriesDescription:     SeriesDescription,
 								SeriesNumber:          SeriesNumber,
