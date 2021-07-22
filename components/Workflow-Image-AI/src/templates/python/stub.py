@@ -9,8 +9,8 @@ import matplotlib.gridspec as gridspec
 
 description = {}
 with open(os.path.join(sys.argv[1], "descr.json")) as f:
-    description = json.load(f)
-
+    description = json.load(f)[0]
+    
 files = []
 print('glob: {}/input'.format(sys.argv[1]))
 for fname in glob.glob(sys.argv[1]+"/input/*", recursive=False):
