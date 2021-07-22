@@ -161,7 +161,7 @@ func evalRules(dataset dicom.Dataset, ruleList []Rule, classifications Classes, 
 				ok++
 			}
 			if ok == 2 {
-				t = tag.Tag{t1, t2}
+				t = tag.Tag{Group: t1, Element: t2}
 				foundTag = true
 			}
 		} else {
@@ -301,7 +301,7 @@ func applyOperator(r Rule, tagValue string) bool {
 		}
 	} else if operator == "" {
 		// if operator is empty string we assume regexp?
-		// fmt.Printf("operator is empty, assume we have a regular expression \"%s\" compare with %s\n", value_string, tagValue)
+		//fmt.Printf("regular expression \"%s\" compare with \"%s\"\n", value_string, tagValue)
 		var rRegex = regexp.MustCompile(value_string)
 		if !rRegex.MatchString(tagValue) {
 			thisCheck = false

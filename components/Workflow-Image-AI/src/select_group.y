@@ -88,7 +88,7 @@ base_select:
             ast.Rules = make([][]Rule, 0)
         }
 
-        $$ = fmt.Sprintf("\nlevel types: %w, from: %w", $2, $4)
+        $$ = fmt.Sprintf("\nlevel types: %s, from: %s", $2, $4)
     };
 
 where_clauses:
@@ -176,7 +176,7 @@ rule:
         }
         currentRules = append(currentRules, r)
 
-        $$ = fmt.Sprintf("Variable %s contains %s", $1, $3)
+        $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
     }
 |   STRING LARGER NUM
     {
@@ -187,7 +187,7 @@ rule:
         }
         currentRules = append(currentRules, r)
 
-        $$ = fmt.Sprintf("Variable %s contains %s", $1, $3)
+        $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
     }
 |   STRING REGEXP STRING
     {
@@ -271,6 +271,8 @@ func (x *exprLex) Lex(yylval *yySymType) int {
             return x.word(c, yylval, rune(0))
         case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
             return x.word(c, yylval, rune(0))
+        case '^', '$', '[', ']', '.':
+            return x.word(c, yylval, rune(0))
         case '<':
             return SMALLER
         case '>':
@@ -317,7 +319,7 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
         case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 			add(&b, c)
             charpos = charpos + 1
-        case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+        case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '^', '$', '.', '*', '[', ']':
 			add(&b, c)
             charpos = charpos + 1
         case delimiter:
@@ -363,7 +365,8 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
         yylval.word = b.String()
         return STRING
     }
-	return STRING
+    // this code is unreachable
+	// return STRING
 }
 
 // Lex a number.
@@ -417,7 +420,7 @@ func (x *exprLex) next() rune {
 	x.line = x.line[size:]
 	if c == utf8.RuneError && size == 1 {
 		log.Print("invalid utf8")
-        fmt.Printf("invalid utf8 found %s", utf8.RuneError)
+        fmt.Printf("invalid utf8 found %c", utf8.RuneError)
 		return x.next()
 	}
 	return c

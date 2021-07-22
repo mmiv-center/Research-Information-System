@@ -33,6 +33,8 @@ import (
 	"github.com/suyashkumar/dicom/pkg/tag"
 
 	"golang.org/x/image/draw"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 
 	"image/color"
 	_ "image/jpeg"
@@ -357,7 +359,7 @@ func Scale(src image.Image, rect image.Rectangle, scale draw.Scaler) image.Image
 	return dst
 }
 
-func showDataset(dataset dicom.Dataset, counter int, path string) {
+func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 	pixelDataElement, err := dataset.FindElementByTag(tag.PixelData)
 	if err != nil {
 		return
@@ -367,6 +369,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string) {
 	if err == nil {
 		PixelRepresentation = dicom.MustGetInts(PixelRepresentationVal.Value)[0]
 	}
+	langFmt := message.NewPrinter(language.English)
 
 	pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
 	for _, fr := range pixelDataInfo.Frames {
@@ -409,8 +412,11 @@ func showDataset(dataset dicom.Dataset, counter int, path string) {
 		bounds := newImage.Bounds()
 		width, height := bounds.Max.X, bounds.Max.Y
 		p := printImage2ASCII(newImage, width, height, PixelRepresentation)
-		fmt.Println(string(p))
-		fmt.Printf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
+		fmt.Printf("%s", string(p))
+		langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
+		if len(info) > 0 {
+			langFmt.Printf("\033[2K%s\n", info)
+		}
 	}
 }
 
@@ -467,7 +473,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 					// we can get a version of the image, scale it and print out on the command line
 					showImage := true
 					if showImage {
-						showDataset(dataset, counter+1, path)
+						showDataset(dataset, counter+1, path, "")
 					}
 
 					//fmt.Printf("%05d files\r", counter)
@@ -623,6 +629,8 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 	}
 	fmt.Println("Found data directory, start parsing DICOM files...")
 	counter := 0
+	nonDICOM := 0
+	langFmt := message.NewPrinter(language.English)
 	for p := range input_path_list {
 		err := filepath.Walk(input_path_list[p], func(path string, info os.FileInfo, err error) error {
 			if info.IsDir() {
@@ -650,7 +658,18 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 
 					showImages := true
 					if showImages {
-						showDataset(dataset, counter, path)
+						// create a human readable summary line for the whole dataset
+						numStudies := len(datasets)
+						numSeries := 0
+						numImages := 0
+						for _, v := range datasets {
+							numSeries += len(v)
+							for _, vv := range v {
+								numImages += vv.NumImages
+							}
+						}
+						var dataset_info string = langFmt.Sprintf("Studies: %d Series: %d Images: %d Non-DICOM: %d", numStudies, numSeries, numImages, nonDICOM)
+						showDataset(dataset, counter, path, dataset_info)
 					} else {
 						fmt.Printf("%05d files\r", counter)
 					}
@@ -798,6 +817,8 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 				} else {
 					return nil
 				}
+			} else {
+				nonDICOM = nonDICOM + 1
 			}
 			return nil
 		})
@@ -1397,7 +1418,7 @@ func main() {
 				exitGracefully(fmt.Errorf("Error: unknown SeriesFilterType"))
 			}
 			if selectFromB == nil {
-				exitGracefully(fmt.Errorf("found %d series, but there is no matching data after applying your series_filter. Did you specify a filter that does not work or is too restrictive?\n\n\t%s\n\n", len(selectFromA), config.SeriesFilter))
+				exitGracefully(fmt.Errorf("found %d series, but there is no matching data after applying your series_filter. Did you specify a filter that does not work or is too restrictive?\n\n\t%s\n\n ", len(selectFromA), config.SeriesFilter))
 			}
 			// if trigger_each we want to run this for all of them, not just a single one
 			var runIdx []int

@@ -493,7 +493,7 @@
       },
       {
         "tag": [
-          "NumSlices"
+          "NumImages"
         ],
         "value": "81"
       },
@@ -561,7 +561,7 @@
       },
       {
         "tag": [
-          "NumSlices"
+          "NumImages"
         ],
         "value": "81"
       },
@@ -625,7 +625,7 @@
       },
       {
         "tag": [
-          "NumSlices"
+          "NumImages"
         ],
         "value": "81"
       },
@@ -667,7 +667,7 @@
       },
       {
         "tag": [
-          "NumSlices"
+          "NumImages"
         ],
         "value": "60"
       },
@@ -707,7 +707,7 @@
       },
       {
         "tag": [
-          "NumSlices"
+          "NumImages"
         ],
         "operator": "==",
         "negate": "yes",
@@ -731,7 +731,7 @@
       },
       {
         "tag": [
-          "NumSlices"
+          "NumImages"
         ],
         "operator": "==",
         "value": "1"
@@ -791,7 +791,7 @@
       },
       {
         "tag": [
-          "NumSlices"
+          "NumImages"
         ],
         "value": "60"
       },
@@ -843,7 +843,7 @@
       },
       {
         "tag": [
-          "NumSlices"
+          "NumImages"
         ],
         "value": "60"
       },
@@ -895,7 +895,7 @@
       },
       {
         "tag": [
-          "NumSlices"
+          "NumImages"
         ],
         "value": "60"
       },
@@ -947,7 +947,7 @@
       },
       {
         "tag": [
-          "NumSlices"
+          "NumImages"
         ],
         "value": "60"
       },
@@ -992,7 +992,7 @@
       },
       {
         "tag": [
-          "NumSlices"
+          "NumImages"
         ],
         "value": "60"
       },
@@ -1516,7 +1516,7 @@
       },
       {
         "tag": [
-          "NumSlices"
+          "NumImages"
         ],
         "value": "60"
       },
