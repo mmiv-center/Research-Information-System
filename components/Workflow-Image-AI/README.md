@@ -59,6 +59,15 @@ wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/
 chmod +x /usr/local/bin/rpp
 ```
 
+### Build yourself
+
+This project depends on goyacc (and make). Install with
+
+```bash
+go get -u golang.org/x/tools/cmd/goyacc
+```
+Use the provided Makefile to build rpp for all three platforms.
+
 ### Create a first project
 
 ```bash
