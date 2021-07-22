@@ -1,12 +1,12 @@
 # A tool to create workflows for the research PACS
 
-Integration of algorithms into the research information system allows projects to react to events like new data arriving. A pipeline can be triggered based on these events and your code is run on any matching datasets. Results are either tabulated data (added to REDCap) or new image data (added to the research PACS).
+Integration of workflows into the research information system allows projects to react to events like new data arriving. A pipeline can be triggered based on these events and your code is run on matching datasets. Results are either tabulated data (added to REDCap) or new image data (added to the research PACS).
 
-Using the rpp tool provided by this project you should be able to start developing and testing a workflow in a simulated research PACS. As a final step build and upload the pipelines to the research PACS to enable it for your research projects.
+Using the rpp tool you should be able to start developing and testing a workflow in a simulated research PACS. As a final step build and upload your workflow to the research PACS.
 
 ## Setup and first steps
 
-Processing workflows are developed locally on your computer in a simulated research information system. The rpp tool is used to emulate this system. In this simulation the rpp tool provides the data to your workflow, starts the workflow and interpretes the result. Your workflow should have no other means to access data as those do not exist if your workflow runs on the research information system.
+Processing workflows are developed locally on your computer in a simulated research information system. The rpp tool is used to emulate this system. In this simulation the rpp tool provides the data to your workflow, starts the workflow and interpretes the result. Your workflow should have no other means to access data from outside your workflow. They will not exist if your workflow runs on the research information system.
 
 The *rpp* tool helps you to
 
