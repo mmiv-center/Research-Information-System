@@ -33,11 +33,11 @@ type Rule struct {
 	Rule     string      `json:"rule"`
 }
 
+// return the index of the rule that matched together with the error
 func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 	// we assume that in the rulelist we reference only values from the data as type SeriesInfo
 	var matches bool = true
 	// lets convert the struct to a map
-
 	// all rules have to match!
 	for _, val := range ruleList {
 		// in a rule list all rules have to fit
@@ -47,6 +47,8 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 		v := val.Value
 		dataData := []string{""}
 		if t[0] == "ClassifyType" {
+			dataData = data.ClassifyTypes
+		} else if t[0] == "ClassifyTypes" {
 			dataData = data.ClassifyTypes
 		} else if t[0] == "SeriesDescription" {
 			dataData = []string{data.SeriesDescription}

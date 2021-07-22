@@ -553,7 +553,14 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 					outputPath := destination_path
 					inputFile, _ := os.Open(path)
 					data, _ := ioutil.ReadAll(inputFile)
+					// what is the next unused filename? We can have this case if other series are exported as well
 					outputPathFileName := fmt.Sprintf("%s/%06d.dcm", outputPath, counter)
+					_, err = os.Stat(outputPathFileName)
+					for !os.IsNotExist(err) {
+						counter = counter + 1
+						outputPathFileName := fmt.Sprintf("%s/%06d.dcm", outputPath, counter)
+						_, err = os.Stat(outputPathFileName)
+					}
 					ioutil.WriteFile(outputPathFileName, data, 0644)
 
 					// We can do a better destination path here. The friendly way of doing this is
@@ -591,6 +598,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 							}
 						}
 						// now create symbolic link here to our outputPath + counter .dcm == outputPathFileName
+						// this prevents any duplication of space taken up by the images
 						symlink := filepath.Join(symOrderPatientDateSeriesNumber, fmt.Sprintf("%06d.dcm", counter))
 						relativeDataPath := fmt.Sprintf("../../../../input/%06d.dcm", counter)
 						os.Symlink(relativeDataPath, symlink)
@@ -846,6 +854,28 @@ func createStub(p string, str string) {
 	}
 }
 
+func humanizeFilter(ast AST) string {
+	// create a human readeable string from the AST
+	var ss string
+
+	switch ast.Output_level {
+	case "series":
+		ss = fmt.Sprintf("%s\nWe will run processing on any single image series that matches.", ss)
+	case "study":
+		ss = fmt.Sprintf("%s\nWe will run processing on data containing a single study and its matching image series.", ss)
+	case "patient":
+		ss = fmt.Sprintf("%s\nWe will run processing on data containing all studies of a patient for which those studies have the correct number of matching image series.", ss)
+	}
+
+	if len(ast.Rules) == 1 {
+		ss = fmt.Sprintf("%s\nWe will select cases with a single matching image series.\n", ss)
+	} else {
+		ss = fmt.Sprintf("%s\nWe will select cases with %d image series.\n", ss, len(ast.Rules))
+	}
+
+	return ss
+}
+
 func main() {
 
 	rand.Seed(time.Now().UnixNano())
@@ -924,8 +954,8 @@ func main() {
 			"\t\"select patient from study where series has ClassifyTypes containing T1\n"+
 			"\tand SeriesDescription containing axial also where series has ClassifyType\n"+
 			"\tcontaining DIFFUSION also where series has ClassifyTypes containing RESTING\"\n"+
-			"This filter should export all studies of a patient that has at least one matching\n"+
-			"study with a T1, a Diffusion and a resting state scan.")
+			"This filter should export all studies of a patient that have matching\n"+
+			"series classified as T1, as Diffusion or as resting state scans.")
 
 	var config_temp_directory string
 	configCommand.StringVar(&config_temp_directory, "temp_directory", "", "Specify a directory for the temporary folders used in the trigger")
@@ -1250,7 +1280,8 @@ func main() {
 				yyParse(&exprLex{line: line})
 				if !errorOnParse {
 					s, _ := json.MarshalIndent(ast, "", "  ")
-					fmt.Printf("Parsed series filter sucessfully as\n%s\n", string(s))
+					ss := humanizeFilter(ast)
+					fmt.Printf("Parsed series filter sucessfully as\n%s\n%s\n", string(s), ss)
 					config.SeriesFilterType = "select"
 				} else {
 					// maybe its a simple glob expression? We should add in any case
@@ -1355,7 +1386,11 @@ func main() {
 			}
 
 			selectFromA := make(map[string]string)
-			var selectFromB []string = nil
+			// we can have sets of values to export, so instead of a single series we should have here
+			// a list of series instance uids. In case we export by series we have a single entry, if
+			// we export on the study or patient level we have more series. Picking one entry means
+			// exporting all the series in the entry.
+			var selectFromB [][]string = nil
 			for StudyInstanceUID, value := range config.Data.DataInfo {
 				for SeriesInstanceUID, value2 := range value {
 					selectFromA[SeriesInstanceUID] = fmt.Sprintf("StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, "+
@@ -1376,7 +1411,7 @@ func main() {
 				mm := regexp.MustCompile(config.SeriesFilter)
 				for key, value := range selectFromA {
 					if mm.MatchString(value) {
-						selectFromB = append(selectFromB, key)
+						selectFromB = append(selectFromB, []string{key})
 					}
 				}
 			} else if config.SeriesFilterType == "select" {
@@ -1389,24 +1424,113 @@ func main() {
 				program = string(line)
 				yyParse(&exprLex{line: line})
 				if !errorOnParse {
-					if ast.Output_level != "series" {
-						exitGracefully(fmt.Errorf("we only support \"Select <series>\" for now as the output level"))
-					}
+					//if ast.Output_level != "series" && ast.Output_level != "study" {
+					//	exitGracefully(fmt.Errorf("we only support \"Select <series>\" and \"Select <study>\" for now as the output level"))
+					//}
 
 					// can only access the informaiton in config.Data for these matches
-					for _, value := range config.Data.DataInfo {
+					seriesByStudy := make(map[string]map[string][]int)
+					seriesByPatient := make(map[string]map[string][]int)
+					for StudyInstanceUID, value := range config.Data.DataInfo {
 						// we can check on the study or the series level or the patient level
 						for SeriesInstanceUID, value2 := range value {
 							// we assume here that we are in the series level...
 							var matches bool = false
-							for _, ruleset := range ast.Rules {
+							var matchesIdx int = -1
+							for idx, ruleset := range ast.Rules { // todo: check if this works if a ruleset matches the 2 series
 								if value2.evalRules(ruleset) { // check if this ruleset fits with this series
 									matches = true
+									matchesIdx = idx
 									break
 								}
 							}
 							if matches {
-								selectFromB = append(selectFromB, SeriesInstanceUID)
+								if _, ok := seriesByStudy[StudyInstanceUID]; !ok {
+									seriesByStudy[StudyInstanceUID] = make(map[string][]int)
+								}
+								if _, ok := seriesByStudy[StudyInstanceUID][SeriesInstanceUID]; !ok {
+									seriesByStudy[StudyInstanceUID][SeriesInstanceUID] = []int{matchesIdx}
+								} else {
+									seriesByStudy[StudyInstanceUID][SeriesInstanceUID] = append(seriesByStudy[StudyInstanceUID][SeriesInstanceUID], matchesIdx)
+								}
+								PatientName := value2.PatientID + value2.PatientName
+								if _, ok := seriesByPatient[PatientName]; !ok {
+									seriesByPatient[PatientName] = make(map[string][]int)
+								}
+								if _, ok := seriesByPatient[PatientName][SeriesInstanceUID]; !ok {
+									seriesByPatient[PatientName][SeriesInstanceUID] = []int{matchesIdx}
+								} else {
+									seriesByPatient[PatientName][SeriesInstanceUID] = append(seriesByPatient[PatientName][SeriesInstanceUID], matchesIdx)
+								}
+								// single level append here
+								selectFromB = append(selectFromB, []string{SeriesInstanceUID})
+							}
+						}
+					}
+					if ast.Output_level == "study" {
+						// If we want to export by study we need to export all studies where all the individual rules
+						// resulted in a match at the series level. But we will export matched series for these studies only.
+						selectFromB = make([][]string, 0)
+						for _, value := range seriesByStudy {
+							// which rules need to match?
+							// all rules from 0..len(ast.Rules)
+							allThere := true
+							for r := 0; r < len(ast.Rules); r++ {
+								thisThere := false
+								for _, value2 := range value {
+									for _, value3 := range value2 {
+										// each one is an integer, we look for r here
+										if value3 == r {
+											thisThere = true
+										}
+									}
+								}
+								if !thisThere {
+									allThere = false
+									break
+								}
+							}
+							if allThere {
+								// only append our series for this study
+								// append all SeriesInstanceUIDs now
+								var ss []string
+								for k, _ := range value {
+									ss = append(ss, k)
+								}
+								selectFromB = append(selectFromB, ss)
+							}
+						}
+					} else if ast.Output_level == "patient" {
+						// If we want to export by study we need to export all studies where all the individual rules
+						// resulted in a match at the series level. But we will export matched series for these studies only.
+						selectFromB = make([][]string, 0)
+						for _, value := range seriesByPatient {
+							// which rules need to match?
+							// all rules from 0..len(ast.Rules)
+							allThere := true
+							for r := 0; r < len(ast.Rules); r++ {
+								thisThere := false
+								for _, value2 := range value {
+									for _, value3 := range value2 {
+										// each one is an integer, we look for r here
+										if value3 == r {
+											thisThere = true
+										}
+									}
+								}
+								if !thisThere {
+									allThere = false
+									break
+								}
+							}
+							if allThere {
+								// only append our series for this study
+								// append all SeriesInstanceUIDs now
+								var ss []string
+								for k, _ := range value {
+									ss = append(ss, k)
+								}
+								selectFromB = append(selectFromB, ss)
 							}
 						}
 					}
@@ -1422,6 +1546,7 @@ func main() {
 			}
 			// if trigger_each we want to run this for all of them, not just a single one
 			var runIdx []int
+			// if we are on the series level we export a single series here, but we can also be on the study or patient level and export more
 			if !trigger_each {
 				runIdx = []int{rand.Intn((len(selectFromB) - 0) + 0)}
 			} else {
@@ -1432,7 +1557,7 @@ func main() {
 			}
 			output_json_array := []string{}
 			for _, idx := range runIdx {
-				fmt.Printf("found %d matching series. Picked index %d, trigger series: %s\n", len(selectFromB), idx, selectFromB[idx])
+				fmt.Printf("found %d matching series sets. Picked index %d, trigger series: %s\n", len(selectFromB), idx, strings.Join(selectFromB[idx], ", "))
 
 				dir, err := ioutil.TempDir(config.TempDirectory, fmt.Sprintf("rpp_trigger_run_%s_*", time.Now().Weekday()))
 				if err != nil {
@@ -1447,23 +1572,30 @@ func main() {
 				// we should copy all files into this directory that we need for processing
 				// the study we want is this one selectFromB[idx]
 				// look for the path stored in that study
-				var closestPath string = ""
-				var classifyTypes []string
-				for _, value := range config.Data.DataInfo {
-					for SeriesInstanceUID, value2 := range value {
-						if SeriesInstanceUID == selectFromB[idx] {
-							closestPath = value2.Path
-							classifyTypes = value2.ClassifyTypes
+
+				// export each series from the current set in selectFromB
+				var description []Description
+				for _, thisSeriesInstanceUID := range selectFromB[idx] {
+					var closestPath string = ""
+					var classifyTypes []string
+					for _, value := range config.Data.DataInfo {
+						for SeriesInstanceUID, value2 := range value {
+							if SeriesInstanceUID == thisSeriesInstanceUID {
+								closestPath = value2.Path
+								classifyTypes = value2.ClassifyTypes
+							}
 						}
 					}
-				}
-				if closestPath == "" {
-					fmt.Println("ERROR: Could not detect the closest PATH")
-					closestPath = config.Data.Path
-				}
+					if closestPath == "" {
+						fmt.Println("ERROR: Could not detect the closest PATH")
+						closestPath = config.Data.Path
+					}
 
-				numFiles, description := copyFiles(selectFromB[idx], closestPath, dir, config.SortDICOM, classifyTypes)
-				fmt.Println("Found", numFiles, "files.")
+					numFiles, descr := copyFiles(thisSeriesInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes)
+					// we should merge the different descr together to get description
+					description = append(description, descr)
+					fmt.Println("Found", numFiles, "files.")
+				}
 				// write out a description
 				file, _ := json.MarshalIndent(description, "", " ")
 				_ = ioutil.WriteFile(dir+"/descr.json", file, 0644)
