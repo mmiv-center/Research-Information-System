@@ -1704,10 +1704,12 @@ func main() {
 
 					//fmt.Println("Done.")
 				} else {
-					fmt.Println("Test only. Make sure you also use '--keep' and call something like this:\n\tpython ./stub.py " + dir)
+					fmt.Printf("Test only. Make sure you also use '--keep' and call something like this:\n\t%s %s\n", config.CallString, dir)
 				}
 			}
-			fmt.Println("[", strings.Join(output_json_array[:], ", "), "]")
+			if !trigger_test {
+				fmt.Println("[", strings.Join(output_json_array[:], ", "), "]")
+			}
 		}
 	case "build":
 		if err := buildCommand.Parse(os.Args[2:]); err == nil {

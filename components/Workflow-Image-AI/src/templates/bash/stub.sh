@@ -37,10 +37,10 @@ fi
 cp "${input}/../descr.json" "${output}"/output.json
 
 # add the matrix information to the output.json
-cat "${output}"/output.json | jq --arg shape_x ${ROWS} '. + {shape_x: $shape_x}' > "${output}"/bla.json
+cat "${output}"/output.json | jq --arg shape_x ${ROWS} '.[0] += {shape_x: $shape_x}' > "${output}"/bla.json
 mv "${output}"/bla.json "${output}"/output.json
 
-cat "${output}"/output.json | jq --arg shape_y ${COLS} '. + {shape_y: $shape_y}' > "${output}"/bla.json
+cat "${output}"/output.json | jq --arg shape_y ${COLS} '.[0] += {shape_y: $shape_y}' > "${output}"/bla.json
 mv "${output}"/bla.json "${output}"/output.json
 
 # Lets compute an nii file for each of the Series

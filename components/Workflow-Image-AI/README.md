@@ -1,8 +1,8 @@
-# A tool to create a research PACS integration
+# A tool to create workflows for the research PACS
 
-Integration of algorithms into the research information system allows projects to react to events like new data arriving. A pipeline can be triggered based on these events and your code is run on the incoming data. Results are either tabulated data (added to REDCap) or new image data (added to the research PACS).
+Integration of algorithms into the research information system allows projects to react to events like new data arriving. A pipeline can be triggered based on these events and your code is run on any matching datasets. Results are either tabulated data (added to REDCap) or new image data (added to the research PACS).
 
-Using the rpp tool explained in this section you should be able to start developing and testing a workflow in a simulated research PACS. As a final step build and upload the pipelines to the research PACS to enable it for your research projects.
+Using the rpp tool provided by this project you should be able to start developing and testing a workflow in a simulated research PACS. As a final step build and upload the pipelines to the research PACS to enable it for your research projects.
 
 ## Setup and first steps
 
@@ -12,7 +12,7 @@ The *rpp* tool helps you to
 
 - create a first project directory,
 - find suitable DICOM files on your disc (working, might crash on some non-DICOM files),
-- trigger a processing task (working), and
+- trigger a processing task on the series, study or patient level, and
 - build and test a containerized workflow package (in progress),
 - create a package and submit to research informatino system (todo: automate).
 
