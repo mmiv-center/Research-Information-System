@@ -196,7 +196,19 @@ To generate sets of image data that are more complex than single specific image 
 For now I end up with what I know, an SQL-like grammar :-/. This is working right now:
 
 ```bash
-rpp config --series_filter 'Select patient from study where series has ClassifyType containing T1 and SeriesDescription containing axial also where series has ClassifyType containing DIFFUSION also where series has ClassifyType containing RESTING and NumImages > 10  and not(NumImages > 200)'
+rpp config --series_filter 'Select patient
+                              from study
+                                where series has
+                                  ClassifyType containing T1 and 
+                                  SeriesDescription containing axial 
+                              also
+                                where series has
+                                  ClassifyType containing DIFFUSION
+                              also
+                                where series has 
+                                  ClassifyType containing RESTING and 
+                                  NumImages > 10  and 
+                                  not(NumImages > 200)'
 ```
 
 It resolves into an internally parsed abstract syntax tree that looks like this:

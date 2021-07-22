@@ -854,6 +854,18 @@ func createStub(p string, str string) {
 	}
 }
 
+// Could we create an ast at random that is useful?
+// We would need to check how good an ast is given the
+// data. A likelihood function would incorporate
+// - ratio of the detected datasets given the number of studies/patients (max entropy?)
+// - one over the complexity of the ast to prefer simple ast's (one over total number of rules)
+// How about longitudinal data? How many series per study is best?
+//   We could use the mean over the average number of image series per study?
+// How would we generate new rules for monte-carlo testing?
+// - We can add a new rule to a ruleset by selecting a new variable
+// - We can change an existing rule by changing theh numeric value for '<' and '>'
+// - We can add a new ruleset with a random rule
+
 // return all matching sets for this rule and the provided data
 func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) [][]string {
 
