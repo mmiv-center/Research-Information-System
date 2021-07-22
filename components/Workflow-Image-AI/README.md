@@ -275,6 +275,18 @@ which results into an internally parsed abstract syntax tree that looks like thi
 
 The selection (domain specific) language first specifies a level at which the data is exported ('Select patient'). If processing depends on a single series only a 'Select series' will export a single random image series. If 'Select study' is used (default) all matching series of a study are exported. The 'from study' is not functional at the moment. In the future it is supposed to allow a construct like 'from earliest PROJECT_NAME by StudyDate as DICOM'. The third part is a list of where clauses delimited by 'also where series has' to separate selections for different series. Each where clause is a list of rules that use the tags available for each series (rpp status). Only tags from 'rpp status' work. If a new tag needs to be included that is not yet part of the series information provided by 'rpp status' add the tag first to a new classify rule. Afterwards a new tag referencing that rule would appear in ClassifyTypes and can be used in select (`ClassifyType containing <new type>`).
 
+The possible syntax for rules are:
+
+- `<field> containing <string>` check if the field list contains the specified string. A usual example is the field ClassifyTypes which is a list of types like "T1" or "DIFFUSION". The string needs to be in double quotes if it contains spaces.
+- `<field> == <string>` compare if every entry of the field is truly equal to the specified string.
+- `<field> < <num>` match if the field is a number field (SeriesNumber, NumImages) and smaller than the provided numeric value.
+- `<field> > <num>` match if the field is a number field (SeriesNumber, NumImages) and larger than the provided numeric value.
+- `<field> approx <string>` match if all entries in the field are numerically similar (1e-4) to the corresponding comma separated string values provided. This might not be very useful in the provided context but matches with the classifyRules.json definitions used for example for the detection of axial, sagittal and coronal scan orientations.
+- `<field> regexp <string>` match the field with the provided regular expression. For example "^GE" would match with values that start with "GE", or "b$" matches with all strings that end with the letter "b", or "patient[6-9]" matches with all strings that have a 6, 7, 8, or 9 after "patient".
+
+where `<field>` can be any of the following `[SeriesDescription|NumImages|SeriesNumber|SequenceName|Modality|StudyDescription|Manufacturer|ManufacturerModelName|PatientID|PatientName|ClassifyTypes]`.
+
+
 For a series_filter all image series that match will be a potential test image series for the trigger command and from those one image series is selected at random. If you want to test the workflow with all matching series you can trigger with the additional '--each' option to process all matching image series. The corresponding call would look like this:
 
 ```bash

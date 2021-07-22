@@ -118,6 +118,14 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 					foundValue = true
 				}
 			}
+		} else if o == "==" {
+			allTrue := true
+			for _, vv := range dataData {
+				if vv != v {
+					allTrue = false
+				}
+			}
+			foundValue = allTrue
 		} else {
 			fmt.Printf("Error: unknown operator: %s\n", o)
 		}
