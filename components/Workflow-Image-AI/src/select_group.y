@@ -89,6 +89,21 @@ base_select:
         }
 
         $$ = fmt.Sprintf("\nlevel types: %s, from: %s", $2, $4)
+    }
+|   SELECT level_types where_clauses 
+    {
+        // the FROM should be more complex. Something like:
+        // FROM earliest study BY StudyDate AS DICOM
+
+        ast.Output_level = string($2)
+        ast.Select_level = "series"
+        currentRules = nil
+        // get space in Rules now for rules
+        if ast.Rules == nil {
+            ast.Rules = make([][]Rule, 0)
+        }
+
+        $$ = fmt.Sprintf("\nlevel types: %s, from: %s", $2, $3)
     };
 
 where_clauses:
@@ -116,6 +131,16 @@ where_clause:
             currentRules = nil
         }
         $$ = fmt.Sprintf("found a where clause with: %s and ruleset %s", $2, $4)
+    }
+|   WHERE rule_list
+    {
+        if len(currentRules) > 0 {
+            // add the currentRules if they are not already in the list
+            ast.Rules = append(ast.Rules, currentRules)
+            ast.Select_level_by_rule = append(ast.Select_level_by_rule, "series")
+            currentRules = nil
+        }
+        $$ = fmt.Sprintf("found a where clause with: series and ruleset %s", $2)
     }
 
 rule_list:

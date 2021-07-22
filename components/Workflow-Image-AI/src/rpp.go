@@ -854,6 +854,120 @@ func createStub(p string, str string) {
 	}
 }
 
+// return all matching sets for this rule and the provided data
+func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) [][]string {
+
+	var selectFromB [][]string
+	// can only access the informaiton in config.Data for these matches
+	seriesByStudy := make(map[string]map[string][]int)
+	seriesByPatient := make(map[string]map[string][]int)
+	for StudyInstanceUID, value := range dataInfo {
+		// we can check on the study or the series level or the patient level
+		for SeriesInstanceUID, value2 := range value {
+			// we assume here that we are in the series level...
+			var matches bool = false
+			var matchesIdx int = -1
+			for idx, ruleset := range ast.Rules { // todo: check if this works if a ruleset matches the 2 series
+				if value2.evalRules(ruleset) { // check if this ruleset fits with this series
+					matches = true
+					matchesIdx = idx
+					break
+				}
+			}
+			if matches {
+				if _, ok := seriesByStudy[StudyInstanceUID]; !ok {
+					seriesByStudy[StudyInstanceUID] = make(map[string][]int)
+				}
+				if _, ok := seriesByStudy[StudyInstanceUID][SeriesInstanceUID]; !ok {
+					seriesByStudy[StudyInstanceUID][SeriesInstanceUID] = []int{matchesIdx}
+				} else {
+					seriesByStudy[StudyInstanceUID][SeriesInstanceUID] = append(seriesByStudy[StudyInstanceUID][SeriesInstanceUID], matchesIdx)
+				}
+				PatientName := value2.PatientID + value2.PatientName
+				if _, ok := seriesByPatient[PatientName]; !ok {
+					seriesByPatient[PatientName] = make(map[string][]int)
+				}
+				if _, ok := seriesByPatient[PatientName][SeriesInstanceUID]; !ok {
+					seriesByPatient[PatientName][SeriesInstanceUID] = []int{matchesIdx}
+				} else {
+					seriesByPatient[PatientName][SeriesInstanceUID] = append(seriesByPatient[PatientName][SeriesInstanceUID], matchesIdx)
+				}
+				// single level append here
+				selectFromB = append(selectFromB, []string{SeriesInstanceUID})
+			}
+		}
+	}
+	if ast.Output_level == "study" {
+		// If we want to export by study we need to export all studies where all the individual rules
+		// resulted in a match at the series level. But we will export matched series for these studies only.
+		selectFromB = make([][]string, 0)
+		for _, value := range seriesByStudy {
+			// which rules need to match?
+			// all rules from 0..len(ast.Rules)
+			allThere := true
+			for r := 0; r < len(ast.Rules); r++ {
+				thisThere := false
+				for _, value2 := range value {
+					for _, value3 := range value2 {
+						// each one is an integer, we look for r here
+						if value3 == r {
+							thisThere = true
+						}
+					}
+				}
+				if !thisThere {
+					allThere = false
+					break
+				}
+			}
+			if allThere {
+				// only append our series for this study
+				// append all SeriesInstanceUIDs now
+				var ss []string
+				for k, _ := range value {
+					ss = append(ss, k)
+				}
+				selectFromB = append(selectFromB, ss)
+			}
+		}
+	} else if ast.Output_level == "patient" {
+		// If we want to export by study we need to export all studies where all the individual rules
+		// resulted in a match at the series level. But we will export matched series for these studies only.
+		selectFromB = make([][]string, 0)
+		for _, value := range seriesByPatient {
+			// which rules need to match?
+			// all rules from 0..len(ast.Rules)
+			allThere := true
+			for r := 0; r < len(ast.Rules); r++ {
+				thisThere := false
+				for _, value2 := range value {
+					for _, value3 := range value2 {
+						// each one is an integer, we look for r here
+						if value3 == r {
+							thisThere = true
+						}
+					}
+				}
+				if !thisThere {
+					allThere = false
+					break
+				}
+			}
+			if allThere {
+				// only append our series for this study
+				// append all SeriesInstanceUIDs now
+				var ss []string
+				for k, _ := range value {
+					ss = append(ss, k)
+				}
+				selectFromB = append(selectFromB, ss)
+			}
+		}
+	}
+
+	return selectFromB
+}
+
 func humanizeFilter(ast AST) string {
 	// create a human readeable string from the AST
 	var ss string
@@ -951,11 +1065,14 @@ func main() {
 			"with --series_filter \"SeriesDescription: T1.*_2mm\". The default value matches any\nseries.\n"+
 			"Also, it is now possible to specify more complex selections using a variant of the\n"+
 			"standard query language. Here an example:\n"+
-			"\t\"select patient from study where series has ClassifyTypes containing T1\n"+
-			"\tand SeriesDescription containing axial also where series has ClassifyType\n"+
+			"\t\"select study from study where series has ClassifyTypes containing T1\n"+
+			"\tand SeriesDescription regexp \"^B\" also where series has ClassifyType\n"+
 			"\tcontaining DIFFUSION also where series has ClassifyTypes containing RESTING\"\n"+
 			"This filter should export all studies of a patient that have matching\n"+
-			"series classified as T1, as Diffusion or as resting state scans.")
+			"series classified as T1, as Diffusion or as resting state scans. A slightly shorter\n"+
+			"and valid version of the above filter would be:\n\t"+
+			"Select study where ClassifyTypes containing T1 and SeriesDescription regexp \"^B\"\n"+
+			"\talso where ClassifyType containing DIFFUSION also where ClassifyTypes containing RESTING")
 
 	var config_temp_directory string
 	configCommand.StringVar(&config_temp_directory, "temp_directory", "", "Specify a directory for the temporary folders used in the trigger")
@@ -1283,6 +1400,14 @@ func main() {
 					ss := humanizeFilter(ast)
 					fmt.Printf("Parsed series filter sucessfully as\n%s\n%s\n", string(s), ss)
 					config.SeriesFilterType = "select"
+					// check if we have any matches - cheap for us here
+					matches := findMatchingSets(ast, config.Data.DataInfo)
+					postfix := "s"
+					if len(matches) == 1 {
+						postfix = ""
+					}
+					fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
+
 				} else {
 					// maybe its a simple glob expression? We should add in any case
 					fmt.Printf("We tried to parse the series filter but failed. Maybe you just want to grep?")
@@ -1427,113 +1552,8 @@ func main() {
 					//if ast.Output_level != "series" && ast.Output_level != "study" {
 					//	exitGracefully(fmt.Errorf("we only support \"Select <series>\" and \"Select <study>\" for now as the output level"))
 					//}
+					selectFromB = findMatchingSets(ast, config.Data.DataInfo)
 
-					// can only access the informaiton in config.Data for these matches
-					seriesByStudy := make(map[string]map[string][]int)
-					seriesByPatient := make(map[string]map[string][]int)
-					for StudyInstanceUID, value := range config.Data.DataInfo {
-						// we can check on the study or the series level or the patient level
-						for SeriesInstanceUID, value2 := range value {
-							// we assume here that we are in the series level...
-							var matches bool = false
-							var matchesIdx int = -1
-							for idx, ruleset := range ast.Rules { // todo: check if this works if a ruleset matches the 2 series
-								if value2.evalRules(ruleset) { // check if this ruleset fits with this series
-									matches = true
-									matchesIdx = idx
-									break
-								}
-							}
-							if matches {
-								if _, ok := seriesByStudy[StudyInstanceUID]; !ok {
-									seriesByStudy[StudyInstanceUID] = make(map[string][]int)
-								}
-								if _, ok := seriesByStudy[StudyInstanceUID][SeriesInstanceUID]; !ok {
-									seriesByStudy[StudyInstanceUID][SeriesInstanceUID] = []int{matchesIdx}
-								} else {
-									seriesByStudy[StudyInstanceUID][SeriesInstanceUID] = append(seriesByStudy[StudyInstanceUID][SeriesInstanceUID], matchesIdx)
-								}
-								PatientName := value2.PatientID + value2.PatientName
-								if _, ok := seriesByPatient[PatientName]; !ok {
-									seriesByPatient[PatientName] = make(map[string][]int)
-								}
-								if _, ok := seriesByPatient[PatientName][SeriesInstanceUID]; !ok {
-									seriesByPatient[PatientName][SeriesInstanceUID] = []int{matchesIdx}
-								} else {
-									seriesByPatient[PatientName][SeriesInstanceUID] = append(seriesByPatient[PatientName][SeriesInstanceUID], matchesIdx)
-								}
-								// single level append here
-								selectFromB = append(selectFromB, []string{SeriesInstanceUID})
-							}
-						}
-					}
-					if ast.Output_level == "study" {
-						// If we want to export by study we need to export all studies where all the individual rules
-						// resulted in a match at the series level. But we will export matched series for these studies only.
-						selectFromB = make([][]string, 0)
-						for _, value := range seriesByStudy {
-							// which rules need to match?
-							// all rules from 0..len(ast.Rules)
-							allThere := true
-							for r := 0; r < len(ast.Rules); r++ {
-								thisThere := false
-								for _, value2 := range value {
-									for _, value3 := range value2 {
-										// each one is an integer, we look for r here
-										if value3 == r {
-											thisThere = true
-										}
-									}
-								}
-								if !thisThere {
-									allThere = false
-									break
-								}
-							}
-							if allThere {
-								// only append our series for this study
-								// append all SeriesInstanceUIDs now
-								var ss []string
-								for k, _ := range value {
-									ss = append(ss, k)
-								}
-								selectFromB = append(selectFromB, ss)
-							}
-						}
-					} else if ast.Output_level == "patient" {
-						// If we want to export by study we need to export all studies where all the individual rules
-						// resulted in a match at the series level. But we will export matched series for these studies only.
-						selectFromB = make([][]string, 0)
-						for _, value := range seriesByPatient {
-							// which rules need to match?
-							// all rules from 0..len(ast.Rules)
-							allThere := true
-							for r := 0; r < len(ast.Rules); r++ {
-								thisThere := false
-								for _, value2 := range value {
-									for _, value3 := range value2 {
-										// each one is an integer, we look for r here
-										if value3 == r {
-											thisThere = true
-										}
-									}
-								}
-								if !thisThere {
-									allThere = false
-									break
-								}
-							}
-							if allThere {
-								// only append our series for this study
-								// append all SeriesInstanceUIDs now
-								var ss []string
-								for k, _ := range value {
-									ss = append(ss, k)
-								}
-								selectFromB = append(selectFromB, ss)
-							}
-						}
-					}
 				}
 				//s, _ = json.MarshalIndent(ast, "", "  ")
 				//fmt.Printf("ast is: %s\n", string(s))
@@ -1541,7 +1561,7 @@ func main() {
 			} else {
 				exitGracefully(fmt.Errorf("Error: unknown SeriesFilterType"))
 			}
-			if selectFromB == nil {
+			if len(selectFromB) == 0 {
 				exitGracefully(fmt.Errorf("found %d series, but there is no matching data after applying your series_filter. Did you specify a filter that does not work or is too restrictive?\n\n\t%s\n\n ", len(selectFromA), config.SeriesFilter))
 			}
 			// if trigger_each we want to run this for all of them, not just a single one

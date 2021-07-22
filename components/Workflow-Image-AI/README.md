@@ -192,10 +192,10 @@ To generate sets of image data that are more complex than single specific image 
 I end up with what I know, an SQL like grammar :-/. So this is working right now:
 
 ```bash
-rpp config --series_filter 'Select patient from study where series has ClassifyType containing T1 and SeriesDescription containing axial also where series has ClassifyType containing DIFFUSION also where series has ClassifyType containing RESTING and NumImages > 10'
+rpp config --series_filter 'Select patient from study where series has ClassifyType containing T1 and SeriesDescription containing axial also where series has ClassifyType containing DIFFUSION also where series has ClassifyType containing RESTING and NumImages > 10  and not(NumImages > 200)'
 ```
 
-which results into a parsed abstract syntax tree:
+which results into an internally parsed abstract syntax tree that looks like this:
 
 ```json
 {
@@ -255,6 +255,15 @@ which results into a parsed abstract syntax tree:
         "value": 10,
         "operator": "\u003e",
         "negate": "",
+        "rule": ""
+      },
+      {
+        "tag": [
+          "NumImages"
+        ],
+        "value": 200,
+        "operator": "\u003e",
+        "negate": "yes",
         "rule": ""
       }
     ]
