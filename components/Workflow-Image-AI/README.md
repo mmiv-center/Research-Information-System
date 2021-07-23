@@ -211,7 +211,7 @@ Select patient
     where series has
       ClassifyType containing T1 
     and 
-      SeriesDescription containing axial 
+      SeriesDescription regexp "^A" 
   also
     where series has
       ClassifyType containing DIFFUSION
@@ -251,8 +251,8 @@ It resolves into an internally parsed abstract syntax tree that looks like this:
         "tag": [
           "SeriesDescription"
         ],
-        "value": "axial",
-        "operator": "contains",
+        "value": "^A",
+        "operator": "regexp",
         "negate": "",
         "rule": ""
       }
