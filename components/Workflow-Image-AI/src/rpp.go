@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -40,7 +41,7 @@ import (
 	_ "image/jpeg"
 )
 
-const version string = "0.0.1"
+const version string = "0.0.2"
 
 var own_name string = "rpp"
 
@@ -147,6 +148,7 @@ type SeriesInfo struct {
 
 // readConfig parses a provided config file as JSON.
 // It returns the parsed code as a marshaled structure.
+// @return
 func readConfig(path_string string) (Config, error) {
 	// todo: check directories up as well
 	if _, err := os.Stat(path_string); err != nil && os.IsNotExist(err) {
@@ -174,10 +176,12 @@ func readConfig(path_string string) (Config, error) {
 }
 
 type Description struct {
+	NameFromSelect    string
 	SeriesInstanceUID string
 	SeriesDescription string
 	StudyInstanceUID  string
 	NumFiles          int
+	Modality          string
 	PatientID         string
 	PatientName       string
 	SequenceName      string
@@ -208,6 +212,7 @@ var ASCIISTR = "MND8OZ$7I?+=~:,.."
 var ASCIISTR2 = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'."
 var ASCIISTR3 = " .:-=+*#%@"
 
+// reverse reverses the argument and returns the result
 func reverse(s string) string {
 	o := make([]rune, utf8.RuneCountInString(s))
 	i := len(o)
@@ -218,10 +223,12 @@ func reverse(s string) string {
 	return string(o)
 }
 
+// complement2 computes the 2-complement of a number
 func complement2(x uint16) int16 {
 	return int16(^x) + 1
 }
 
+// printImage2ASCII prints the image as ASCII art
 func printImage2ASCII(img image.Image, w, h, PixelRepresentation int) []byte {
 	//table := []byte(reverse(ASCIISTR))
 	table := []byte(reverse(ASCIISTR2))
@@ -353,12 +360,14 @@ func (c *Converted) At(x, y int) color.Color {
 	return c.Mod.Convert(c.Img.At(x, y))
 }
 
+// Scale uses a different package for rescaling the image
 func Scale(src image.Image, rect image.Rectangle, scale draw.Scaler) image.Image {
 	dst := image.NewRGBA(rect)
 	scale.Scale(dst, rect, src, src.Bounds(), draw.Over, nil)
 	return dst
 }
 
+// showDataset is a helper function to display the dataset
 func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 	pixelDataElement, err := dataset.FindElementByTag(tag.PixelData)
 	if err != nil {
@@ -377,17 +386,17 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 		img, _ := fr.GetImage() // The Go image.Image for this frame
 
 		// We should convert the pixel representation here before we rescale.
-		/* 
-		// here the conversion from a native frame to an Image. We will just 
-		// do the same but resolve the 2 complement on the way.
-		
-func (n *NativeFrame) GetImage() (image.Image, error) {
-	i := image.NewGray16(image.Rect(0, 0, n.Cols, n.Rows))
-	for j := 0; j < len(n.Data); j++ {
-		i.SetGray16(j%n.Cols, j/n.Cols, color.Gray16{Y: uint16(n.Data[j][0])}) // for now, assume we're not overflowing uint16, assume gray image
-	}
-	return i, nil
-}
+		/*
+					// here the conversion from a native frame to an Image. We will just
+					// do the same but resolve the 2 complement on the way.
+
+			func (n *NativeFrame) GetImage() (image.Image, error) {
+				i := image.NewGray16(image.Rect(0, 0, n.Cols, n.Rows))
+				for j := 0; j < len(n.Data); j++ {
+					i.SetGray16(j%n.Cols, j/n.Cols, color.Gray16{Y: uint16(n.Data[j][0])}) // for now, assume we're not overflowing uint16, assume gray image
+				}
+				return i, nil
+			}
 		*/
 
 		/*
@@ -561,6 +570,14 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 						StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
 						if StudyInstanceUID != "" {
 							description.StudyInstanceUID = StudyInstanceUID
+						}
+					}
+					var Modality string
+					ModalityVal, err := dataset.FindElementByTag(tag.Modality)
+					if err == nil {
+						Modality = dicom.MustGetStrings(ModalityVal.Value)[0]
+						if Modality != "" {
+							description.Modality = Modality
 						}
 					}
 
@@ -852,6 +869,9 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 	return datasets, nil
 }
 
+// createStub will check if the folder exists and create a text file
+// @param p: the path to the file
+// @param str: the content of the file
 func createStub(p string, str string) {
 	if _, err := os.Stat(p); !os.IsNotExist(err) {
 		fmt.Println("This directory already contains an " + filepath.Base(p) + ", don't overwrite. Skip writing...")
@@ -880,10 +900,12 @@ func createStub(p string, str string) {
 // - We can change an existing rule by changing theh numeric value for '<' and '>'
 // - We can add a new ruleset with a random rule
 
-// return all matching sets for this rule and the provided data
-func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) [][]string {
+// findMatchingSets returns all matching sets for this rule and the provided data
+// It also returns a list of the names given to each rule in select.
+func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]string, [][]string) {
 
 	var selectFromB [][]string
+	var names [][]string = make([][]string, 0)
 	// can only access the informaiton in config.Data for these matches
 	seriesByStudy := make(map[string]map[string][]int)
 	seriesByPatient := make(map[string]map[string][]int)
@@ -920,6 +942,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) [][]st
 				}
 				// single level append here
 				selectFromB = append(selectFromB, []string{SeriesInstanceUID})
+				names = append(names, []string{ast.Rule_list_names[matchesIdx]})
 			}
 		}
 	}
@@ -927,16 +950,19 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) [][]st
 		// If we want to export by study we need to export all studies where all the individual rules
 		// resulted in a match at the series level. But we will export matched series for these studies only.
 		selectFromB = make([][]string, 0)
+		names = make([][]string, 0)
 		for _, value := range seriesByStudy {
 			// which rules need to match?
 			// all rules from 0..len(ast.Rules)
 			allThere := true
+			currentNamesByRule := make([]string, 0)
 			for r := 0; r < len(ast.Rules); r++ {
 				thisThere := false
 				for _, value2 := range value {
 					for _, value3 := range value2 {
 						// each one is an integer, we look for r here
 						if value3 == r {
+							currentNamesByRule = append(currentNamesByRule, ast.Rule_list_names[r])
 							thisThere = true
 						}
 					}
@@ -954,22 +980,26 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) [][]st
 					ss = append(ss, k)
 				}
 				selectFromB = append(selectFromB, ss)
+				names = append(names, currentNamesByRule)
 			}
 		}
 	} else if ast.Output_level == "patient" {
 		// If we want to export by study we need to export all studies where all the individual rules
 		// resulted in a match at the series level. But we will export matched series for these studies only.
 		selectFromB = make([][]string, 0)
+		names = make([][]string, 0)
 		for _, value := range seriesByPatient {
 			// which rules need to match?
 			// all rules from 0..len(ast.Rules)
 			allThere := true
+			currentNamesByRule := make([]string, 0)
 			for r := 0; r < len(ast.Rules); r++ {
 				thisThere := false
 				for _, value2 := range value {
 					for _, value3 := range value2 {
 						// each one is an integer, we look for r here
 						if value3 == r {
+							currentNamesByRule = append(currentNamesByRule, ast.Rule_list_names[r])
 							thisThere = true
 						}
 					}
@@ -987,11 +1017,12 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) [][]st
 					ss = append(ss, k)
 				}
 				selectFromB = append(selectFromB, ss)
+				names = append(names, currentNamesByRule)
 			}
 		}
 	}
 
-	return selectFromB
+	return selectFromB, names
 }
 
 func humanizeFilter(ast AST) string {
@@ -1418,6 +1449,12 @@ func main() {
 				config.Author.Email = author_email
 			}
 			if config_series_filter != "" {
+				// we might have newlines in the filter string, remove those first before we safe
+				config_series_filter = strings.Replace(config_series_filter, "\n", "", -1)
+				// we might also have too many spaces in the filter string, remove those as well
+				space := regexp.MustCompile(`\s+`)
+				config_series_filter := space.ReplaceAllString(config_series_filter, " ")
+				// now parse the input string
 				InitParser()
 				line := []byte(config_series_filter)
 				yyParse(&exprLex{line: line})
@@ -1427,7 +1464,7 @@ func main() {
 					fmt.Printf("Parsed series filter sucessfully as\n%s\n%s\n", string(s), ss)
 					config.SeriesFilterType = "select"
 					// check if we have any matches - cheap for us here
-					matches := findMatchingSets(ast, config.Data.DataInfo)
+					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
 					postfix := "s"
 					if len(matches) == 1 {
 						postfix = ""
@@ -1497,15 +1534,45 @@ func main() {
 				file, _ := json.MarshalIndent(config, "", " ")
 				_ = ioutil.WriteFile(dir_path, file, 0644)
 			}
-			counter := 0
-			for key, element := range config.Data.DataInfo {
-				counter = counter + 1
-				fmt.Println("Study:", key, fmt.Sprintf("(%d/%d)", len(config.Data.DataInfo), counter))
-				counter2 := 0
-				for key2, element2 := range element {
-					counter2 = counter2 + 1
-					fmt.Printf("\t%s (%d/%d) num images: %d, series number: %d, description: \"%s\"\n", key2, counter2, len(element), element2.NumImages, element2.SeriesNumber, element2.SeriesDescription)
+			counterStudy := 0
+			// find all patients, sort by them and print out the studies
+			var participantsMap map[string]bool = make(map[string]bool)
+			for _, element := range config.Data.DataInfo {
+				for _, element2 := range element {
+					participantsMap[element2.PatientID+element2.PatientName] = true
 				}
+			}
+			var participants []string = make([]string, 0, len(participantsMap))
+			for k := range participantsMap {
+				participants = append(participants, k)
+			}
+			sort.Strings(participants)
+
+			for pidx, p := range participants {
+				for key, element := range config.Data.DataInfo {
+					counter2 := 0
+					for key2, element2 := range element {
+						if element2.PatientID+element2.PatientName != p {
+							continue
+						}
+						counter2 = counter2 + 1
+						if counter2 == 1 {
+							counterStudy = counterStudy + 1
+							fmt.Printf("Patient: %s-%s (%d/%d) Study: %s (%d/%d)\n",
+								element2.PatientID, element2.PatientName,
+								pidx+1, len(participants), key, counterStudy,
+								len(config.Data.DataInfo))
+						}
+						var de string = element2.SeriesDescription
+						if de == "" {
+							de = "no series description"
+						} else {
+							de = fmt.Sprintf("description \"%s\"", de)
+						}
+						fmt.Printf("  %s (%d/%d) %d images, series: %d, %s\n", key2, counter2, len(element), element2.NumImages, element2.SeriesNumber, de)
+					}
+				}
+				fmt.Println("")
 			}
 		}
 	case "trigger":
@@ -1542,6 +1609,7 @@ func main() {
 			// we export on the study or patient level we have more series. Picking one entry means
 			// exporting all the series in the entry.
 			var selectFromB [][]string = nil
+			var selectFromBNames [][]string = nil
 			for StudyInstanceUID, value := range config.Data.DataInfo {
 				for SeriesInstanceUID, value2 := range value {
 					selectFromA[SeriesInstanceUID] = fmt.Sprintf("StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, "+
@@ -1563,6 +1631,7 @@ func main() {
 				for key, value := range selectFromA {
 					if mm.MatchString(value) {
 						selectFromB = append(selectFromB, []string{key})
+						selectFromBNames = append(selectFromBNames, []string{"no-name"})
 					}
 				}
 			} else if config.SeriesFilterType == "select" {
@@ -1578,8 +1647,8 @@ func main() {
 					//if ast.Output_level != "series" && ast.Output_level != "study" {
 					//	exitGracefully(fmt.Errorf("we only support \"Select <series>\" and \"Select <study>\" for now as the output level"))
 					//}
-					selectFromB = findMatchingSets(ast, config.Data.DataInfo)
-
+					selectFromB, selectFromBNames = findMatchingSets(ast, config.Data.DataInfo)
+					fmt.Printf("NAMES ARE: %v\n", selectFromBNames)
 				}
 				//s, _ = json.MarshalIndent(ast, "", "  ")
 				//fmt.Printf("ast is: %s\n", string(s))
@@ -1621,7 +1690,7 @@ func main() {
 
 				// export each series from the current set in selectFromB
 				var description []Description
-				for _, thisSeriesInstanceUID := range selectFromB[idx] {
+				for idx2, thisSeriesInstanceUID := range selectFromB[idx] {
 					var closestPath string = ""
 					var classifyTypes []string
 					for _, value := range config.Data.DataInfo {
@@ -1638,6 +1707,7 @@ func main() {
 					}
 
 					numFiles, descr := copyFiles(thisSeriesInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes)
+					descr.NameFromSelect = selectFromBNames[idx][idx2]
 					// we should merge the different descr together to get description
 					description = append(description, descr)
 					fmt.Println("Found", numFiles, "files.")

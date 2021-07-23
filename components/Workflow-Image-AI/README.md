@@ -208,15 +208,15 @@ For now I end up with what I know, an SQL-like grammar :-/. This is working righ
 rpp config --series_filter '
 Select patient
   from study
-    where series has
+    where series named "T1" has
       ClassifyType containing T1 
     and 
       SeriesDescription regexp "^A" 
   also
-    where series has
+    where series named "DIFF" has
       ClassifyType containing DIFFUSION
   also
-    where series has 
+    where series named "REST" has 
       ClassifyType containing RESTING 
     and 
       NumImages > 10  
@@ -235,6 +235,11 @@ It resolves into an internally parsed abstract syntax tree that looks like this:
     "series",
     "series",
     "series"
+  ],
+  "Rule_list_names": [
+    "T1",
+    "DIFF",
+    "REST"
   ],
   "Rules": [
     [
@@ -303,7 +308,7 @@ It resolves into an internally parsed abstract syntax tree that looks like this:
 
 ### Details on select as a language to specify input datasets
 
-The selection (domain specific) language first specifies a level at which the data is exported ('Select patient'). If processing depends on a single series only a 'Select series' will export a single random image series. If 'Select study' is used (default) all matching series of a study are exported. The 'from study' is not functional at the moment. In the future it is supposed to allow a construct like 'from earliest PROJECT_NAME by StudyDate as DICOM'. The third part is a list of where clauses delimited by 'also where series has' to separate selections for different series. Each where clause is a list of rules that use the tags available for each series (rpp status). Only tags from 'rpp status' work. If a new tag needs to be included that is not yet part of the series information provided by 'rpp status' add the tag first to a new classify rule. Afterwards a new tag referencing that rule would appear in ClassifyTypes and can be used in select (`ClassifyType containing <new type>`).
+The selection (domain specific) language first specifies a level at which the data is exported ('Select patient'). If processing depends on a single series only a 'Select series' will export a single random image series. If 'Select study' is used (default) all matching series of a study are exported. The 'from study' is not functional at the moment. In the future it is supposed to allow a construct like 'from earliest PROJECT_NAME by StudyDate as DICOM'. The third part is a list of where clauses delimited by 'also where series has' to separate selections for different series. A where clause can be named using the optional "named SOMENAME". This string will be available to the workflow to help identify the individual image series types. Each where clause is a list of rules that use the tags available for each series (rpp status). Only tags from 'rpp status' work. If a new tag needs to be included that is not yet part of the series information provided by 'rpp status' add the tag first to a new classify rule. Afterwards a new tag referencing that rule would appear in ClassifyTypes and can be used in select (`ClassifyType containing <new type>`).
 
 The possible syntax for rules are:
 

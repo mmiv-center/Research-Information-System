@@ -20,6 +20,7 @@ type AST struct {
     Output_level string
     Select_level string
     Select_level_by_rule []string
+    Rule_list_names []string
     Rules [][]Rule // we need sets of rules for each series we describe
 }
 
@@ -37,11 +38,11 @@ var errorOnParse = false
     word string
 }
 
-%type <word> command, select_stmt, base_select, level_types, rule_list, rule, where_clause, where_clauses
+%type <word> command, select_stmt, base_select, level_types, rule_list, rule, where_clause, where_clauses, level_types_with_name
 
 %token '+' '-' '*' '/' '(' ')' '"' '\''
 %token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND ALSO
-%token CONTAINING SMALLER LARGER REGEXP NOT
+%token CONTAINING SMALLER LARGER REGEXP NOT NAMED
 
 %token	<num>	NUM
 %token  <word>  STRING NOT
@@ -97,8 +98,10 @@ base_select:
 
         ast.Output_level = string($2)
         ast.Select_level = "series"
+        if ast.Rule_list_names == nil {
+            ast.Rule_list_names = make([]string,0)
+        }
         currentRules = nil
-        // get space in Rules now for rules
         if ast.Rules == nil {
             ast.Rules = make([][]Rule, 0)
         }
@@ -122,7 +125,7 @@ where_clause:
     {
         $$ = fmt.Sprintf("no where clause")
     }
-|   WHERE level_types HAS rule_list
+|   WHERE level_types_with_name HAS rule_list
     {
         if len(currentRules) > 0 {
             // add the currentRules if they are not already in the list
@@ -141,6 +144,18 @@ where_clause:
             currentRules = nil
         }
         $$ = fmt.Sprintf("found a where clause with: series and ruleset %s", $2)
+    }
+
+level_types_with_name:
+    level_types
+    {
+        ast.Rule_list_names = append(ast.Rule_list_names, "no-name")
+        $$ = $1
+    }
+|   level_types NAMED STRING
+    {
+        $$ = $1
+        ast.Rule_list_names = append(ast.Rule_list_names, $3)
     }
 
 rule_list:
@@ -385,6 +400,8 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
         return REGEXP
     } else if strings.ToLower(b.String()) == "not" {
         return NOT
+    } else if strings.ToLower(b.String()) == "named" {
+        return NAMED
     } else {
 		log.Printf("unknown word %s", b.String())
         yylval.word = b.String()
