@@ -61,7 +61,7 @@ chmod +x /usr/local/bin/rpp
 
 ### Build yourself
 
-This project depends on goyacc (and make). Install with
+This project depends on go, goyacc, and make. Install goyacc with
 
 ```bash
 go get -u golang.org/x/tools/cmd/goyacc
