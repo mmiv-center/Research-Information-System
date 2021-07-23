@@ -376,6 +376,20 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 		fmt.Printf("\033[0;0f") // go to top of the screen
 		img, _ := fr.GetImage() // The Go image.Image for this frame
 
+		// We should convert the pixel representation here before we rescale.
+		/* 
+		// here the conversion from a native frame to an Image. We will just 
+		// do the same but resolve the 2 complement on the way.
+		
+func (n *NativeFrame) GetImage() (image.Image, error) {
+	i := image.NewGray16(image.Rect(0, 0, n.Cols, n.Rows))
+	for j := 0; j < len(n.Data); j++ {
+		i.SetGray16(j%n.Cols, j/n.Cols, color.Gray16{Y: uint16(n.Data[j][0])}) // for now, assume we're not overflowing uint16, assume gray image
+	}
+	return i, nil
+}
+		*/
+
 		/*
 			// If we would use the native frame we could get access to more levels of detail.
 			// That would allow us to use more than 8 bit color depth using ASCII...
