@@ -229,7 +229,7 @@ func complement2(x uint16) int16 {
 }
 
 // printImage2ASCII prints the image as ASCII art
-func printImage2ASCII(img image.Image, w, h, PixelRepresentation int) []byte {
+func printImage2ASCII(img image.Image, w, h int) []byte {
 	//table := []byte(reverse(ASCIISTR))
 	table := []byte(reverse(ASCIISTR2))
 	//table := []byte(ASCIISTR3)
@@ -242,10 +242,6 @@ func printImage2ASCII(img image.Image, w, h, PixelRepresentation int) []byte {
 
 	g := color.Gray16Model.Convert(img.At(0, 0))
 	maxVal := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
-	if PixelRepresentation == 1 {
-		//fmt.Println("max value: ", maxVal, "pixel representation correct", float64(maxVal)-math.Pow(2, 15))
-		maxVal = int64(complement2(uint16(reflect.ValueOf(g).FieldByName("Y").Uint()))) // int64(complement2(uint16(maxVal)))
-	}
 	minVal := maxVal
 
 	for i := 0; i < h; i++ {
@@ -253,9 +249,6 @@ func printImage2ASCII(img image.Image, w, h, PixelRepresentation int) []byte {
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
 			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
-			if PixelRepresentation == 1 {
-				y = int64(complement2(uint16(reflect.ValueOf(g).FieldByName("Y").Uint()))) // int64(complement2(uint16(y))) // int64(math.Pow(2, 15))
-			}
 			if y > maxVal {
 				maxVal = y
 				//fmt.Println(y, g)
@@ -277,9 +270,6 @@ func printImage2ASCII(img image.Image, w, h, PixelRepresentation int) []byte {
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
 			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
-			if PixelRepresentation == 1 {
-				y = int64(complement2(uint16(reflect.ValueOf(g).FieldByName("Y").Uint()))) // int64(complement2(uint16(y))) //int64(math.Pow(2, 15))
-			}
 			//if math.IsInf(float64(y), 0) || math.IsNaN(float64(y)) {
 			//	continue
 			//}
@@ -326,9 +316,6 @@ func printImage2ASCII(img image.Image, w, h, PixelRepresentation int) []byte {
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
 			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
-			if PixelRepresentation == 1 {
-				y = int64(complement2(uint16(reflect.ValueOf(g).FieldByName("Y").Uint()))) // int64(math.Pow(2, 15))
-			}
 			//fmt.Println("got a number: ", img.At(j, i))
 			pos := int((float32(y) - float32(min2)) * float32(len(table)-1) / float32(denom))
 			pos = int(math.Min(float64(len(table)-1), math.Max(0, float64(pos))))
@@ -383,8 +370,26 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 	pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
 	for _, fr := range pixelDataInfo.Frames {
 		fmt.Printf("\033[0;0f") // go to top of the screen
-		img, _ := fr.GetImage() // The Go image.Image for this frame
-
+		
+		// we can try to convert the image here based on the pixel representation
+		var img image.Image
+		var convertHere bool = true
+		if convertHere && PixelRepresentation == 1 {
+			native_img, _ := fr.GetNativeFrame()
+			for i:=0; i < native_img.Rows; i++ {
+				for j:=0; j < native_img.Cols; j++ {
+					currValue := uint16(native_img.Data[i*native_img.Cols+j][0])
+					currValue2 := complement2(currValue)
+					native_img.Data[i*native_img.Cols+j][0] = int(currValue2)
+				}
+			}
+			img, err = native_img.GetImage()
+			if err != nil  {
+				fmt.Println(err)
+			}
+		} else {
+			img, _ = fr.GetImage() // The Go image.Image for this frame
+		}
 		// We should convert the pixel representation here before we rescale.
 		/*
 					// here the conversion from a native frame to an Image. We will just
@@ -434,7 +439,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 
 		bounds := newImage.Bounds()
 		width, height := bounds.Max.X, bounds.Max.Y
-		p := printImage2ASCII(newImage, width, height, PixelRepresentation)
+		p := printImage2ASCII(newImage, width, height)
 		fmt.Printf("%s", string(p))
 		langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
 		if len(info) > 0 {
