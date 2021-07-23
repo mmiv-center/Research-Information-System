@@ -672,14 +672,37 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 	langFmt := message.NewPrinter(language.English)
 	for p := range input_path_list {
 		err := filepath.Walk(input_path_list[p], func(path string, info os.FileInfo, err error) error {
+			fmt.Println(path)
 			if info.IsDir() {
 				return nil
 			}
 			if err != nil {
 				return err
 			}
+			// we could be faster here if we ignore zip files, those are large and we don't want them (?)
+			// there is a way to detect a zip file, but we should just check the size first as that might be
+			// an indicator as well - might be faster just reading otherwise?
+			// https://www.socketloop.com/tutorials/golang-how-to-tell-if-a-file-is-compressed-either-gzip-or-zip
+			if filepath.Ext(info.Name()) == ".zip" {
+				// ignore compressed files
+				nonDICOM = nonDICOM + 1
+				return nil
+			}
+
 			//fmt.Println("look at file: ", path)
-			dataset, err := dicom.ParseFile(path, nil) // See also: dicom.Parse which has a generic io.Reader API.
+			dataset, err := dicom.ParseFile(path, nil)                    // See also: dicom.Parse which has a generic io.Reader API.
+			if err != nil && fmt.Sprintf("%s", err) == "unexpected EOF" { // we should check here if dataset is any good...
+				// maybe the dataset is ok and the error isjust an "unexpected EOF" ?
+				//fmt.Println("unexpected EOF, still try to read now")
+
+				// this seems to happen if the DICOM file has some tags usch as 0009,10c1 with an undeclared value representation
+				// the library still reads it but does not continue aftwards. So the dataset structure stops and there is no
+				// StudyInstanceUID. An example for this is:
+				// 	 ../SmallAnimalImaging/b/left/00004689.dcm
+
+				err = nil
+			}
+
 			if err == nil {
 				StudyInstanceUIDVal, err := dataset.FindElementByTag(tag.StudyInstanceUID)
 				if err == nil {
@@ -854,10 +877,12 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 						}
 					}
 				} else {
+					//fmt.Println("NO StudyInstanceUID found", err, dataset)
 					return nil
 				}
 			} else {
 				nonDICOM = nonDICOM + 1
+				//fmt.Println("NONDICOM FILE: ", path, err, dataset)
 			}
 			return nil
 		})
@@ -1106,7 +1131,7 @@ func main() {
 	triggerCommand.BoolVar(&trigger_help, "help", false, "Show help for trigger")
 
 	var status_detailed bool
-	statusCommand.BoolVar(&status_detailed, "detailed", false, "Parse the data folder and extract number of studies and series for the trigger.")
+	statusCommand.BoolVar(&status_detailed, "all", false, "Display all information.")
 	var status_help bool
 	statusCommand.BoolVar(&status_help, "help", false, "Show help for status.")
 
@@ -1520,59 +1545,91 @@ func main() {
 			if err != nil {
 				exitGracefully(errors.New(errorConfigFile))
 			}
-			file, _ := json.MarshalIndent(config, "", " ")
-			fmt.Println(string(file))
-			if status_detailed {
-				studies, err := dataSets(config)
-				check(err)
-				// update the config file now
-				config, err = readConfig(dir_path)
-				if err != nil {
-					exitGracefully(errors.New(errorConfigFile))
-				}
-				config.Data.DataInfo = studies
-				file, _ := json.MarshalIndent(config, "", " ")
-				_ = ioutil.WriteFile(dir_path, file, 0644)
-			}
-			counterStudy := 0
-			// find all patients, sort by them and print out the studies
-			var participantsMap map[string]bool = make(map[string]bool)
-			for _, element := range config.Data.DataInfo {
-				for _, element2 := range element {
-					participantsMap[element2.PatientID+element2.PatientName] = true
-				}
-			}
-			var participants []string = make([]string, 0, len(participantsMap))
-			for k := range participantsMap {
-				participants = append(participants, k)
-			}
-			sort.Strings(participants)
 
-			for pidx, p := range participants {
-				for key, element := range config.Data.DataInfo {
-					counter2 := 0
-					for key2, element2 := range element {
-						if element2.PatientID+element2.PatientName != p {
-							continue
-						}
-						counter2 = counter2 + 1
-						if counter2 == 1 {
-							counterStudy = counterStudy + 1
-							fmt.Printf("Patient: %s-%s (%d/%d) Study: %s (%d/%d)\n",
-								element2.PatientID, element2.PatientName,
-								pidx+1, len(participants), key, counterStudy,
-								len(config.Data.DataInfo))
-						}
-						var de string = element2.SeriesDescription
-						if de == "" {
-							de = "no series description"
-						} else {
-							de = fmt.Sprintf("description \"%s\"", de)
-						}
-						fmt.Printf("  %s (%d/%d) %d images, series: %d, %s\n", key2, counter2, len(element), element2.NumImages, element2.SeriesNumber, de)
+			if !status_detailed {
+				// remove some info that takes up a lot of space
+				// we would like to hide the big field:
+				// 	config.Data.DataInfo = nil
+				// is not an option as we need the field again later
+				// try to make a copy of the config using Marshal and Unmarshal
+				tt, err := json.Marshal(config)
+				if err == nil {
+					var newConfig Config
+					json.Unmarshal(tt, &newConfig)
+					newConfig.Data.DataInfo = nil
+					file, _ := json.MarshalIndent(newConfig, "", " ")
+					fmt.Println(string(file))
+				} else {
+					fmt.Printf("Error: could not marshal the config again %s", string(tt))
+				}
+			} else {
+				file, _ := json.MarshalIndent(config, "", " ")
+				fmt.Println(string(file))
+			}
+			if status_detailed {
+				counterStudy := 0
+				// find all patients, sort by them and print out the studies
+				var participantsMap map[string]bool = make(map[string]bool)
+				for _, element := range config.Data.DataInfo {
+					for _, element2 := range element {
+						participantsMap[element2.PatientID+element2.PatientName] = true
 					}
 				}
-				fmt.Println("")
+				var participants []string = make([]string, 0, len(participantsMap))
+				for k := range participantsMap {
+					participants = append(participants, k)
+				}
+				sort.Strings(participants)
+
+				fmt.Printf("\nData summary\n\n")
+
+				for pidx, p := range participants {
+					counter3 := 0
+					for key, element := range config.Data.DataInfo {
+						counter2 := 0
+						for key2, element2 := range element {
+							if element2.PatientID+element2.PatientName != p {
+								continue
+							}
+							counter2 = counter2 + 1
+							counter3 = counter3 + 1
+							if counter3 == 1 {
+								name := element2.PatientID
+								if element2.PatientName != "" && element2.PatientName != name {
+									name = name + "-" + element2.PatientName
+								}
+								fmt.Printf("Patient [%d/%d]: %s\n", pidx+1, len(participants), name)
+							}
+							if counter2 == 1 {
+								counterStudy = counterStudy + 1
+								fmt.Printf("  Study: %s (%d/%d)\n",
+									key, counterStudy,
+									len(config.Data.DataInfo))
+							}
+							var de string = element2.SeriesDescription
+							if de == "" {
+								de = "no series description"
+							} else {
+								de = fmt.Sprintf("description \"%s\"", de)
+							}
+							postfix := "s"
+							if element2.NumImages == 1 {
+								postfix = ""
+							}
+							fmt.Printf("    %s (%d/%d) %d image%s, series: %d, %s\n",
+								key2,
+								counter2,
+								len(element),
+								element2.NumImages,
+								postfix,
+								element2.SeriesNumber,
+								de)
+						}
+					}
+					fmt.Println("")
+				}
+			} else {
+				fmt.Println("This short status does not contain data information. Use the --all option to obtain all info.")
 			}
 		}
 	case "trigger":
