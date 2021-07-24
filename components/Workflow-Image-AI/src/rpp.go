@@ -671,13 +671,13 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 	} else {
 		input_path_list = append(input_path_list, config.Data.Path)
 	}
-	fmt.Println("Found data directory, start parsing DICOM files...")
+	//fmt.Println("Found data directory, start parsing DICOM files...")
 	counter := 0
 	nonDICOM := 0
 	langFmt := message.NewPrinter(language.English)
 	for p := range input_path_list {
 		err := filepath.Walk(input_path_list[p], func(path string, info os.FileInfo, err error) error {
-			fmt.Println(path)
+			//fmt.Println(path)
 			if info.IsDir() {
 				return nil
 			}
@@ -1464,6 +1464,16 @@ func main() {
 				config.Data.Path = data_path
 				studies, err = dataSets(config)
 				check(err)
+				if len(studies) == 0 {
+					fmt.Println("We did not find any DICOM files in the folder you provided. Please check if the files are available, un-compress any zip files to make the accessible to this tool.")
+				} else {
+					postfix := "ies"
+					if len(studies) == 1 {
+						postfix = "y"
+					}
+					fmt.Printf("Found %d DICOM stud%s.\n", len(studies), postfix)
+				}
+
 				// update the config file now - the above dataSets can take a long time!
 				config, err = readConfig(dir_path)
 				if err != nil {
@@ -1582,7 +1592,11 @@ func main() {
 				var participantsMap map[string]bool = make(map[string]bool)
 				for _, element := range config.Data.DataInfo {
 					for _, element2 := range element {
-						participantsMap[element2.PatientID+element2.PatientName] = true
+						name := element2.PatientID
+						if element2.PatientName != "" && element2.PatientName != name {
+							name = name + "-" + element2.PatientName
+						}
+						participantsMap[name] = true
 					}
 				}
 				var participants []string = make([]string, 0, len(participantsMap))
@@ -1597,20 +1611,24 @@ func main() {
 					counter3 := 0
 					for key, element := range config.Data.DataInfo {
 						counter2 := 0
+						// TODO: we should sort element by SeriesNumber
 						for key2, element2 := range element {
-							if element2.PatientID+element2.PatientName != p {
+							name := element2.PatientID
+							if element2.PatientName != "" && element2.PatientName != name {
+								name = name + "-" + element2.PatientName
+							}
+							// TODO: This is not correct, it might happen that the PatientName for
+							// some of the images is empty. Those would not be printed even
+							// if they are in the same study.
+							if name != p {
 								continue
 							}
 							counter2 = counter2 + 1
 							counter3 = counter3 + 1
-							if counter3 == 1 {
-								name := element2.PatientID
-								if element2.PatientName != "" && element2.PatientName != name {
-									name = name + "-" + element2.PatientName
-								}
+							if counter3 == 1 { // change in patient
 								fmt.Printf("Patient [%d/%d]: %s\n", pidx+1, len(participants), name)
 							}
-							if counter2 == 1 {
+							if counter2 == 1 { // change in study
 								counterStudy = counterStudy + 1
 								fmt.Printf("  Study: %s (%d/%d)\n",
 									key, counterStudy,
@@ -1626,11 +1644,12 @@ func main() {
 							if element2.NumImages == 1 {
 								postfix = ""
 							}
-							fmt.Printf("    %s (%d/%d) %d image%s, series: %d, %s\n",
+							fmt.Printf("    %s (%d/%d) %d %s image%s, series: %d, %s\n",
 								key2,
 								counter2,
 								len(element),
 								element2.NumImages,
+								element2.Modality,
 								postfix,
 								element2.SeriesNumber,
 								de)
