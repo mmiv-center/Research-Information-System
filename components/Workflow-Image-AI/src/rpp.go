@@ -42,6 +42,9 @@ import (
 )
 
 const version string = "0.0.2"
+
+// The string below will be replaced during build time using
+// -ldflags "-X main.compileDate=`date -u +.%Y%m%d.%H%M%S"`"
 var compileDate string = ".unknown"
 
 var own_name string = "rpp"
