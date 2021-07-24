@@ -42,6 +42,7 @@ import (
 )
 
 const version string = "0.0.2"
+var compileDate string = ".unknown"
 
 var own_name string = "rpp"
 
@@ -945,7 +946,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 
 	var selectFromB [][]string
 	var names [][]string = make([][]string, 0)
-	// can only access the informaiton in config.Data for these matches
+	// can only access the information in config.Data for these matches
 	seriesByStudy := make(map[string]map[string][]int)
 	seriesByPatient := make(map[string]map[string][]int)
 	for StudyInstanceUID, value := range dataInfo {
@@ -1971,7 +1972,7 @@ func main() {
 		// fall back to parsing without a command
 		flag.Parse()
 		if show_version {
-			fmt.Printf("rpp version %s\n", version)
+			fmt.Printf("rpp version %s%s\n", version, compileDate)
 			os.Exit(0)
 		}
 	}
