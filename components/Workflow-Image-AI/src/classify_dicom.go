@@ -377,7 +377,7 @@ func ClassifyDICOM(dataset dicom.Dataset) []string {
 	// jsonFile's content into 'users' which we defined above
 	json.Unmarshal([]byte(classifyRules), &classifications)
 
-	var classes []string
+	var classes []string = make([]string, 0)
 
 	// we need to match all classes one after another to the data, whenever one fits we
 	// can add it to the output array

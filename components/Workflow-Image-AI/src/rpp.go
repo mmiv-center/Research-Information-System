@@ -229,9 +229,12 @@ func complement2(x uint16) int16 {
 }
 
 // printImage2ASCII prints the image as ASCII art
-func printImage2ASCII(img image.Image, w, h int) []byte {
+func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation string) []byte {
 	//table := []byte(reverse(ASCIISTR))
 	table := []byte(reverse(ASCIISTR2))
+	if PhotometricInterpretation == "MONOCHROME1" { // only valid if samples per pixel is 1
+		table = []byte(ASCIISTR2)
+	} 
 	//table := []byte(ASCIISTR3)
 	buf := new(bytes.Buffer)
 
@@ -365,6 +368,12 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 	if err == nil {
 		PixelRepresentation = dicom.MustGetInts(PixelRepresentationVal.Value)[0]
 	}
+	var PhotometricInterpretation string = "MONOCHROME2"
+	PhotometricInterpretationVal, err := dataset.FindElementByTag(tag.PhotometricInterpretation)
+	if err == nil {
+		PhotometricInterpretation = dicom.MustGetStrings(PhotometricInterpretationVal.Value)[0]
+	}
+
 	langFmt := message.NewPrinter(language.English)
 
 	pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
@@ -439,7 +448,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 
 		bounds := newImage.Bounds()
 		width, height := bounds.Max.X, bounds.Max.Y
-		p := printImage2ASCII(newImage, width, height)
+		p := printImage2ASCII(newImage, width, height, PhotometricInterpretation)
 		fmt.Printf("%s", string(p))
 		langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
 		if len(info) > 0 {
@@ -829,7 +838,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							for _, v := range tmp_with_double {
 								unique_map[v] = ""
 							}
-							val.ClassifyTypes = []string{}
+							val.ClassifyTypes = make([]string,0)
 							for k := range unique_map {
 								val.ClassifyTypes = append(val.ClassifyTypes, k)
 							}
