@@ -242,11 +242,6 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 	//table := []byte(ASCIISTR3)
 	buf := new(bytes.Buffer)
 
-	// based on the pixel representation we need to interpret the data as either unsigned == 0
-	// or signed == 1
-	// we read them as unsigned always
-	//fmt.Println("Pixel representation is : ", PixelRepresentation)
-
 	g := color.Gray16Model.Convert(img.At(0, 0))
 	maxVal := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
 	minVal := maxVal
@@ -333,27 +328,6 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 	return buf.Bytes()
 }
 
-type Converted struct {
-	Img image.Image
-	Mod color.Model
-}
-
-// We return the new color model...
-func (c *Converted) ColorModel() color.Model {
-	return c.Mod
-}
-
-// ... but the original bounds
-func (c *Converted) Bounds() image.Rectangle {
-	return c.Img.Bounds()
-}
-
-// At forwards the call to the original image and
-// then asks the color model to convert it.
-func (c *Converted) At(x, y int) color.Color {
-	return c.Mod.Convert(c.Img.At(x, y))
-}
-
 // Scale uses a different package for rescaling the image
 func Scale(src image.Image, rect image.Rectangle, scale draw.Scaler) image.Image {
 	dst := image.NewRGBA(rect)
@@ -403,50 +377,10 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 		} else {
 			img, _ = fr.GetImage() // The Go image.Image for this frame
 		}
-		// We should convert the pixel representation here before we rescale.
-		/*
-					// here the conversion from a native frame to an Image. We will just
-					// do the same but resolve the 2 complement on the way.
-
-			func (n *NativeFrame) GetImage() (image.Image, error) {
-				i := image.NewGray16(image.Rect(0, 0, n.Cols, n.Rows))
-				for j := 0; j < len(n.Data); j++ {
-					i.SetGray16(j%n.Cols, j/n.Cols, color.Gray16{Y: uint16(n.Data[j][0])}) // for now, assume we're not overflowing uint16, assume gray image
-				}
-				return i, nil
-			}
-		*/
-
-		/*
-			// If we would use the native frame we could get access to more levels of detail.
-			// That would allow us to use more than 8 bit color depth using ASCII...
-			native_img, _ := fr.GetNativeFrame()
-			fmt.Println("Bits per sample is ", native_img.BitsPerSample)
-			var mi int = native_img.Data[0][0]
-			var ma int = mi
-			for i:=0; i < native_img.Rows; i++ {
-				for j:=0; j < native_img.Cols; j++ {
-					currValue := native_img.Data[i*native_img.Cols+j][0]
-					if currValue < mi {
-						mi = currValue
-					}
-					if currValue > ma {
-						ma = currValue
-					}
-				}
-			}
-			fmt.Println("mi ma : ", mi, ma)
-		*/
-
-		// gr := &Converted{img, color.RGBAModel /*color.GrayModel*/}
 
 		origbounds := img.Bounds()
 		orig_width, orig_height := origbounds.Max.X, origbounds.Max.Y
-		// newImage := resize.Resize(196/2 , 196/2 / (80/24), gr.Img, resize.Lanczos3) // should use 80x20 aspect ratio for screen
-		// golang.org/x/image/draw
-		//newImage := Scale(img, image.Rect(0, 0, 196/2 , int(math.Round(196.0 / 2.0 / (80.0/30.0) ) )), draw.ApproxBiLinear)
 		newImage := image.NewGray16(image.Rect(0, 0, 196/2, int(math.Round(196.0/2.0/(80.0/30.0)))))
-		// TODO: might be a better place to compute the 2 complement of the image (before resizing)
 
 		draw.ApproxBiLinear.Scale(newImage, image.Rect(0, 0, 196/2, int(math.Round(196.0/2.0/(80.0/30.0)))), img, origbounds, draw.Over, nil)
 
@@ -942,6 +876,71 @@ func createStub(p string, str string) {
 // - We can add a new rule to a ruleset by selecting a new variable
 // - We can change an existing rule by changing theh numeric value for '<' and '>'
 // - We can add a new ruleset with a random rule
+func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, error) {
+	likelihood := func(ast AST) float64 {
+		// compute the match with the data 
+		a, _ := findMatchingSets(ast, datasets)
+		//  we like to have all a's equally big (studyinstanceuid with same #seriesinstanceuid)
+		var sumX float64
+		for k, v := range a {
+			numSeries := len(a[k])
+			numSelected := len(v)
+			sumX += float64(numSelected) / float64(numSeries)
+		}
+		sumX = sumX / float64(len(a))
+		// this mean should be close to 0.5
+
+		// compute penalty for the complexity of the rules
+		var total float64
+		for _, rulelist := range ast.Rules {
+			total = total + float64(len(rulelist))
+		}
+		return math.Abs(sumX-0.5) + 1.0/float64(total)
+	}
+	changeRule := func(rule Rule) {
+		// we can change a rule based on the operator
+
+	}
+	changeRules := func(ast AST) {
+		// pick a random rule
+		var rulesetIdx int = -1
+		if len(ast.Rules) > 0 {
+			rulesetIdx = rand.Intn((len(ast.Rules) - 0) + 0)
+		}
+		var ruleIdx int = -1
+		if len(ast.Rules[rulesetIdx]) > 0 {
+			ruleIdx = rand.Intn((len(ast.Rules[rulesetIdx]) - 0) + 0)
+		}
+		if ruleIdx > -1 {
+           changeRule(ast.Rules[rulesetIdx][ruleIdx])
+		   // or add a new rule
+
+		}
+	}
+
+	// Metropolis 
+	l := likelihood(ast)
+	for i := 0; i < 1000; i++ {
+		// make a copy of the rule
+		jast, _ := json.Marshal(ast)
+		var copyRule AST
+		json.Unmarshal(jast, &copyRule)
+		changeRules(copyRule)
+		l2 := likelihood(copyRule)
+		if l2 > l {
+			ast = copyRule
+			l = l2
+		} else {
+			var prob float64 = rand.Float64()
+			if prob > 0.5  {
+				ast = copyRule
+				l = l2
+			}
+		}
+	}
+
+	return ast, nil
+}
 
 // findMatchingSets returns all matching sets for this rule and the provided data
 // It also returns a list of the names given to each rule in select.
@@ -1262,67 +1261,73 @@ func main() {
 				input_dir = initCommand.Arg(0)
 			}
 
-			if _, err := os.Stat(input_dir); os.IsNotExist(err) {
-				if err := os.Mkdir(input_dir, 0755); os.IsExist(err) {
-					exitGracefully(errors.New("directory exist already"))
-				}
-			}
-
 			dir_path := input_dir + "/.rpp"
 			if _, err := os.Stat(dir_path); !os.IsNotExist(err) {
 				exitGracefully(errors.New("this directories has already been initialized. Delete the .rpp directory to do this again"))
-			} else {
-				// do we know the author information?
-				if author_name == "" || author_email == "" {
+			}
+			// do we know the author information?, do we need to know?
+			// Instead we should ask for the user token and secret so we can
+			// accept uploads from users to the research information system
+			// With the token we can identify the project and with the secret
+			// we can check if their information is not tampered with.
+			// We could use the REDCap token for a user. That way we have control
+			// over the metadata as well - but we would expose REDCap. 
+			if author_name == "" || author_email == "" {
 
-					reader := bufio.NewReader(os.Stdin)
-					// we can ask interactively about the author information
-					if author_name == "" {
-						fmt.Printf("Author name: ")
-						author_name, err = reader.ReadString('\n')
-						if err != nil {
-							msg := "we need your name. Add with\n\t--author_name \"<name>\""
-							exitGracefully(errors.New(msg))
-						}
-						author_name = strings.TrimSuffix(author_name, "\n")
-						if len(author_name) < 2 {
-							fmt.Println("Does not look like a name, but you know best.")
-						}
+				reader := bufio.NewReader(os.Stdin)
+				// we can ask interactively about the author information
+				if author_name == "" {
+					fmt.Printf("Author name: ")
+					author_name, err = reader.ReadString('\n')
+					if err != nil {
+						msg := "we need your name. Add with\n\t--author_name \"<name>\""
+						exitGracefully(errors.New(msg))
 					}
-					if author_email == "" {
-						fmt.Printf("Author email: ")
-						author_email, err = reader.ReadString('\n')
-						if err != nil {
-							msg := "we need your your email. Add with\n\t--author_email \"email@home\""
-							exitGracefully(errors.New(msg))
-						}
-						author_email = strings.TrimSuffix(author_email, "\n")
-						var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
-						//	"^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
-						var isEmail = true
-						//e, err := mail.ParseAddress(author_email)
-						//isEmail = (err == nil)
-						//if len(author_email) < 3 && len(author_email) > 254 {
-						//	isEmail = false
-						//}
-						isEmail = emailRegex.MatchString(author_email)
-						if !isEmail {
-							fmt.Println("Does not look like an email - but you know best.")
-						}
-					}
-					if init_type == "" {
-						fmt.Printf("Project type (python, notebook, bash, webapp): ")
-						init_type, err = reader.ReadString('\n')
-						if err != nil {
-							init_type = "notebook"
-						}
-						init_type = strings.TrimSuffix(init_type, "\n")
-						if init_type != "python" && init_type != "notebook" && init_type != "bash" && init_type != "webapp" {
-							init_type = "notebook"
-							fmt.Println("Warning: That is not a type we know. We will give you a python notebook project to get started.")
-						}
+					author_name = strings.TrimSuffix(author_name, "\n")
+					if len(author_name) < 2 {
+						fmt.Println("Does not look like a name, but you know best.")
 					}
 				}
+				if author_email == "" {
+					fmt.Printf("Author email: ")
+					author_email, err = reader.ReadString('\n')
+					if err != nil {
+						msg := "we need your your email. Add with\n\t--author_email \"email@home\""
+						exitGracefully(errors.New(msg))
+					}
+					author_email = strings.TrimSuffix(author_email, "\n")
+					var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+					//	"^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+					var isEmail = true
+					//e, err := mail.ParseAddress(author_email)
+					//isEmail = (err == nil)
+					//if len(author_email) < 3 && len(author_email) > 254 {
+					//	isEmail = false
+					//}
+					isEmail = emailRegex.MatchString(author_email)
+					if !isEmail {
+						fmt.Println("Does not look like an email - but you know best.")
+					}
+				}
+				if init_type == "" {
+					fmt.Printf("Project type (python, notebook, bash, webapp): ")
+					init_type, err = reader.ReadString('\n')
+					if err != nil {
+						init_type = "notebook"
+					}
+					init_type = strings.TrimSuffix(init_type, "\n")
+					if init_type != "python" && init_type != "notebook" && init_type != "bash" && init_type != "webapp" {
+						init_type = "notebook"
+						fmt.Println("Warning: That is not a type we know. We will give you a python notebook project to get started.")
+					}
+				}
+			}
+				// now we can create the folder - not earlier
+				if _, err := os.Stat(input_dir); os.IsNotExist(err) {
+					if err := os.Mkdir(input_dir, 0755); os.IsExist(err) {
+						exitGracefully(errors.New("directory exist already"))
+					}
+				}	
 
 				if err := os.Mkdir(dir_path, 0755); os.IsExist(err) {
 					exitGracefully(errors.New("directory already exists"))
@@ -1415,26 +1420,15 @@ func main() {
 				dockerignore_path2 := filepath.Join(virt_path, ".dockerignore")
 				createStub(dockerignore_path2, dockerignore)
 
-				dockerfile_path2 := filepath.Join(virt_path, "Dockerfile")
-				if data.ProjectType == "bash" {
-					createStub(dockerfile_path2, dockerfile_bash)
-				} else if data.ProjectType == "python" || data.ProjectType == "notebook" {
-					createStub(dockerfile_path2, dockerfile)
-				} else if data.ProjectType == "webapp" {
-					createStub(dockerfile_path2, webapp_dockerfile)
-				}
-				/*dockercompose_path2 := virt_path + "/docker-compose.yml"
-				if _, err := os.Stat(dockercompose_path2); !os.IsNotExist(err) {
-					fmt.Println("This directory already contains a docker-compose.yml, don't overwrite. Skip writing...")
-				} else {
-					f, err := os.Create(dockercompose_path2)
-					check(err)
-					_, err = f.WriteString(dockercompose)
-					check(err)
-					f.Sync()
-				}*/
-
+			dockerfile_path2 := filepath.Join(virt_path, "Dockerfile")
+			if data.ProjectType == "bash" {
+				createStub(dockerfile_path2, dockerfile_bash)
+			} else if data.ProjectType == "python" || data.ProjectType == "notebook" {
+				createStub(dockerfile_path2, dockerfile)
+			} else if data.ProjectType == "webapp" {
+				createStub(dockerfile_path2, webapp_dockerfile)
 			}
+
 			fmt.Printf("\nInit new project folder \"%s\" done.\n", input_dir)
 			fmt.Printf("You might want to add a data folder with DICOM files to get started\n\n\tcd \"%s\"\n\t%s config --data <data folder>\n\n", input_dir, own_name)
 			fmt.Println("Careful with using a data folder with too many files. Each time you trigger a\n" +
@@ -1519,7 +1513,7 @@ func main() {
 				if !errorOnParse {
 					s, _ := json.MarshalIndent(ast, "", "  ")
 					ss := humanizeFilter(ast)
-					fmt.Printf("Parsed series filter sucessfully as\n%s\n%s\n", string(s), ss)
+					fmt.Printf("Parsing series filter successful\n%s\n%s\n", string(s), ss)
 					config.SeriesFilterType = "select"
 					// check if we have any matches - cheap for us here
 					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
@@ -1815,12 +1809,12 @@ func main() {
 				file, _ := json.MarshalIndent(description, "", " ")
 				_ = ioutil.WriteFile(dir+"/descr.json", file, 0644)
 				if !trigger_test {
-					// chheck if the call string is empty
+					// check if the call string is empty
 					if config.CallString == "" {
 						exitGracefully(fmt.Errorf("could not run trigger command, no CallString defined\n\n\t%s config --call \"python ./stub.py\"", own_name))
 					}
 
-					// wait for some seconds
+					// wait for some seconds, why do we support this?
 					if triggerWaitTime != "" {
 						sec, _ := time.ParseDuration(triggerWaitTime)
 						time.Sleep(sec)
