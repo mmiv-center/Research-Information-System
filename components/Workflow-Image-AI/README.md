@@ -336,6 +336,10 @@ rpp config --series_filter '
 
 This project export will create a single input folder with all type CT image series for all participants and studies.
 
+### Use-case: prediction on a single matching image series
+
+Selection for individual image series should be done on the 'series' level with 'Select series ...'.
+
 
 For a series_filter all image series that match will be a potential test image series for the trigger command and from those one image series is selected at random. If you want to test the workflow with all matching series you can trigger with the additional '--each' option to process all matching image series. The corresponding call would look like this:
 

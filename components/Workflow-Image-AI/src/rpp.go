@@ -877,6 +877,7 @@ func createStub(p string, str string) {
 // - We can change an existing rule by changing theh numeric value for '<' and '>'
 // - We can add a new ruleset with a random rule
 func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, error) {
+	// likelihood: we want to minimize this function
 	likelihood := func(ast AST) float64 {
 		// compute the match with the data
 		a, _ := findMatchingSets(ast, datasets)
@@ -888,20 +889,69 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, error
 			sumX += float64(numSelected) / float64(numSeries)
 		}
 		sumX = sumX / float64(len(a))
-		// this mean should be close to 0.5
+		// mean should be close to 0.5
 
-		// compute penalty for the complexity of the rules
+		// compute penalty for the complexity of the rules, more rules is worse
 		var total float64
 		for _, rulelist := range ast.Rules {
 			total = total + float64(len(rulelist))
 		}
-		return math.Abs(sumX-0.5) + 1.0/float64(total)
+		return math.Abs(sumX-0.5) + math.Log2(float64(total)+1.0)
 	}
-	changeRule := func(rule Rule) {
-		// we can change a rule based on the operator
+	// addRule: add a single rule
+	addRule := func(rules *[]Rule) bool {
+		// what are the possible fields we can match with?
+		fields := []string{"SeriesDescription", "StudyDescription", "NumImages", "Modality"}
+		operators := []string{"==", "<", ">"}
+		fieldIdx := rand.Intn((len(fields) - 0) + 0)
+		operatorIdx := rand.Intn((len(operators) - 0) + 0)
+		r := Rule{
+			Tag: []string{fields[fieldIdx]},
+			// Value:    rand.Intn(100),
+			Operator: operators[operatorIdx],
+		}
+		if operators[operatorIdx] == ">" || operators[operatorIdx] == "<" {
+			r.Value = rand.Intn(100)
+		} else {
+			r.Value = "CT"
+		}
 
+		// what are possible fields values? We would need to know what we can equate our value to
+		// we need to parse all the dataset for this to know what is available...
+		*rules = append(*rules, r)
+
+		return true
 	}
-	changeRules := func(ast AST) {
+
+	// change an existing rule (here just create a new one)
+	changeRule := func(rule *Rule) bool {
+		// we can change a rule based on the operator (like < we can change the value)
+		rr := make([]Rule, 0)
+		ok := addRule(&rr)
+		if ok {
+			*rule = rr[0]
+		} else {
+			return false
+		}
+
+		return true
+	}
+
+	// addRules: add a new complete rule set
+	addRules := func(rules *[][]Rule) bool {
+		// get a new rule
+		rr := make([]Rule, 0)
+		ok := addRule(&rr)
+		if ok {
+			*rules = append(*rules, rr)
+		} else {
+			return false
+		}
+		return true
+	}
+
+	// changeRules adjust the rules once using Metropolis-Hastings
+	changeRules := func(ast AST) bool {
 		// pick a random rule
 		var rulesetIdx int = -1
 		if len(ast.Rules) > 0 {
@@ -912,10 +962,20 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, error
 			ruleIdx = rand.Intn((len(ast.Rules[rulesetIdx]) - 0) + 0)
 		}
 		if ruleIdx > -1 {
-			changeRule(ast.Rules[rulesetIdx][ruleIdx])
+			ok := changeRule(&ast.Rules[rulesetIdx][ruleIdx])
 			// or add a new rule
-
+			if !ok {
+				ok = addRule(&ast.Rules[rulesetIdx])
+				if !ok {
+					ok = addRules(&ast.Rules)
+					if !ok {
+						fmt.Println("We failed with changing anything.")
+						return false
+					}
+				}
+			}
 		}
+		return true
 	}
 
 	// Metropolis
@@ -925,7 +985,11 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, error
 		jast, _ := json.Marshal(ast)
 		var copyRule AST
 		json.Unmarshal(jast, &copyRule)
-		changeRules(copyRule)
+		ok := changeRules(copyRule)
+		if !ok {
+			fmt.Println("End here, no change to the rules could be implemented")
+			return ast, nil
+		}
 		l2 := likelihood(copyRule)
 		if l2 > l {
 			ast = copyRule
