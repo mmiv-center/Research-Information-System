@@ -327,9 +327,10 @@ In order to train a model access to all the data is required. That means that th
 
 ```bash
 rpp config --series_filter '
-  Select project from study
-    where series has
-      ClassifyType containing CT
+  Select project     /* export level for all data in the study */
+    from study       /* not functional currently */
+    where series has /* start of a rule set */
+      Modality = CT  /* selection rule */
 '
 ```
 

@@ -1116,6 +1116,8 @@ func humanizeFilter(ast AST) string {
 		ss = fmt.Sprintf("%s\nWe will run processing on data containing a single study and its matching image series.", ss)
 	case "patient":
 		ss = fmt.Sprintf("%s\nWe will run processing on data containing all studies of a patient for which those studies have the correct number of matching image series.", ss)
+	case "project":
+		ss = fmt.Sprintf("%s\nWe will run processing on all data with matching image series.", ss)
 	}
 
 	if len(ast.Rules) == 1 {
