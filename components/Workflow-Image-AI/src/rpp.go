@@ -238,7 +238,7 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 	table := []byte(reverse(ASCIISTR2))
 	if PhotometricInterpretation == "MONOCHROME1" { // only valid if samples per pixel is 1
 		table = []byte(ASCIISTR2)
-	} 
+	}
 	//table := []byte(ASCIISTR3)
 	buf := new(bytes.Buffer)
 
@@ -357,21 +357,21 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 	pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
 	for _, fr := range pixelDataInfo.Frames {
 		fmt.Printf("\033[0;0f") // go to top of the screen
-		
+
 		// we can try to convert the image here based on the pixel representation
 		var img image.Image
 		var convertHere bool = true
 		if convertHere && PixelRepresentation == 1 {
 			native_img, _ := fr.GetNativeFrame()
-			for i:=0; i < native_img.Rows; i++ {
-				for j:=0; j < native_img.Cols; j++ {
+			for i := 0; i < native_img.Rows; i++ {
+				for j := 0; j < native_img.Cols; j++ {
 					currValue := uint16(native_img.Data[i*native_img.Cols+j][0])
 					currValue2 := complement2(currValue)
 					native_img.Data[i*native_img.Cols+j][0] = int(currValue2)
 				}
 			}
 			img, err = native_img.GetImage()
-			if err != nil  {
+			if err != nil {
 				fmt.Println(err)
 			}
 		} else {
@@ -776,7 +776,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							for _, v := range tmp_with_double {
 								unique_map[v] = ""
 							}
-							val.ClassifyTypes = make([]string,0)
+							val.ClassifyTypes = make([]string, 0)
 							for k := range unique_map {
 								val.ClassifyTypes = append(val.ClassifyTypes, k)
 							}
@@ -878,7 +878,7 @@ func createStub(p string, str string) {
 // - We can add a new ruleset with a random rule
 func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, error) {
 	likelihood := func(ast AST) float64 {
-		// compute the match with the data 
+		// compute the match with the data
 		a, _ := findMatchingSets(ast, datasets)
 		//  we like to have all a's equally big (studyinstanceuid with same #seriesinstanceuid)
 		var sumX float64
@@ -912,13 +912,13 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, error
 			ruleIdx = rand.Intn((len(ast.Rules[rulesetIdx]) - 0) + 0)
 		}
 		if ruleIdx > -1 {
-           changeRule(ast.Rules[rulesetIdx][ruleIdx])
-		   // or add a new rule
+			changeRule(ast.Rules[rulesetIdx][ruleIdx])
+			// or add a new rule
 
 		}
 	}
 
-	// Metropolis 
+	// Metropolis
 	l := likelihood(ast)
 	for i := 0; i < 1000; i++ {
 		// make a copy of the rule
@@ -932,7 +932,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, error
 			l = l2
 		} else {
 			var prob float64 = rand.Float64()
-			if prob > 0.5  {
+			if prob > 0.5 {
 				ast = copyRule
 				l = l2
 			}
@@ -1062,6 +1062,44 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 				names = append(names, currentNamesByRule)
 			}
 		}
+	} else if ast.Output_level == "project" {
+		// If we want to export all matching patient/studies/series where all individual rules
+		// resulted in a match at the series level. But we will export matched series only.
+		// there will be a single output level with all data in it
+		selectFromB = make([][]string, 0)
+		names = make([][]string, 0)
+		var ss []string
+		currentNamesByRule := make([]string, 0)
+		for _, value := range seriesByPatient {
+			// which rules need to match?
+			// all rules from 0..len(ast.Rules)
+			allThere := true
+			for r := 0; r < len(ast.Rules); r++ {
+				thisThere := false
+				for _, value2 := range value {
+					for _, value3 := range value2 {
+						// each one is an integer, we look for r here
+						if value3 == r {
+							currentNamesByRule = append(currentNamesByRule, ast.Rule_list_names[r])
+							thisThere = true
+						}
+					}
+				}
+				if !thisThere {
+					allThere = false
+					break
+				}
+			}
+			if allThere {
+				// only append our series for this study
+				// append all SeriesInstanceUIDs now
+				for k, _ := range value {
+					ss = append(ss, k)
+				}
+			}
+		}
+		selectFromB = append(selectFromB, ss)
+		names = append(names, currentNamesByRule)
 	}
 
 	return selectFromB, names
@@ -1227,7 +1265,6 @@ func main() {
 		InitParser()
 		line = []byte("select patient from study where series has ClassifyType containing T1 and SeriesDescription containing axial")
 		fmt.Printf("TEST EXPRESSION PARSER: %s\n", string(line))
-		program = string(line)
 		yyParse(&exprLex{line: line})
 		s, _ = json.MarshalIndent(ast, "", "  ")
 		fmt.Printf("ast is: %s\n", string(s))
@@ -1235,7 +1272,6 @@ func main() {
 		InitParser()
 		line = []byte("select patient from study where series has ClassifyType containing T1 and SeriesDescription containing axial also where series has ClassifyType containing DIFFUSION also where series has ClassifyType containing RESTING")
 		fmt.Printf("TEST EXPRESSION PARSER: %s\n", string(line))
-		program = string(line)
 		yyParse(&exprLex{line: line})
 		s, _ = json.MarshalIndent(ast, "", "  ")
 		fmt.Printf("ast is: %s\n", string(s))
@@ -1271,7 +1307,7 @@ func main() {
 			// With the token we can identify the project and with the secret
 			// we can check if their information is not tampered with.
 			// We could use the REDCap token for a user. That way we have control
-			// over the metadata as well - but we would expose REDCap. 
+			// over the metadata as well - but we would expose REDCap.
 			if author_name == "" || author_email == "" {
 
 				reader := bufio.NewReader(os.Stdin)
@@ -1322,103 +1358,103 @@ func main() {
 					}
 				}
 			}
-				// now we can create the folder - not earlier
-				if _, err := os.Stat(input_dir); os.IsNotExist(err) {
-					if err := os.Mkdir(input_dir, 0755); os.IsExist(err) {
-						exitGracefully(errors.New("directory exist already"))
-					}
-				}	
-
-				if err := os.Mkdir(dir_path, 0755); os.IsExist(err) {
-					exitGracefully(errors.New("directory already exists"))
-				}
-				data := Config{
-					Date: time.Now().String(),
-					Author: AuthorInfo{
-						Name:  author_name,
-						Email: author_email,
-					},
-					CallString:       "python ./stub.py",
-					SeriesFilter:     ".*",
-					SeriesFilterType: "glob",
-					ProjectType:      init_type,
-					SortDICOM:        true,
-					ProjectName:      path.Base(input_dir),
-				}
-				if init_type == "bash" {
-					data.CallString = "./stub.sh"
-				}
-				file, _ := json.MarshalIndent(data, "", " ")
-				_ = ioutil.WriteFile(dir_path+"/config", file, 0644)
-
-				readme_path := filepath.Join(input_dir, "README.md")
-				createStub(readme_path, readme)
-
-				if data.ProjectType == "python" { // plain python
-					stub_path := filepath.Join(input_dir, "stub.py")
-					createStub(stub_path, stub_py)
-				}
-				if data.ProjectType == "notebook" {
-					stubipynb_path := filepath.Join(input_dir, "stub.ipynb")
-					createStub(stubipynb_path, stub_ipynb)
-				}
-				if data.ProjectType == "webapp" {
-					webapp_index_path := filepath.Join(input_dir, "index.html")
-					createStub(webapp_index_path, webapp_index)
-
-					webapp_all_path := filepath.Join(input_dir, "js", "all.js")
-					createStub(webapp_all_path, webapp_js_all)
-
-					webapp_js_bootstrap_path := filepath.Join(input_dir, "js", "bootstrap.min.js")
-					createStub(webapp_js_bootstrap_path, webapp_js_boostrap)
-
-					webapp_js_colorbrewer_path := filepath.Join(input_dir, "js", "colorbrewer.js")
-					createStub(webapp_js_colorbrewer_path, webapp_js_colorbrewer)
-
-					webapp_js_jquery_path := filepath.Join(input_dir, "js", "jquery-3.2.1.min.js")
-					createStub(webapp_js_jquery_path, webapp_js_jquery)
-
-					webapp_js_popper_path := filepath.Join(input_dir, "js", "popper.min.js")
-					createStub(webapp_js_popper_path, webapp_js_popper)
-
-					webapp_css_style_path := filepath.Join(input_dir, "css", "style.css")
-					createStub(webapp_css_style_path, webapp_css_style)
-
-					webapp_css_bootstrap_path := filepath.Join(input_dir, "css", "bootstrap.min.css")
-					createStub(webapp_css_bootstrap_path, webapp_css_bootstrap)
-				}
-				if data.ProjectType == "bash" {
-					stub_path2 := input_dir + "/stub.sh"
-					if _, err := os.Stat(stub_path2); !os.IsNotExist(err) {
-						fmt.Println("This directory already contains a stub.sh, don't overwrite. Skip writing...")
-					} else {
-						f, err := os.Create(stub_path2)
-						check(err)
-						_, err = f.WriteString(stub_sh)
-						check(err)
-						f.Sync()
-						// make the file executable
-						err = os.Chmod(stub_path2, 0755)
-						if err != nil {
-							fmt.Println("Warning: could not make the stub.sh executable, try your luck on your own.")
-						}
-					}
-				}
-				// virtualization environment
-				virt_path := input_dir + "/.rpp/virt"
-				if err := os.Mkdir(virt_path, 0755); os.IsExist(err) {
+			// now we can create the folder - not earlier
+			if _, err := os.Stat(input_dir); os.IsNotExist(err) {
+				if err := os.Mkdir(input_dir, 0755); os.IsExist(err) {
 					exitGracefully(errors.New("directory exist already"))
 				}
-				// classification rules so we can overwrite what rpp does on its own
-				classify_dicom_path2 := input_dir + "/.rpp/classifyDICOM.json"
-				createStub(classify_dicom_path2, classifyRules)
+			}
 
-				if data.ProjectType == "python" || data.ProjectType == "notebook" {
-					requirements_path2 := filepath.Join(virt_path, "requirements.txt")
-					createStub(requirements_path2, requirements)
+			if err := os.Mkdir(dir_path, 0755); os.IsExist(err) {
+				exitGracefully(errors.New("directory already exists"))
+			}
+			data := Config{
+				Date: time.Now().String(),
+				Author: AuthorInfo{
+					Name:  author_name,
+					Email: author_email,
+				},
+				CallString:       "python ./stub.py",
+				SeriesFilter:     ".*",
+				SeriesFilterType: "glob",
+				ProjectType:      init_type,
+				SortDICOM:        true,
+				ProjectName:      path.Base(input_dir),
+			}
+			if init_type == "bash" {
+				data.CallString = "./stub.sh"
+			}
+			file, _ := json.MarshalIndent(data, "", " ")
+			_ = ioutil.WriteFile(dir_path+"/config", file, 0644)
+
+			readme_path := filepath.Join(input_dir, "README.md")
+			createStub(readme_path, readme)
+
+			if data.ProjectType == "python" { // plain python
+				stub_path := filepath.Join(input_dir, "stub.py")
+				createStub(stub_path, stub_py)
+			}
+			if data.ProjectType == "notebook" {
+				stubipynb_path := filepath.Join(input_dir, "stub.ipynb")
+				createStub(stubipynb_path, stub_ipynb)
+			}
+			if data.ProjectType == "webapp" {
+				webapp_index_path := filepath.Join(input_dir, "index.html")
+				createStub(webapp_index_path, webapp_index)
+
+				webapp_all_path := filepath.Join(input_dir, "js", "all.js")
+				createStub(webapp_all_path, webapp_js_all)
+
+				webapp_js_bootstrap_path := filepath.Join(input_dir, "js", "bootstrap.min.js")
+				createStub(webapp_js_bootstrap_path, webapp_js_boostrap)
+
+				webapp_js_colorbrewer_path := filepath.Join(input_dir, "js", "colorbrewer.js")
+				createStub(webapp_js_colorbrewer_path, webapp_js_colorbrewer)
+
+				webapp_js_jquery_path := filepath.Join(input_dir, "js", "jquery-3.2.1.min.js")
+				createStub(webapp_js_jquery_path, webapp_js_jquery)
+
+				webapp_js_popper_path := filepath.Join(input_dir, "js", "popper.min.js")
+				createStub(webapp_js_popper_path, webapp_js_popper)
+
+				webapp_css_style_path := filepath.Join(input_dir, "css", "style.css")
+				createStub(webapp_css_style_path, webapp_css_style)
+
+				webapp_css_bootstrap_path := filepath.Join(input_dir, "css", "bootstrap.min.css")
+				createStub(webapp_css_bootstrap_path, webapp_css_bootstrap)
+			}
+			if data.ProjectType == "bash" {
+				stub_path2 := input_dir + "/stub.sh"
+				if _, err := os.Stat(stub_path2); !os.IsNotExist(err) {
+					fmt.Println("This directory already contains a stub.sh, don't overwrite. Skip writing...")
+				} else {
+					f, err := os.Create(stub_path2)
+					check(err)
+					_, err = f.WriteString(stub_sh)
+					check(err)
+					f.Sync()
+					// make the file executable
+					err = os.Chmod(stub_path2, 0755)
+					if err != nil {
+						fmt.Println("Warning: could not make the stub.sh executable, try your luck on your own.")
+					}
 				}
-				dockerignore_path2 := filepath.Join(virt_path, ".dockerignore")
-				createStub(dockerignore_path2, dockerignore)
+			}
+			// virtualization environment
+			virt_path := input_dir + "/.rpp/virt"
+			if err := os.Mkdir(virt_path, 0755); os.IsExist(err) {
+				exitGracefully(errors.New("directory exist already"))
+			}
+			// classification rules so we can overwrite what rpp does on its own
+			classify_dicom_path2 := input_dir + "/.rpp/classifyDICOM.json"
+			createStub(classify_dicom_path2, classifyRules)
+
+			if data.ProjectType == "python" || data.ProjectType == "notebook" {
+				requirements_path2 := filepath.Join(virt_path, "requirements.txt")
+				createStub(requirements_path2, requirements)
+			}
+			dockerignore_path2 := filepath.Join(virt_path, ".dockerignore")
+			createStub(dockerignore_path2, dockerignore)
 
 			dockerfile_path2 := filepath.Join(virt_path, "Dockerfile")
 			if data.ProjectType == "bash" {
@@ -1433,9 +1469,9 @@ func main() {
 			fmt.Printf("You might want to add a data folder with DICOM files to get started\n\n\tcd \"%s\"\n\t%s config --data <data folder>\n\n", input_dir, own_name)
 			fmt.Println("Careful with using a data folder with too many files. Each time you trigger a\n" +
 				"computation rpp needs to look at each of the files. This might take\n" +
-				"a long time. Test with a few hundred DICOM files first.\n\n" + 
+				"a long time. Test with a few hundred DICOM files first.\n\n" +
 				"If you don't have any readily available DICOM data you might want to download some by\n" +
-				" mkdir data; cd data;\n" + 
+				" mkdir data; cd data;\n" +
 				" git clone https://github.com/ImagingInformatics/hackathon-dataset.git\n" +
 				" cd hackathon-dataset\n" +
 				" git submodule update --init --recursive")
@@ -1501,14 +1537,19 @@ func main() {
 				config.Author.Email = author_email
 			}
 			if config_series_filter != "" {
+				// if we want comments we should use /* */, would be good if we can keep them in the code
+				// we can remove them before we parse...
 				// we might have newlines in the filter string, remove those first before we safe
-				config_series_filter = strings.Replace(config_series_filter, "\n", "", -1)
+				//	config_series_filter = strings.Replace(config_series_filter, "\n", "", -1)
 				// we might also have too many spaces in the filter string, remove those as well
-				space := regexp.MustCompile(`\s+`)
-				config_series_filter := space.ReplaceAllString(config_series_filter, " ")
+				//	space := regexp.MustCompile(`\s+`)
+				//	config_series_filter := space.ReplaceAllString(config_series_filter, " ")
+				comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
+				series_filter_no_comments := comments.ReplaceAllString(config_series_filter, " ")
+
 				// now parse the input string
 				InitParser()
-				line := []byte(config_series_filter)
+				line := []byte(series_filter_no_comments)
 				yyParse(&exprLex{line: line})
 				if !errorOnParse {
 					s, _ := json.MarshalIndent(ast, "", "  ")
@@ -1730,11 +1771,12 @@ func main() {
 			} else if config.SeriesFilterType == "select" {
 				// We need to do things differently if we select Output_level that is not
 				// "series"
+				comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
+				series_filter_no_comments := comments.ReplaceAllString(config.SeriesFilter, " ")
 
 				// its a rule so behave accordingly, check for each rule set if the current series matches
 				InitParser()
-				line := []byte(config.SeriesFilter)
-				program = string(line)
+				line := []byte(series_filter_no_comments)
 				yyParse(&exprLex{line: line})
 				if !errorOnParse {
 					//if ast.Output_level != "series" && ast.Output_level != "study" {

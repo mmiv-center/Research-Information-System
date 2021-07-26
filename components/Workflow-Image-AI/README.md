@@ -308,9 +308,9 @@ It resolves into an internally parsed abstract syntax tree that looks like this:
 
 ### Details on select as a language to specify input datasets
 
-The selection (domain specific) language first specifies a level at which the data is exported ('Select patient'). If processing depends on a single series only a 'Select series' will export a single random image series. If 'Select study' is used (default) all matching series of a study are exported. The 'from study' is not functional at the moment. In the future it is supposed to allow a construct like 'from earliest PROJECT_NAME by StudyDate as DICOM'. The third part is a list of where clauses delimited by 'also where series has' to separate selections for different series. A where clause can be named using the optional "named SOMENAME". This string will be available to the workflow to help identify the individual image series types. Each where clause is a list of rules that use the tags available for each series (rpp status). Only tags from 'rpp status' work. If a new tag needs to be included that is not yet part of the series information provided by 'rpp status' add the tag first to a new classify rule. Afterwards a new tag referencing that rule would appear in ClassifyTypes and can be used in select (`ClassifyType containing <new type>`).
+The selection (domain specific) language first specifies a level at which the data is exported ('Select patient'). If processing depends on a single series only a 'Select series' will export a single random image series. If 'Select study' is used (default) all matching series of a study are exported. The 'from study' is not functional at the moment. In the future it is supposed to allow a construct like 'from earliest PROJECT_NAME by StudyDate as DICOM'. The third part is a list of where clauses delimited by 'also where series has' to separate selection rules for different series like one for a field map and another for a resting state scan. A where clause selecting a series can be named using the optional "named SOMENAME". This name will be available to the workflow to help identify the individual image series types. Each where clause is a list of rules that use the tags available for each series (rpp status). Only tags from 'rpp status' work. If a new tag needs to be included, which is not yet part of the series information provided by 'rpp status' add the tag first to a new classify rule. Afterwards the new tag referencing that rule appears in ClassifyTypes and can be used in select (`ClassifyType containing <new type>`).
 
-The possible syntax for rules are:
+The possible syntax for rules is:
 
 - `<field> containing <string>` check if the field list contains the specified string. A usual example is the field ClassifyTypes which is a list of types like "T1" or "DIFFUSION". The string needs to be in double quotes if it contains spaces.
 - `<field> == <string>` compare if every entry of the field is truly equal to the specified string.
@@ -320,6 +320,21 @@ The possible syntax for rules are:
 - `<field> regexp <string>` match the field with the provided regular expression. For example "^GE" would match with values that start with "GE", or "b$" matches with all strings that end with the letter "b", or "patient[6-9]" matches with all strings that have a 6, 7, 8, or 9 after "patient".
 
 where `<field>` can be any of the following `[SeriesDescription|NumImages|SeriesNumber|SequenceName|Modality|StudyDescription|Manufacturer|ManufacturerModelName|PatientID|PatientName|ClassifyTypes]`.
+
+### Use-case: training a model
+
+In order to train a model access to all the data is required. That means that the selection level has to be 'project'. Define a filter with
+
+```bash
+rpp config --series_filter '
+  Select project from study
+    where series has
+      ClassifyType containing CT
+'
+```
+
+This project export will create a single input folder with all type CT image series for all participants and studies.
+
 
 For a series_filter all image series that match will be a potential test image series for the trigger command and from those one image series is selected at random. If you want to test the workflow with all matching series you can trigger with the additional '--each' option to process all matching image series. The corresponding call would look like this:
 

@@ -42,7 +42,7 @@ var errorOnParse = false
 
 %token '+' '-' '*' '/' '(' ')' '"' '\''
 %token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND ALSO
-%token CONTAINING SMALLER LARGER REGEXP NOT NAMED
+%token CONTAINING SMALLER LARGER REGEXP NOT NAMED PROJECT
 
 %token	<num>	NUM
 %token  <word>  STRING NOT
@@ -246,6 +246,10 @@ level_types:
     {
         $$ = fmt.Sprintf("if empty we can assume series level as default")
     }
+|   PROJECT
+    {
+        $$ = fmt.Sprintf("project")
+    }
 |   PATIENT
     {
         $$ = fmt.Sprintf("patient")
@@ -272,6 +276,7 @@ func InitParser() {
     ast.Select_level = ""
     errorOnParse = false
     charpos = 0
+    program = ""
 }
 
 // The parser expects the lexer to return 0 on EOF.  Give it a name
@@ -345,6 +350,7 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
 		c = x.next()
         if unicode.IsSpace(c) {
             if delimiter == rune(0) {
+                charpos = charpos + 1
                 break L
             } else {
                 add(&b, c)
@@ -378,6 +384,8 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
         return SELECT
     } else if strings.ToLower(b.String()) == "from" {
         return FROM
+    } else if b.String() == "project" {
+        return PROJECT
     } else if b.String() == "patient" {
         return PATIENT
     } else if b.String() == "study" {
@@ -450,6 +458,10 @@ func (x *exprLex) num(c rune, yylval *yySymType) int {
 
 // Return the next rune for the lexer.
 func (x *exprLex) next() rune {
+    if program == "" {
+        program = string(x.line[0:])
+        //fmt.Println("SETTING OF program to ", program)
+    }
 	if x.peek != eof {
 		r := x.peek
 		x.peek = eof
@@ -472,8 +484,8 @@ func (x *exprLex) next() rune {
 func (x *exprLex) Error(s string) {
     errorOnParse = true
     if charpos < len(program) {
-    	fmt.Printf("parse error (pos %d): \"%s\" program: %s\n", charpos, s, program[charpos:])
+    	fmt.Printf("parse error (before pos %d): \"%s\" program: %s\n", charpos, s, program)
     } else {
-    	fmt.Printf("parse error (pos %d): \"%s\" program: %s\n", charpos, s, program)
+    	fmt.Printf("parse error (before pos %d): \"%s\" program: %s\n", charpos, s, program)
     }
 }
