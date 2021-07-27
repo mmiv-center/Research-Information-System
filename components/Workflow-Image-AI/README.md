@@ -178,6 +178,8 @@ The class matches with any imaging studies from a General Electric (GE) scanner 
 
 In general, classification rules will be site-based for many research projects. We might attempt to create a sufficiently large rule set to identify the default scan types from commercial vendors but any sequence programming will result in cases that might not be classified correctly using a given set of rules in classifyTypes.json.
 
+### Simple glob-like series selection
+
 To configure what image series are processed define a search filter like the following (all series with the DICOM tag SeriesNumber starting with "2")
 
 ```bash
@@ -196,7 +198,7 @@ where ClassifyType is a comma separated array of detected classification types. 
 rpp config --select "ClassifyType: .*DIFFUSION"
 ```
 
-## More complex input data selections
+## More complex input data selections using select
 
 Analysis workflows might depend on more than an individual image series. If we do a longitudinal analysis all time points for a patient need to be available for analysis (patient level processing). This is also of interest if we require more than one image series, for example a fieldmap and a functional scan, or an anatomical T1 and a FLAIR scan from the same study (study level processing). The above glob-style filter will not work in these cases as it only provides a single matching image series as input to the workflow.
 
