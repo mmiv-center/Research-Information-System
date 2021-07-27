@@ -1260,12 +1260,12 @@ func main() {
 	buildCommand.BoolVar(&build_help, "help", false, "Show help for build.")
 
 	var config_series_filter string
-	configCommand.StringVar(&config_series_filter, "series_filter", "",
+	configCommand.StringVar(&config_series_filter, "select", "",
 		"Filter applied to series before trigger. This regular expression should\n"+
 			"match anything in the string build by StudyInstanceUID: %s, \n"+
 			"SeriesInstanceUID: %s, SeriesDescription: %s, ... As an example you might search\n"+
 			"for a any series with a SeriesDescription starting with \"T1\" and ending in \"_2mm\"\n"+
-			"with --series_filter \"SeriesDescription: T1.*_2mm\". The default value matches any\nseries.\n"+
+			"with --select \"SeriesDescription: T1.*_2mm\". The default value matches any\nseries.\n"+
 			"Also, it is now possible to specify more complex selections using a variant of the\n"+
 			"standard query language. Here an example:\n"+
 			"\t\"select study from study where series has ClassifyTypes containing T1\n"+
