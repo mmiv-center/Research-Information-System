@@ -11,10 +11,10 @@ Processing workflows are developed locally on your computer in a simulated resea
 The *rpp* tool helps you to
 
 - create a first project directory,
-- find suitable DICOM files on your disc (working, might crash on some non-DICOM files),
+- find suitable DICOM files on your disc,
 - trigger a processing task on the series, study or patient level, and
 - build and test a containerized workflow package (in progress),
-- create a package and submit to research informatino system (todo: automate).
+- create a package and submit to research information system (todo: automate).
 
 A minimal workflow requires 8 commands to compute the signal-to-noise ratio of all DICOM series in our test data folder:
 
