@@ -227,86 +227,8 @@ Select patient
 '
 ```
 
-It resolves into an internally parsed abstract syntax tree that looks like this:
+Limitations: i) The 'not' operator only works on the level of individual rules. ii) There is support for braces '(', ')', but that is not very useful at the moment - maybe for 'not'. iii) There is no 'or' compared to the 'and'. iv) There is no way to specify dependencies between found series such as 'same FrameOfReferenceUID'.
 
-```json
-{
-  "Output_level": "patient",
-  "Select_level": "study",
-  "Select_level_by_rule": [
-    "series",
-    "series",
-    "series"
-  ],
-  "Rule_list_names": [
-    "T1",
-    "DIFF",
-    "REST"
-  ],
-  "Rules": [
-    [
-      {
-        "tag": [
-          "ClassifyType"
-        ],
-        "value": "T1",
-        "operator": "contains",
-        "negate": "",
-        "rule": ""
-      },
-      {
-        "tag": [
-          "SeriesDescription"
-        ],
-        "value": "^A",
-        "operator": "regexp",
-        "negate": "",
-        "rule": ""
-      }
-    ],
-    [
-      {
-        "tag": [
-          "ClassifyType"
-        ],
-        "value": "DIFFUSION",
-        "operator": "contains",
-        "negate": "",
-        "rule": ""
-      }
-    ],
-    [
-      {
-        "tag": [
-          "ClassifyType"
-        ],
-        "value": "RESTING",
-        "operator": "contains",
-        "negate": "",
-        "rule": ""
-      },
-      {
-        "tag": [
-          "NumImages"
-        ],
-        "value": 10,
-        "operator": "\u003e",
-        "negate": "",
-        "rule": ""
-      },
-      {
-        "tag": [
-          "NumImages"
-        ],
-        "value": 200,
-        "operator": "\u003e",
-        "negate": "yes",
-        "rule": ""
-      }
-    ]
-  ]
-}
-```
 
 ### Details on select as a language to specify input datasets
 
