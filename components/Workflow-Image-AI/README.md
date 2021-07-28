@@ -68,7 +68,7 @@ go get -u golang.org/x/tools/cmd/goyacc
 ```
 Use the provided Makefile to build rpp for all three platforms.
 
-### Create a first project
+## Create a first project
 
 ```bash
 rpp init project01
@@ -198,7 +198,7 @@ where ClassifyType is a comma separated array of detected classification types. 
 rpp config --select "ClassifyType: .*DIFFUSION"
 ```
 
-## More complex input data selections using select
+### More complex input data selections using select
 
 Analysis workflows might depend on more than an individual image series. If we do a longitudinal analysis all time points for a patient need to be available for analysis (patient level processing). This is also of interest if we require more than one image series, for example a fieldmap and a functional scan, or an anatomical T1 and a FLAIR scan from the same study (study level processing). The above glob-style filter will not work in these cases as it only provides a single matching image series as input to the workflow.
 
@@ -245,14 +245,14 @@ The possible syntax for rules is:
 
 where `<field>` can be any of the following `[SeriesDescription|NumImages|SeriesNumber|SequenceName|Modality|StudyDescription|Manufacturer|ManufacturerModelName|PatientID|PatientName|ClassifyTypes]`.
 
-### Use-case: training a model
+### Select use-case: training a model
 
 In order to train a model access to all the data is required. That means that the selection level has to be 'project'. Define a filter with
 
 ```bash
 rpp config --select '
   Select project     /* export level for all data in the study */
-    from study       /* not functional currently */
+    from study       /* not functional */
     where series has /* start of a rule set */
       Modality = CT  /* selection rule */
 '
@@ -260,16 +260,31 @@ rpp config --select '
 
 This project export will create a single input folder with all type CT image series for all participants and studies.
 
-### Use-case: prediction on a single matching image series
+### Select use-case: prediction on a single matching image series
 
 Selection for individual image series should be done on the 'series' level with 'Select series ...'.
 
+```bash
+rpp config --select '
+  Select series       /* export level for a single image series */
+    from study        /* not functional */
+    where series has  /* start of a rule set */
+      Modality = CT   /* selection rule */
+    and
+      NumImages > 100 /* numeric rule for number of slices in series */
+'
+```
 
-For a select all image series that match will be a potential test image series for the trigger command and from those one image series is selected at random. If you want to test the workflow with all matching series you can trigger with the additional '--each' option to process all matching image series. The corresponding call would look like this:
+### Using select in the workflow
+
+For select all image series that match are in a pool of potential datasets for the 'trigger' command. There is the option to run a single random dataset of them with `rpp trigger`, or to run all of the possible datasets in a row with `rpp trigger --each`. For testing of workflows it is suggested to start with:
 
 ```bash
-rpp trigger --keep --each
+rpp trigger --keep
 ```
+
+which will keep the input data to the workflow around after the trigger has finished. By default (without '--keep') all data folders are deleted after a single run. Fix any problems found with your workflow given that dataset. Do not change the content of the data folder only adjust your program.
+
 
 ## Acknowlegements
 
