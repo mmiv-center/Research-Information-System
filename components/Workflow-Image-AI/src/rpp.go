@@ -247,7 +247,7 @@ func complement2(x uint16) int16 {
 }
 
 // printImage2ASCII prints the image as ASCII art
-func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation string) []byte {
+func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation string, PixelPaddingValue int) []byte {
 	//table := []byte(reverse(ASCIISTR))
 	table := []byte(reverse(ASCIISTR2))
 	if PhotometricInterpretation == "MONOCHROME1" { // only valid if samples per pixel is 1
@@ -265,6 +265,9 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
 			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			if PixelPaddingValue != 0 && y == int64(PixelPaddingValue) {
+				continue
+			}
 			if y > maxVal {
 				maxVal = y
 				//fmt.Println(y, g)
@@ -286,6 +289,9 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
 			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			if PixelPaddingValue != 0 && y == int64(PixelPaddingValue) {
+				continue
+			}
 			//if math.IsInf(float64(y), 0) || math.IsNaN(float64(y)) {
 			//	continue
 			//}
@@ -332,6 +338,10 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
 			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			if PixelPaddingValue != 0 && y == int64(PixelPaddingValue) {
+				_ = buf.WriteByte(' ')
+				continue
+			}
 			//fmt.Println("got a number: ", img.At(j, i))
 			pos := int((float32(y) - float32(min2)) * float32(len(table)-1) / float32(denom))
 			pos = int(math.Min(float64(len(table)-1), math.Max(0, float64(pos))))
@@ -365,6 +375,11 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 	if err == nil {
 		PhotometricInterpretation = dicom.MustGetStrings(PhotometricInterpretationVal.Value)[0]
 	}
+	var PixelPaddingValue int = 0
+	PixelPaddingValueVal, err := dataset.FindElementByTag(tag.PixelPaddingValue)
+	if err == nil {
+		PixelPaddingValue = dicom.MustGetInts(PixelPaddingValueVal.Value)[0]
+	}
 
 	langFmt := message.NewPrinter(language.English)
 
@@ -381,7 +396,10 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 				for j := 0; j < native_img.Cols; j++ {
 					currValue := uint16(native_img.Data[i*native_img.Cols+j][0])
 					currValue2 := complement2(currValue)
-					native_img.Data[i*native_img.Cols+j][0] = int(currValue2)
+					// the GetImage function will convert everything to uint16 later
+					// so any values we might have here that are negative will be gone
+					// lets shift into the positive range here (dah)
+					native_img.Data[i*native_img.Cols+j][0] = 32768 + int(currValue2)
 				}
 			}
 			img, err = native_img.GetImage()
@@ -400,7 +418,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 
 		bounds := newImage.Bounds()
 		width, height := bounds.Max.X, bounds.Max.Y
-		p := printImage2ASCII(newImage, width, height, PhotometricInterpretation)
+		p := printImage2ASCII(newImage, width, height, PhotometricInterpretation, PixelPaddingValue)
 		fmt.Printf("%s", string(p))
 		langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
 		if len(info) > 0 {

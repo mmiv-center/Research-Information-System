@@ -283,8 +283,13 @@ For select all image series that match are in a pool of potential datasets for t
 rpp trigger --keep
 ```
 
-which will keep the input data to the workflow around after the trigger has finished. By default (without '--keep') all data folders are deleted after a single run. Fix any problems found with your workflow given that dataset. Do not change the content of the data folder only adjust your program.
+which will keep the input data to the workflow around after the trigger has finished. By default (without '--keep') all data folders are deleted after a single run. Fix any problems found with your workflow given that dataset. Do not change the content of the data folder only adjust your program. To test if your updated workflow works on the last dataset use
 
+```bash
+rpp trigger --last
+```
+
+Once you workflow seems ok test with another random dataset using `rpp trigger --keep` or simply try to run the workflow on all datasets with `rpp trigger --each`.
 
 ## Acknowlegements
 
