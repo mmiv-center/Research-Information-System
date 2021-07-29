@@ -375,6 +375,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 	if err == nil {
 		PhotometricInterpretation = dicom.MustGetStrings(PhotometricInterpretationVal.Value)[0]
 	}
+	// This value seems to be defined in the original data format (before complement-2)
 	var PixelPaddingValue int = 0
 	PixelPaddingValueVal, err := dataset.FindElementByTag(tag.PixelPaddingValue)
 	if err == nil {
@@ -392,6 +393,13 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 		var convertHere bool = true
 		if convertHere && PixelRepresentation == 1 {
 			native_img, _ := fr.GetNativeFrame()
+			if PixelPaddingValue > 0 { // this is for modality CT
+				// if we have such a value we cannot assume it will actually work,
+				// GE is an example where they used other values
+				currValue := uint16(native_img.Data[0][0])
+				currValue2 := complement2(currValue)
+				PixelPaddingValue = int(32768) + int(currValue2)
+			}
 			for i := 0; i < native_img.Rows; i++ {
 				for j := 0; j < native_img.Cols; j++ {
 					currValue := uint16(native_img.Data[i*native_img.Cols+j][0])
