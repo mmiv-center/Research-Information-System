@@ -1607,7 +1607,7 @@ func main() {
 			readme_path := filepath.Join(input_dir, "README.md")
 			createStub(readme_path, readme)
 
-			if data.ProjectType == "python" { // plain python
+			if data.ProjectType == "python" || data.ProjectType == "notebook" { // plain python
 				stub_path := filepath.Join(input_dir, "stub.py")
 				createStub(stub_path, stub_py)
 			}
