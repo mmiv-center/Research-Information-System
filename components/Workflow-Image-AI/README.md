@@ -29,7 +29,7 @@ A minimal workflow requires 8 commands to compute the signal-to-noise ratio of a
 > rpp trigger --keep --each --cont workflow_snr
 ```
 
-Below is a window capture from one start to finish run of the tool. This workflow is established to compute the signal-to-noise ratio of each DICOM series in the data/ directory. The movie is not quite fair as it assumes that we are already running in a clean virtual environment provided by conda.
+Below is a window capture from one start to finish run of the tool. This workflow calculates the signal-to-noise ratio of each DICOM series. The movie assumes that we are already running in a clean virtual environment provided by conda.
 
 ![Minimal workflow from start to deployment](images/workflowA-Z.gif)
 
@@ -59,7 +59,7 @@ wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/
 chmod +x /usr/local/bin/rpp
 ```
 
-### Build yourself
+### Build it yourself
 
 This project depends on go, goyacc, and make. Install goyacc with
 
@@ -85,7 +85,7 @@ The available starter project types are currently:
 - bash: a shell script that depends on dcmtk, dcm2niix and jq. The example application converts all image series into Nifti and extract the matrix size from one of the DICOM files.
 - webapp: a visualization environment providing a single page web-application
 
-Now you have a folder for your project's source code. In order to develop our pipeline we will use another data folder with test DICOM images. Also, set the temporay directory to our current directory. This will ensure we can see the data folder used as input to our workflow.
+Now you have a folder for your project's source code. In order to develop our pipeline we will use another data folder with test DICOM images. Also, set the temporary directory to the current directory. This will ensure we can see the data folder provided to the workflow.
 
 ```bash
 cd project01
@@ -106,7 +106,54 @@ To simulate what the system does for testing purposes we can trigger the process
 rpp trigger --keep 
 ```
 
-This call will create a new folder in the temp system folder (change with `rpp config --temp_directory <new location>`). Inside that folder rpp creates a copy of the selected image series (input/ folder). Using '--keep' option the folder will stay around after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated should be placed in the 'output/' folder.
+This call will create a new folder in the temp system folder (change with `rpp config --temp_directory <new location>`). Inside that folder rpp creates a copy of the selected image series (input/ folder). Using '--keep' option the folder will stay around after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated should be placed in the 'output/' folder. Here is an example folder structure after processing.
+
+```
+rpp_trigger_run_Thursday_269448975
+├── descr.json
+├── input
+│   ├── 000000.dcm
+│   ├── 000001.dcm
+│   ├── 000002.dcm
+│   ├── 000003.dcm
+│   ├── 000004.dcm
+│   ├── 000005.dcm
+│   ├── 000006.dcm
+│   ├── 000007.dcm
+│   ├── 000008.dcm
+│   ├── 000009.dcm
+│   ├── 000010.dcm
+│   ├── 000011.dcm
+│   ├── 000012.dcm
+│   ├── 000013.dcm
+│   ├── 000014.dcm
+│   └── 000015.dcm
+├── input_view_dicom_series
+│   └── TCGA-BA-4077SIIM^Neela
+│       └── 19960514_125626.308000
+│           └── 607_CORONALS<MPR\ Range>
+│               ├── 000000.dcm -> ../../../../input/000000.dcm
+│               ├── 000001.dcm -> ../../../../input/000001.dcm
+│               ├── 000002.dcm -> ../../../../input/000002.dcm
+│               ├── 000003.dcm -> ../../../../input/000003.dcm
+│               ├── 000004.dcm -> ../../../../input/000004.dcm
+│               ├── 000005.dcm -> ../../../../input/000005.dcm
+│               ├── 000006.dcm -> ../../../../input/000006.dcm
+│               ├── 000007.dcm -> ../../../../input/000007.dcm
+│               ├── 000008.dcm -> ../../../../input/000008.dcm
+│               ├── 000009.dcm -> ../../../../input/000009.dcm
+│               ├── 000010.dcm -> ../../../../input/000010.dcm
+│               ├── 000011.dcm -> ../../../../input/000011.dcm
+│               ├── 000012.dcm -> ../../../../input/000012.dcm
+│               ├── 000013.dcm -> ../../../../input/000013.dcm
+│               ├── 000014.dcm -> ../../../../input/000014.dcm
+│               └── 000015.dcm -> ../../../../input/000015.dcm
+├── log
+│   ├── stderr.log
+│   └── stdout.log
+└── output
+    └── output.json
+```
 
 Whereas all selected DICOM files appear in the input folder there is another folder "input_new_dicom_series/" which contains a directory structure with symbolic links to each DICOM file. The structure is created from the
 DICOM tags: `<PatientID_PatientName>/<StudyDate>_<StudyTime>/<SeriesNumber>_<SeriesDescription>/`. If you workflow has problems accepting such a folder switch off this feature with `rpp config --no_sort_dicom=1`. Future calls to trigger should not generate this folder. We would like to support additional views in the future. For example a view that provides the DICOM data as Nifti. Currently this can be done inside the workflow (see the project type bash).
