@@ -39,10 +39,11 @@ var errorOnParse = false
 }
 
 %type <word> command, select_stmt, base_select, level_types, rule_list, rule, where_clause, where_clauses, level_types_with_name
+%type <word> check_stmt base_check
 
 %token '+' '-' '*' '/' '(' ')' '"' '\''
 %token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND ALSO
-%token CONTAINING SMALLER LARGER REGEXP NOT NAMED PROJECT
+%token CONTAINING SMALLER LARGER REGEXP NOT NAMED PROJECT CHECK
 
 %token	<num>	NUM
 %token  <word>  STRING NOT
@@ -67,10 +68,20 @@ command:
     select_stmt
     {
         $$ = $1
+    }
+|   check_stmt
+    {
+        $$ = $1
     };
 
 select_stmt:
     base_select
+    {
+        $$ = $1
+    };
+
+check_stmt:
+    base_check
     {
         $$ = $1
     };
@@ -267,6 +278,13 @@ level_types:
         $$ = fmt.Sprintf("image")
     }
 
+base_check:
+    CHECK
+    {
+        // do nothing for now...
+    }
+
+
 %%
 
 func InitParser() {
@@ -410,6 +428,8 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
         return NOT
     } else if strings.ToLower(b.String()) == "named" {
         return NAMED
+    } else if strings.ToLower(b.String()) == "check" {
+        return CHECK
     } else {
 		log.Printf("unknown word %s", b.String())
         yylval.word = b.String()
