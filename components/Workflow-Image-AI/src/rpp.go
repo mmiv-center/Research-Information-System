@@ -1374,7 +1374,7 @@ func main() {
 	var data_path string
 	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files. If you want to specify a subset of folders\nuse double quotes for the path and the glob syntax. For example all folders that\nstart with numbers 008 and 009 would be read with --data \"path/to/data/0[8-9]*\"")
 	var call_string string
-	configCommand.StringVar(&call_string, "call", "", "The command line to call the workflow. A path-name with the data will be appended\n\tto this string.")
+	configCommand.StringVar(&call_string, "call", "", "The command line to call the workflow. A path-name with the data will be appended\nto this string.")
 	var project_name_string string
 	configCommand.StringVar(&project_name_string, "project_name", "", "The name of the project. This string will be used in the container name.")
 	var no_sort_dicom bool

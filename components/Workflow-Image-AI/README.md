@@ -129,9 +129,9 @@ rpp_trigger_run_Thursday_269448975
 │   ├── 000014.dcm
 │   └── 000015.dcm
 ├── input_view_dicom_series
-│   └── TCGA-BA-4077SIIM^Neela
-│       └── 19960514_125626.308000
-│           └── 607_CORONALS<MPR\ Range>
+│   └── TCGA-BA-4077SIIM^Neela            # PatientID-PatientName
+│       └── 19960514_125626.308000        # StudyDate_StudyTime
+│           └── 607_CORONALS<MPR\ Range>  # SeriesNumber_SeriesDescription
 │               ├── 000000.dcm -> ../../../../input/000000.dcm
 │               ├── 000001.dcm -> ../../../../input/000001.dcm
 │               ├── 000002.dcm -> ../../../../input/000002.dcm
@@ -155,8 +155,7 @@ rpp_trigger_run_Thursday_269448975
     └── output.json
 ```
 
-Whereas all selected DICOM files appear in the input folder there is another folder "input_new_dicom_series/" which contains a directory structure with symbolic links to each DICOM file. The structure is created from the
-DICOM tags: `<PatientID_PatientName>/<StudyDate>_<StudyTime>/<SeriesNumber>_<SeriesDescription>/`. If you workflow has problems accepting such a folder switch off this feature with `rpp config --no_sort_dicom=1`. Future calls to trigger should not generate this folder. We would like to support additional views in the future. For example a view that provides the DICOM data as Nifti. Currently this can be done inside the workflow (see the project type bash).
+Whereas all selected DICOM files appear in the input folder there is another folder "input_view_dicom_series/" with a directory structure that shows DICOM files that belong together. We would like to support additional views in the future - contact us if you have any ideas. For example a view that provides the DICOM data as Nifti or one that exports them as PNG? Currently this can be done inside the workflow (see the project type bash).
 
 ### Integration into the research PACS
 
@@ -168,7 +167,7 @@ To capture the setup run:
 rpp build
 ```
 
-which will inform you of the basic steps to a) capture your dependend libraries and b) create a container based on those requirements. This step might not be trivial because it depends on a perfect copy of your local environment inside the container. Usually its best to start with a virtualized environment as explained by the `rpp build` output.
+which will inform you of the basic steps to a) capture your dependent libraries and b) create a container based on those requirements. This step might not be trivial because it depends on a perfect copy of your local environment inside the container. Usually its best to start with a virtualized environment as explained by the `rpp build` output.
 
 For testing the containerized workflow on all your data you can trigger using the `--cont <workflow>` option specifying your container name:
 
@@ -176,7 +175,11 @@ For testing the containerized workflow on all your data you can trigger using th
 rpp trigger -keep --each --cont workflow_project01
 ```
 
-After this last step we have a containerized workflow that accepts and processes data provided by the research information system. The specification of the container needs to be submitted to a workflow slot for your project. The specification will be used inside the research information system to recreate your workflow.t
+After this last step we have a containerized workflow that accepts and processes data provided by the research information system. The specification of the container needs to be submitted to a workflow slot for your project. Such a workflow slot can be obtained from the user page of the Research Information System. Store the key in your project with
+
+```bash
+rpp config --token "<token>"
+```
 
 ### Specify a subset of the image series for processing
 
