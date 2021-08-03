@@ -393,12 +393,14 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 		var convertHere bool = true
 		if convertHere && PixelRepresentation == 1 {
 			native_img, _ := fr.GetNativeFrame()
-			if PixelPaddingValue > 0 { // this is for modality CT
+			if PixelPaddingValue != 0 { // this is for modality CT
 				// if we have such a value we cannot assume it will actually work,
 				// GE is an example where they used other values
 				currValue := uint16(native_img.Data[0][0])
 				currValue2 := complement2(currValue)
 				PixelPaddingValue = int(32768) + int(currValue2)
+			} else {
+				PixelPaddingValue += int(32768)
 			}
 			for i := 0; i < native_img.Rows; i++ {
 				for j := 0; j < native_img.Cols; j++ {
@@ -917,7 +919,7 @@ func createStub(p string, str string) {
 // - We can add a new rule to a ruleset by selecting a new variable
 // - We can change an existing rule by changing theh numeric value for '<' and '>'
 // - We can add a new ruleset with a random rule
-func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, error) {
+func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) float64 {
 	// collect all the values in all the SeriesInfo fields
 	tmpTargetValues := make(map[string]map[string]bool, 0)
 	tmpTargetValues["StudyDescription"] = make(map[string]bool, 0)
@@ -1074,7 +1076,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, error
 		ok := changeRules(copyRule, targetValues)
 		if !ok {
 			fmt.Println("End here, no change to the rules could be implemented")
-			return ast, nil
+			return likelihood(copyRule)
 		}
 		l2 := likelihood(copyRule)
 		if l2 > l {
@@ -1089,7 +1091,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, error
 		}
 	}
 
-	return ast, nil
+	return likelihood(ast)
 }
 
 // findMatchingSets returns all matching sets for this rule and the provided data
@@ -1471,6 +1473,33 @@ func main() {
 	if len(os.Args) < 2 {
 		flag.Usage()
 		os.Exit(-1)
+	}
+
+	if true {
+		// get dataset and ast from config
+		dir_path := input_dir + "/.rpp/config"
+		config, err := readConfig(dir_path)
+		if err != nil {
+			exitGracefully(errors.New(errorConfigFile))
+		}
+		if config.SeriesFilterType != "select" {
+			fmt.Println("Cannot improve glob, only select.")
+		} else {
+			// create an ast cron config
+			InitParser()
+			line := []byte(config.SeriesFilter)
+			fmt.Printf("TEST EXPRESSION PARSER: %s\n", string(line))
+			yyParse(&exprLex{line: line})
+
+			s, _ := json.MarshalIndent(ast, "", "  ")
+			fmt.Printf("ast before: %s\n", string(s))
+
+			l := ast.improveAST(config.Data.DataInfo)
+
+			s, _ = json.MarshalIndent(ast, "", "  ")
+			fmt.Printf("ast [%f] after: %s\n", l, string(s))
+
+		}
 	}
 
 	if false {
