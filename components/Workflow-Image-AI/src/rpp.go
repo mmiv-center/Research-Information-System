@@ -150,6 +150,7 @@ type SeriesInfo struct {
 	PatientID             string
 	PatientName           string
 	ClassifyTypes         []string
+	All                   []*dicom.Element
 }
 
 // readConfig parses a provided config file as JSON.
@@ -712,6 +713,23 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 					var PatientID string
 					var PatientName string
 
+					removeElement := func(s []*dicom.Element, i int) []*dicom.Element {
+						s[i] = s[len(s)-1]
+						return s[:len(s)-1]
+					}
+
+					var all []*dicom.Element = dataset.Elements
+					// we should clean out the larger elements based on VR
+					for i := 0; i < len(all); i++ {
+						if all[i].ValueRepresentation == tag.VRUInt16List ||
+							all[i].ValueRepresentation == tag.VRUInt32List ||
+							all[i].ValueRepresentation == tag.VRBytes ||
+							all[i].ValueRepresentation == tag.VRPixelData {
+							all = removeElement(all, i) // append(all[:i], all[i+1:]...)
+							i--
+						}
+					}
+
 					showImages := true
 					if showImages {
 						// create a human readable summary line for the whole dataset
@@ -834,6 +852,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 								Path:                  lcp,
 								PatientID:             PatientID,
 								PatientName:           PatientName,
+								All:                   val.All,
 								ClassifyTypes:         val.ClassifyTypes, // only parse the first image? No, we need to parse all because we have to collect all possible classes for Localizer (aixal + coronal + sagittal)
 							}
 						} else {
@@ -852,6 +871,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 								PatientID:             PatientID,
 								PatientName:           PatientName,
 								Path:                  path_pieces,
+								All:                   all,
 								ClassifyTypes:         ClassifyDICOM(dataset),
 							}
 						}
@@ -868,6 +888,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							PatientID:             PatientID,
 							PatientName:           PatientName,
 							Path:                  path_pieces,
+							All:                   all,
 							ClassifyTypes:         ClassifyDICOM(dataset),
 						}
 					}
@@ -919,7 +940,7 @@ func createStub(p string, str string) {
 // - We can add a new rule to a ruleset by selecting a new variable
 // - We can change an existing rule by changing theh numeric value for '<' and '>'
 // - We can add a new ruleset with a random rule
-func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) float64 {
+func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float64) {
 	// collect all the values in all the SeriesInfo fields
 	tmpTargetValues := make(map[string]map[string]bool, 0)
 	tmpTargetValues["StudyDescription"] = make(map[string]bool, 0)
@@ -927,6 +948,8 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) float64 {
 	tmpTargetValues["Modality"] = make(map[string]bool, 0)
 	tmpTargetValues["SequenceName"] = make(map[string]bool, 0)
 	tmpTargetValues["Manufacturer"] = make(map[string]bool, 0)
+	tmpTargetValues["NumImages"] = make(map[string]bool, 0)
+	tmpTargetValues["SeriesNumber"] = make(map[string]bool, 0)
 	for _, v := range datasets {
 		for _, v2 := range v {
 			tmpTargetValues["SeriesDescription"][v2.SeriesDescription] = true
@@ -934,6 +957,8 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) float64 {
 			tmpTargetValues["Modality"][v2.Modality] = true
 			tmpTargetValues["SequenceName"][v2.SequenceName] = true
 			tmpTargetValues["Manufacturer"][v2.Manufacturer] = true
+			tmpTargetValues["NumImages"][fmt.Sprintf("%d", v2.NumImages)] = true
+			tmpTargetValues["SeriesNumber"][fmt.Sprintf("%d", v2.SeriesNumber)] = true
 		}
 	}
 	targetValues := make(map[string][]string, 0)
@@ -942,13 +967,37 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) float64 {
 	targetValues["Modality"] = []string{}
 	targetValues["SequenceName"] = []string{}
 	targetValues["Manufacturer"] = []string{}
-	for _, v := range tmpTargetValues {
+	targetValues["NumImages"] = []string{}
+	targetValues["SeriesNumber"] = []string{}
+	targetType := func(s string) string {
+		if s == "NumImages" || s == "SeriesNumber" {
+			return "numeric"
+		}
+		return "text"
+	}
+	for k, v := range tmpTargetValues {
 		for k2, _ := range v {
-			targetValues["StudyDescription"] = append(targetValues["StudyDescription"], k2)
-			targetValues["SeriesDescription"] = append(targetValues["SeriesDescription"], k2)
-			targetValues["Modality"] = append(targetValues["Modality"], k2)
-			targetValues["SequenceName"] = append(targetValues["SequenceName"], k2)
-			targetValues["Manufacturer"] = append(targetValues["Manufacturer"], k2)
+			if k == "StudyDescription" {
+				targetValues["StudyDescription"] = append(targetValues["StudyDescription"], k2)
+			}
+			if k == "SeriesDescription" {
+				targetValues["SeriesDescription"] = append(targetValues["SeriesDescription"], k2)
+			}
+			if k == "Modality" {
+				targetValues["Modality"] = append(targetValues["Modality"], k2)
+			}
+			if k == "SequenceName" {
+				targetValues["SequenceName"] = append(targetValues["SequenceName"], k2)
+			}
+			if k == "Manufacturer" {
+				targetValues["Manufacturer"] = append(targetValues["Manufacturer"], k2)
+			}
+			if k == "NumImages" {
+				targetValues["NumImages"] = append(targetValues["NumImages"], k2)
+			}
+			if k == "SeriesNumber" {
+				targetValues["SeriesNumber"] = append(targetValues["SeriesNumber"], k2)
+			}
 		}
 	}
 
@@ -963,7 +1012,11 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) float64 {
 			numSelected := len(v)
 			sumX += float64(numSelected) / float64(numSeries)
 		}
-		sumX = sumX / float64(len(a))
+		if len(a) > 0 {
+			sumX = sumX / float64(len(a))
+		} else {
+			sumX = 0
+		}
 		// mean should be close to 0.5
 
 		// compute penalty for the complexity of the rules, more rules is worse
@@ -971,19 +1024,21 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) float64 {
 		for _, rulelist := range ast.Rules {
 			total = total + float64(len(rulelist))
 		}
-		return math.Abs(sumX-0.5) + math.Log2(float64(total)+1.0)
+		return sumX + math.Log2(float64(total)+1.0)
 	}
 	// addRule: add a single rule
 	addRule := func(rules *[]Rule, targetValues map[string][]string) bool {
 		// do we have access to targetValues here?
 		// what are the possible fields we can match with?
 		// fields := []string{"SeriesDescription", "StudyDescription", "NumImages", "Modality"}
-		operators := []string{"==", "<", ">"}
+		operators := []string{"==", "contains"}
+		operatorsNumeric := []string{"<", ">"}
 		fieldIdx := rand.Intn((len(targetValues) - 0) + 0)
-		operatorIdx := rand.Intn((len(operators) - 0) + 0)
+
 		counter := 0
 		t := ""
 		val := ""
+		// this does not work as the sorting order is not guaranteed
 		for k, _ := range targetValues {
 			if counter == fieldIdx {
 				t = k
@@ -992,15 +1047,24 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) float64 {
 			counter = counter + 1
 		}
 
+		var op string = ""
+		if targetType(t) == "numeric" {
+			operatorIdx := rand.Intn((len(operatorsNumeric) - 0) + 0)
+			op = operatorsNumeric[operatorIdx]
+		} else {
+			operatorIdx := rand.Intn((len(operators) - 0) + 0)
+			op = operators[operatorIdx]
+		}
+
 		r := Rule{
 			Tag:      []string{t},
 			Value:    val,
-			Operator: operators[operatorIdx],
+			Operator: op,
 		}
-		if operators[operatorIdx] == ">" || operators[operatorIdx] == "<" {
-			cc, err := strconv.ParseFloat(val, 32)
+		if op == ">" || op == "<" {
+			_, err := strconv.ParseFloat(val, 32)
 			if err != nil {
-				r.Value = rand.Intn(int(cc))
+				r.Value = rand.Intn(100)
 			}
 		}
 
@@ -1076,7 +1140,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) float64 {
 		ok := changeRules(copyRule, targetValues)
 		if !ok {
 			fmt.Println("End here, no change to the rules could be implemented")
-			return likelihood(copyRule)
+			return copyRule, likelihood(copyRule)
 		}
 		l2 := likelihood(copyRule)
 		if l2 > l {
@@ -1091,7 +1155,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) float64 {
 		}
 	}
 
-	return likelihood(ast)
+	return ast, likelihood(ast)
 }
 
 // findMatchingSets returns all matching sets for this rule and the provided data
@@ -1475,7 +1539,7 @@ func main() {
 		os.Exit(-1)
 	}
 
-	if true {
+	if false {
 		// get dataset and ast from config
 		dir_path := input_dir + "/.rpp/config"
 		config, err := readConfig(dir_path)
@@ -1494,7 +1558,7 @@ func main() {
 			s, _ := json.MarshalIndent(ast, "", "  ")
 			fmt.Printf("ast before: %s\n", string(s))
 
-			l := ast.improveAST(config.Data.DataInfo)
+			ast, l := ast.improveAST(config.Data.DataInfo)
 
 			s, _ = json.MarshalIndent(ast, "", "  ")
 			fmt.Printf("ast [%f] after: %s\n", l, string(s))

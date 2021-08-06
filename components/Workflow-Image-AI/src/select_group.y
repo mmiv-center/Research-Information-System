@@ -22,6 +22,7 @@ type AST struct {
     Select_level_by_rule []string
     Rule_list_names []string
     Rules [][]Rule // we need sets of rules for each series we describe
+    CheckRules [][]Rule // we capture the special check rules here
 }
 
 var ast AST                 // our abstract syntax tree
@@ -29,6 +30,7 @@ var charpos int             // the char position in the string
 var program string          // just a copy of the string to parse
 
 var currentRules []Rule = nil       // we store one rules information here
+var currentCheckRules []Rule = nil  // for checks there is a separate list
 var errorOnParse = false
 
 %}
@@ -39,7 +41,7 @@ var errorOnParse = false
 }
 
 %type <word> command, select_stmt, base_select, level_types, rule_list, rule, where_clause, where_clauses, level_types_with_name
-%type <word> check_stmt base_check
+%type <word> check_stmt base_check check_rule_list check_rule
 
 %token '+' '-' '*' '/' '(' ')' '"' '\''
 %token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND ALSO
@@ -279,10 +281,94 @@ level_types:
     }
 
 base_check:
-    CHECK
+    CHECK check_rule_list
     {
         // do nothing for now...
     }
+
+check_rule_list:
+    check_rule 
+    {
+        //fmt.Printf("found a rule: \"%s\"\n", $1)
+        // add the rule to the current list of rules
+
+        $$ = $1
+    }
+|   check_rule_list AND check_rule
+    {
+        //fmt.Println("found AND rule")
+        $$ = fmt.Sprintf("%s AND %s", $$, $3)
+    }
+
+check_rule:
+    '(' check_rule_list ')'
+    {
+        $$ = fmt.Sprintf("%s, brackets %s", $$, $2)
+    }
+|   NOT check_rule
+    {
+        if currentCheckRules[len(currentCheckRules)-1].Negate == "" || currentCheckRules[len(currentCheckRules)-1].Negate == "no" {
+            currentCheckRules[len(currentCheckRules)-1].Negate = "yes"
+        } else {
+            currentCheckRules[len(currentCheckRules)-1].Negate = "no"
+        }
+        $$ = fmt.Sprintf("%s NOT %s", $$, $1)
+    }
+|   STRING EQUALS STRING
+    {
+        r := Rule{
+            Tag: []string{$1},
+            Operator: "==",
+            Value: $3,
+        }
+        currentCheckRules = append(currentCheckRules, r)
+        $$ = fmt.Sprintf("Variable %s = %s", $1, $3)
+    }
+|   STRING CONTAINING STRING
+    {
+        r := Rule{
+            Tag: []string{$1},
+            Operator: "contains",
+            Value: $3,
+        }
+        currentCheckRules = append(currentCheckRules, r)
+
+        $$ = fmt.Sprintf("Variable %s contains %s", $1, $3)
+    }
+|   STRING SMALLER NUM
+    {
+        r := Rule{
+            Tag: []string{$1},
+            Operator: "<",
+            Value: $3,
+        }
+        currentCheckRules = append(currentCheckRules, r)
+
+        $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
+    }
+|   STRING LARGER NUM
+    {
+        r := Rule{
+            Tag: []string{$1},
+            Operator: ">",
+            Value: $3,
+        }
+        currentCheckRules = append(currentCheckRules, r)
+
+        $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
+    }
+|   STRING REGEXP STRING
+    {
+        r := Rule{
+            Tag: []string{$1},
+            Operator: "regexp",
+            Value: $3,
+        }
+        currentCheckRules = append(currentCheckRules, r)
+
+        $$ = fmt.Sprintf("Variable %s contains %s", $1, $3)
+    }
+
 
 
 %%

@@ -87,11 +87,13 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 			for _, vv := range dataData {
 				numValue, err := strconv.ParseFloat(vv, 32)
 				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n", vv)
+					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
+					exitGracefully(err)
 				}
 				numValue2, err := strconv.ParseFloat(fmt.Sprintf("%v", v), 32)
 				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n", v)
+					fmt.Printf("Error: could not convert value to numeric: \"%s\" rule: %v\n", v, val)
+					exitGracefully(err)
 				}
 				if numValue < numValue2 {
 					foundValue = true
@@ -101,11 +103,13 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 			for _, vv := range dataData {
 				numValue, err := strconv.ParseFloat(vv, 32)
 				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n", vv)
+					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
+					exitGracefully(err)
 				}
 				numValue2, err := strconv.ParseFloat(fmt.Sprintf("%v", v), 32)
 				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n", v)
+					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", v, val)
+					exitGracefully(err)
 				}
 				if numValue > numValue2 {
 					foundValue = true
