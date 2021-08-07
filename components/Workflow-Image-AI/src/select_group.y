@@ -13,6 +13,7 @@ import (
     // "encoding/json"
     "strings"
     "strconv"
+	"github.com/suyashkumar/dicom/pkg/tag"
 )
 
 // represents a select statement
@@ -32,7 +33,7 @@ var program string          // just a copy of the string to parse
 var currentRules []Rule = nil       // we store one rules information here
 var currentCheckRules []Rule = nil  // for checks there is a separate list
 var errorOnParse = false
-var lastGroupTag []int              // a pair of group, tag in decimal format
+var lastGroupTag []string           // a pair of group, tag in decimal format
 
 %}
 
@@ -243,7 +244,7 @@ rule:
 
         $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
     }
-|   STRING REGEXP STRING
+|   tag_string REGEXP STRING
     {
         r := Rule{
             Tag: []string{$1},
@@ -263,9 +264,9 @@ tag_string:
         // tag_string we would have such a pair (mapping from string to tag pair)
         s, err := tag.FindByName($1)
         if err == nil {
-            lastGroupTag = []int{s.tag.Group, s.tag.Element}
+            lastGroupTag = []string{fmt.Sprintf("%0xd", s.Tag.Group), fmt.Sprintf("%0xd", s.Tag.Element)}
         } else {
-            lastGroupTag = []int{0,0} // place a default value here so we can ignore this entry
+            lastGroupTag = []string{"0x0000","0x0000"} // place a default value here so we can ignore this entry
         }
     }
 |   '(' group_tag_pair ')'
@@ -277,13 +278,20 @@ group_tag_pair:
     STRING ',' STRING
     {
         // get the corresponding group and tag from octal
-        group_str := strings.Replace($1,"0x",-1)
-        group_str = strings.Replace(group_str, "0X", -1)
-        var group int = strconv.ParseInt(group_str, 16, 64)
-        tag_str := strings.Replace($3,"0x",-1)
-        tag_str = strings.Replace(tag_str, "0X", -1)
-        var tag int = strconv.ParseInt(tag_str, 16, 64)
-        lastGroupTag = []int{group, tag}
+        group_str := strings.Replace($1,"0x","",-1)
+        group_str = strings.Replace(group_str, "0X","", -1)
+        group, err := strconv.ParseInt(group_str, 16, 64)
+        if err != nil {
+            exitGracefully(err)
+        }
+        tag_str := strings.Replace($3,"0x","",-1)
+        tag_str = strings.Replace(tag_str, "0X","", -1)
+        tag, err := strconv.ParseInt(tag_str, 16, 64)
+        if err != nil {
+            exitGracefully(err)
+        }
+        //lastGroupTag = []int{int(group), int(tag)}
+        lastGroupTag = []string{$1, $3}
         $$ = fmt.Sprintf("(%d,%d)", group, tag)
     }
 
