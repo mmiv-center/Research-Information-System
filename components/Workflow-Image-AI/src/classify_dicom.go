@@ -46,36 +46,45 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 		o := val.Operator
 		v := val.Value
 		dataData := []string{""}
-		if t[0] == "ClassifyType" {
-			dataData = data.ClassifyTypes
-		} else if t[0] == "ClassifyTypes" {
-			dataData = data.ClassifyTypes
-		} else if t[0] == "SeriesDescription" {
-			dataData = []string{data.SeriesDescription}
-		} else if t[0] == "NumImages" {
-			dataData = []string{fmt.Sprintf("%d", data.NumImages)}
-		} else if t[0] == "NumSlices" {
-			dataData = []string{fmt.Sprintf("%d", data.NumImages)}
-		} else if t[0] == "SeriesNumber" {
-			dataData = []string{fmt.Sprintf("%d", data.SeriesNumber)}
-		} else if t[0] == "SequenceName" {
-			dataData = []string{data.SequenceName}
-		} else if t[0] == "Modality" {
-			dataData = []string{data.Modality}
-		} else if t[0] == "StudyDescription" {
-			dataData = []string{data.StudyDescription}
-		} else if t[0] == "Manufacturer" {
-			dataData = []string{data.Manufacturer}
-		} else if t[0] == "ManufacturerModelName" {
-			dataData = []string{data.ManufacturerModelName}
-		} else if t[0] == "Path" {
-			dataData = []string{data.Path}
-		} else if t[0] == "PatientID" {
-			dataData = []string{data.PatientID}
-		} else if t[0] == "PatientName" {
-			dataData = []string{data.PatientName}
-		} else {
-			fmt.Println("Warning: unknown value selected")
+		// if we have two fields, one for group, one for tag we need to look into the all fields to find it
+		if len(t) == 2 {
+			// lookup the value by group and tag
+			// values should be read by hexadecimal number
+
+		} else { // we have a single entry (really?) and treat it as the name of a variable
+			if t[0] == "ClassifyType" {
+				dataData = data.ClassifyTypes
+			} else if t[0] == "ClassifyTypes" {
+				dataData = data.ClassifyTypes
+			} else if t[0] == "SeriesDescription" {
+				dataData = []string{data.SeriesDescription}
+			} else if t[0] == "NumImages" {
+				dataData = []string{fmt.Sprintf("%d", data.NumImages)}
+			} else if t[0] == "NumSlices" {
+				dataData = []string{fmt.Sprintf("%d", data.NumImages)}
+			} else if t[0] == "SeriesNumber" {
+				dataData = []string{fmt.Sprintf("%d", data.SeriesNumber)}
+			} else if t[0] == "SequenceName" {
+				dataData = []string{data.SequenceName}
+			} else if t[0] == "Modality" {
+				dataData = []string{data.Modality}
+			} else if t[0] == "StudyDescription" {
+				dataData = []string{data.StudyDescription}
+			} else if t[0] == "Manufacturer" {
+				dataData = []string{data.Manufacturer}
+			} else if t[0] == "ManufacturerModelName" {
+				dataData = []string{data.ManufacturerModelName}
+			} else if t[0] == "Path" {
+				dataData = []string{data.Path}
+			} else if t[0] == "PatientID" {
+				dataData = []string{data.PatientID}
+			} else if t[0] == "PatientName" {
+				dataData = []string{data.PatientName}
+			} else {
+				// We need to look for named entities here as well. So names that appear in all as groups.
+
+				fmt.Println("Warning: unknown value selected")
+			}
 		}
 		if o == "contains" {
 			for _, vv := range dataData {

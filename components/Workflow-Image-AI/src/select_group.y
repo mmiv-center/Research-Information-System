@@ -32,6 +32,7 @@ var program string          // just a copy of the string to parse
 var currentRules []Rule = nil       // we store one rules information here
 var currentCheckRules []Rule = nil  // for checks there is a separate list
 var errorOnParse = false
+var lastGroupTag []int              // a pair of group, tag in decimal format
 
 %}
 
@@ -41,7 +42,7 @@ var errorOnParse = false
 }
 
 %type <word> command, select_stmt, base_select, level_types, rule_list, rule, where_clause, where_clauses, level_types_with_name
-%type <word> check_stmt base_check check_rule_list check_rule
+%type <word> check_stmt base_check check_rule_list check_rule tag_string group_tag_pair
 
 %token '+' '-' '*' '/' '(' ')' '"' '\''
 %token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND ALSO
@@ -252,6 +253,38 @@ rule:
         currentRules = append(currentRules, r)
 
         $$ = fmt.Sprintf("Variable %s contains %s", $1, $3)
+    }
+
+tag_string:
+    STRING
+    { 
+        $$ = $1
+        // we should also set the lastGroupTag here so wherever we use
+        // tag_string we would have such a pair (mapping from string to tag pair)
+        s, err := tag.FindByName($1)
+        if err == nil {
+            lastGroupTag = []int{s.tag.Group, s.tag.Element}
+        } else {
+            lastGroupTag = []int{0,0} // place a default value here so we can ignore this entry
+        }
+    }
+|   '(' group_tag_pair ')'
+    {
+        $$ = $2
+    }
+
+group_tag_pair:
+    STRING ',' STRING
+    {
+        // get the corresponding group and tag from octal
+        group_str := strings.Replace($1,"0x",-1)
+        group_str = strings.Replace(group_str, "0X", -1)
+        var group int = strconv.ParseInt(group_str, 16, 64)
+        tag_str := strings.Replace($3,"0x",-1)
+        tag_str = strings.Replace(tag_str, "0X", -1)
+        var tag int = strconv.ParseInt(tag_str, 16, 64)
+        lastGroupTag = []int{group, tag}
+        $$ = fmt.Sprintf("(%d,%d)", group, tag)
     }
 
 level_types:
