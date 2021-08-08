@@ -137,6 +137,11 @@ type Config struct {
 	LastDataFolder   string
 }
 
+type TagAndValue struct {
+	Tag   tag.Tag  `json:"tag"`
+	Value []string `json:"value"`
+}
+
 type SeriesInfo struct {
 	SeriesDescription     string
 	NumImages             int
@@ -150,7 +155,7 @@ type SeriesInfo struct {
 	PatientID             string
 	PatientName           string
 	ClassifyTypes         []string
-	All                   []*dicom.Element
+	All                   []TagAndValue
 }
 
 // readConfig parses a provided config file as JSON.
@@ -718,15 +723,41 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 						return s[:len(s)-1]
 					}
 
-					var all []*dicom.Element = dataset.Elements
+					var all_dicom []*dicom.Element = dataset.Elements
 					// we should clean out the larger elements based on VR
-					for i := 0; i < len(all); i++ {
-						if all[i].ValueRepresentation == tag.VRUInt16List ||
-							all[i].ValueRepresentation == tag.VRUInt32List ||
-							all[i].ValueRepresentation == tag.VRBytes ||
-							all[i].ValueRepresentation == tag.VRPixelData {
-							all = removeElement(all, i) // append(all[:i], all[i+1:]...)
+					for i := 0; i < len(all_dicom); i++ {
+						if all_dicom[i].ValueRepresentation == tag.VRUInt16List ||
+							all_dicom[i].ValueRepresentation == tag.VRUInt32List ||
+							all_dicom[i].ValueRepresentation == tag.VRBytes ||
+							all_dicom[i].ValueRepresentation == tag.VRPixelData {
+							all_dicom = removeElement(all_dicom, i) // append(all[:i], all[i+1:]...)
 							i--
+						}
+					}
+					// now convert to out all entry
+					var all []TagAndValue = make([]TagAndValue, len(all_dicom))
+					for i := 0; i < len(all_dicom); i++ {
+						all[i].Tag.Element = all_dicom[i].Tag.Element
+						all[i].Tag.Group = all_dicom[i].Tag.Group
+
+						switch all_dicom[i].Value.ValueType() {
+						case dicom.Strings:
+							all[i].Value = all_dicom[i].Value.GetValue().([]string)
+							break
+						case dicom.Ints:
+							all[i].Value = []string{}
+							for _, v := range all_dicom[i].Value.GetValue().([]int) {
+								all[i].Value = append(all[i].Value, fmt.Sprintf("%d", v))
+							}
+						case dicom.Floats:
+							all[i].Value = []string{}
+							for _, v := range all_dicom[i].Value.GetValue().([]float64) {
+								all[i].Value = append(all[i].Value, fmt.Sprintf("%f", v))
+							}
+						default:
+							// todo: handle sequences here
+							fmt.Printf("Warning: we don't know that type yet %v\n", all_dicom[i].Value.ValueType())
+							// ...
 						}
 					}
 

@@ -68,7 +68,7 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 			for _, v := range data.All {
 				if v.Tag.Group == uint16(group) && v.Tag.Element == uint16(tag) && v.Value != nil {
 					found = true
-					dataData = []string{v.String()}
+					dataData = v.Value
 					break
 				}
 			}
