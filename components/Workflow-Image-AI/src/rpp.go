@@ -743,7 +743,6 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 						switch all_dicom[i].Value.ValueType() {
 						case dicom.Strings:
 							all[i].Value = all_dicom[i].Value.GetValue().([]string)
-							break
 						case dicom.Ints:
 							all[i].Value = []string{}
 							for _, v := range all_dicom[i].Value.GetValue().([]int) {

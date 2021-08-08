@@ -266,7 +266,7 @@ tag_string:
         if err == nil {
             lastGroupTag = []string{fmt.Sprintf("%0x", s.Tag.Group), fmt.Sprintf("%0x", s.Tag.Element)}
         } else {
-            lastGroupTag = []string{"0x0000","0x0000"} // place a default value here so we can ignore this entry
+            lastGroupTag = []string{$1} // This could be classifyType, keep the value provided
         }
     }
 |   '(' group_tag_pair ')'
