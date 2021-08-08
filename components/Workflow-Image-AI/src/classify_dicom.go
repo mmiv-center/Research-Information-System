@@ -50,6 +50,32 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 		if len(t) == 2 {
 			// lookup the value by group and tag
 			// values should be read by hexadecimal number
+			var group_str = t[0]
+			var tag_str = t[1]
+			group_str = strings.Replace(group_str, "0x", "", -1)
+			group_str = strings.Replace(group_str, "0X", "", -1)
+			group, err := strconv.ParseInt(group_str, 16, 64)
+			if err != nil {
+				exitGracefully(err)
+			}
+			tag_str = strings.Replace(tag_str, "0x", "", -1)
+			tag_str = strings.Replace(tag_str, "0X", "", -1)
+			tag, err := strconv.ParseInt(tag_str, 16, 64)
+			if err != nil {
+				exitGracefully(err)
+			}
+			found := false
+			for _, v := range data.All {
+				if v.Tag.Group == uint16(group) && v.Tag.Element == uint16(tag) && v.Value != nil {
+					found = true
+					dataData = []string{v.String()}
+					break
+				}
+			}
+			if found == false {
+				// we do not have a value for this tag. that means this test fails
+				foundValue = false
+			}
 
 		} else { // we have a single entry (really?) and treat it as the name of a variable
 			if t[0] == "ClassifyType" {

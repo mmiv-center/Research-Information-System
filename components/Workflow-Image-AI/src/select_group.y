@@ -201,20 +201,20 @@ rule:
         }
         $$ = fmt.Sprintf("%s NOT %s", $$, $1)
     }
-|   STRING EQUALS STRING
+|   tag_string EQUALS STRING
     {
         r := Rule{
-            Tag: []string{$1},
+            Tag: lastGroupTag,
             Operator: "==",
             Value: $3,
         }
         currentRules = append(currentRules, r)
         $$ = fmt.Sprintf("Variable %s = %s", $1, $3)
     }
-|   STRING CONTAINING STRING
+|   tag_string CONTAINING STRING
     {
         r := Rule{
-            Tag: []string{$1},
+            Tag: lastGroupTag,
             Operator: "contains",
             Value: $3,
         }
@@ -222,10 +222,10 @@ rule:
 
         $$ = fmt.Sprintf("Variable %s contains %s", $1, $3)
     }
-|   STRING SMALLER NUM
+|   tag_string SMALLER NUM
     {
         r := Rule{
-            Tag: []string{$1},
+            Tag: lastGroupTag,
             Operator: "<",
             Value: $3,
         }
@@ -233,10 +233,10 @@ rule:
 
         $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
     }
-|   STRING LARGER NUM
+|   tag_string LARGER NUM
     {
         r := Rule{
-            Tag: []string{$1},
+            Tag: lastGroupTag,
             Operator: ">",
             Value: $3,
         }
@@ -247,7 +247,7 @@ rule:
 |   tag_string REGEXP STRING
     {
         r := Rule{
-            Tag: []string{$1},
+            Tag: lastGroupTag,
             Operator: "regexp",
             Value: $3,
         }
@@ -264,7 +264,7 @@ tag_string:
         // tag_string we would have such a pair (mapping from string to tag pair)
         s, err := tag.FindByName($1)
         if err == nil {
-            lastGroupTag = []string{fmt.Sprintf("%0xd", s.Tag.Group), fmt.Sprintf("%0xd", s.Tag.Element)}
+            lastGroupTag = []string{fmt.Sprintf("%0x", s.Tag.Group), fmt.Sprintf("%0x", s.Tag.Element)}
         } else {
             lastGroupTag = []string{"0x0000","0x0000"} // place a default value here so we can ignore this entry
         }
@@ -277,7 +277,7 @@ tag_string:
 group_tag_pair:
     STRING ',' STRING
     {
-        // get the corresponding group and tag from octal
+        // get the corresponding group and tag from hexadecimal
         group_str := strings.Replace($1,"0x","",-1)
         group_str = strings.Replace(group_str, "0X","", -1)
         group, err := strconv.ParseInt(group_str, 16, 64)
