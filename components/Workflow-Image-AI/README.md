@@ -2,13 +2,13 @@
 
 Integration of workflows into the research information system allows projects to react to events like new data arriving. A pipeline can be triggered based on these events and your code is run on matching datasets. Results are either tabulated data (added to REDCap) or new image data (added to the research PACS).
 
-Using the rpp tool you should be able to start developing and testing a workflow in a simulated research PACS. As a final step build and upload your workflow to the research PACS.
+Using the ror tool you should be able to start developing and testing a workflow in a simulated research PACS. As a final step build and upload your workflow to the research PACS.
 
 ## Setup and first steps
 
-Processing workflows are developed locally on your computer in a simulated research information system. The rpp tool is used to emulate this system. In this simulation the rpp tool provides the data to your workflow, starts the workflow and interpretes the result. Your workflow should have no other means to access data from outside your workflow. They will not exist if your workflow runs on the research information system.
+Processing workflows are developed locally on your computer in a simulated research information system. The ror tool is used to emulate this system. In this simulation the ror tool provides the data to your workflow, starts the workflow and interpretes the result. Your workflow should have no other means to access data from outside your workflow. They will not exist if your workflow runs on the research information system.
 
-The *rpp* tool helps you to
+The *ror* tool helps you to
 
 - create a first project directory,
 - find suitable DICOM files on your disc,
@@ -19,14 +19,14 @@ The *rpp* tool helps you to
 A minimal workflow requires 8 commands to compute the signal-to-noise ratio of all DICOM series in our test data folder:
 
 ```bash
-> rpp init snr
+> ror init snr
 > cd snr
-> rpp config --data ../data --temp_directory `pwd`
-> rpp trigger --keep
-> rpp build
-> pip list --format=freeze > .rpp/virt/requirements.txt
-> docker build --no-cache -t workflow_snr -f .rpp/virt/Dockerfile .
-> rpp trigger --keep --each --cont workflow_snr
+> ror config --data ../data --temp_directory `pwd`
+> ror trigger --keep
+> ror build
+> pip list --format=freeze > .ror/virt/requirements.txt
+> docker build --no-cache -t workflow_snr -f .ror/virt/Dockerfile .
+> ror trigger --keep --each --cont workflow_snr
 ```
 
 Below is a window capture from one start to finish run of the tool. This workflow calculates the signal-to-noise ratio of each DICOM series. The movie assumes that we are already running in a clean virtual environment provided by conda.
@@ -35,19 +35,19 @@ Below is a window capture from one start to finish run of the tool. This workflo
 
 ### Install on MacOS
 
-Download the rpp executable. Copy the file to a folder like /usr/local/bin/ that is in your path. This will make it easier afterwards to work with the tool as you can use `rpp` instead of the full path.
+Download the ror executable. Copy the file to a folder like /usr/local/bin/ that is in your path. This will make it easier afterwards to work with the tool as you can use `ror` instead of the full path.
 
 ```bash
-wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/macos-amd64/rpp > /usr/local/bin/rpp
-chmod +x /usr/local/bin/rpp
+wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/macos-amd64/ror > /usr/local/bin/ror
+chmod +x /usr/local/bin/ror
 ```
 
 ### Install on Windows
 
-Download the rpp.exe. Copy the program to your program files folder. The line below will only work in the cmd terminal and with administrator rights. If you don't have those rights copy the executable into one of your own directories and add that to the PATH environment variable in system settings.
+Download the ror.exe. Copy the program to your program files folder. The line below will only work in the cmd terminal and with administrator rights. If you don't have those rights copy the executable into one of your own directories and add that to the PATH environment variable in system settings.
 
 ```bash
-wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/windows-amd64/rpp.exe > %ProgramFiles%/rpp.exe
+wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/windows-amd64/ror.exe > %ProgramFiles%/ror.exe
 ```
 
 ### Install on Linux
@@ -55,8 +55,8 @@ wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/
 Download the executable. Copy the file to a folder like /usr/local/bin/ that is in your path.
 
 ```bash
-wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/linux-amd64/rpp > /usr/local/bin/rpp
-chmod +x /usr/local/bin/rpp
+wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/linux-amd64/ror > /usr/local/bin/ror
+chmod +x /usr/local/bin/ror
 ```
 
 ### Build it yourself
@@ -66,15 +66,15 @@ This project depends on go, goyacc, and make. Install goyacc with
 ```bash
 go get -u golang.org/x/tools/cmd/goyacc
 ```
-Use the provided Makefile to build rpp for all three platforms.
+Use the provided Makefile to build ror for all three platforms.
 
 ## Create a first project
 
 ```bash
-rpp init project01
+ror init project01
 ```
 
-The above call will create a new directory project01. The directory contains a starter package of a certain type and a README.md. Init will also create a hidden .rpp/config file that is used by rpp to remember your settings and information about your project.
+The above call will create a new directory project01. The directory contains a starter package of a certain type and a README.md. Init will also create a hidden .ror/config file that is used by ror to remember your settings and information about your project.
 
 ![Create a new workflow](images/workflowCreateProject.gif)
 
@@ -89,27 +89,27 @@ Now you have a folder for your project's source code. In order to develop our pi
 
 ```bash
 cd project01
-rpp config --data ./data --temp_directory `pwd`
+ror config --data ./data --temp_directory `pwd`
 ```
 
 Notice: In order to speed up testing you should not have too many DICOM files in the data directory. Specify a subset of the folders in the data directory by using double quotes (prevents the shell from interpreting your path) and the special glob-characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006 up to and including 009 with `--data "./data/00[6-9]*"` (double quotes are important here to prevent the shell from replacing the value prematurely).
 
-Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .rpp directory (need to do more work to make this sub-command more useful).
+Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .ror directory (need to do more work to make this sub-command more useful).
 
 ```bash
-rpp status
+ror status
 ```
 
 To simulate what the system does for testing purposes we can trigger the processing of a DICOM series by
 
 ```bash
-rpp trigger --keep 
+ror trigger --keep 
 ```
 
-This call will create a new folder in the temp system folder (change with `rpp config --temp_directory <new location>`). Inside that folder rpp creates a copy of the selected image series (input/ folder). Using '--keep' option the folder will stay around after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated should be placed in the 'output/' folder. Here is an example folder structure after processing.
+This call will create a new folder in the temp system folder (change with `ror config --temp_directory <new location>`). Inside that folder ror creates a copy of the selected image series (input/ folder). Using '--keep' option the folder will stay around after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated should be placed in the 'output/' folder. Here is an example folder structure after processing.
 
 ```
-rpp_trigger_run_Thursday_269448975
+ror_trigger_run_Thursday_269448975
 ├── descr.json
 ├── input
 │   ├── 000000.dcm
@@ -164,28 +164,28 @@ The next step is to capture the setup of your machine so that we can re-create i
 To capture the setup run:
 
 ```bash
-rpp build
+ror build
 ```
 
-which will inform you of the basic steps to a) capture your dependent libraries and b) create a container based on those requirements. This step might not be trivial because it depends on a perfect copy of your local environment inside the container. Usually its best to start with a virtualized environment as explained by the `rpp build` output.
+which will inform you of the basic steps to a) capture your dependent libraries and b) create a container based on those requirements. This step might not be trivial because it depends on a perfect copy of your local environment inside the container. Usually its best to start with a virtualized environment as explained by the `ror build` output.
 
 For testing the containerized workflow on all your data you can trigger using the `--cont <workflow>` option specifying your container name:
 
 ```bash
-rpp trigger -keep --each --cont workflow_project01
+ror trigger -keep --each --cont workflow_project01
 ```
 
 After this last step we have a containerized workflow that accepts and processes data provided by the research information system. The specification of the container needs to be submitted to a workflow slot for your project. Such a workflow slot can be obtained from the user page of the Research Information System. Store the key in your project with
 
 ```bash
-rpp config --token "<token>"
+ror config --token "<token>"
 ```
 
 ### Specify a subset of the image series for processing
 
-If your processing pipeline depends on specific image series you can filter out all other series. The rpp program will only call your workflow with image series that match. There are two steps to create a filter. In a first step you can teach rpp how to classify your image series. Afterwards you simply specify the class as a `--select`.
+If your processing pipeline depends on specific image series you can filter out all other series. The ror program will only call your workflow with image series that match. There are two steps to create a filter. In a first step you can teach ror how to classify your image series. Afterwards you simply specify the class as a `--select`.
 
-Basic classification information (classify rules) are added to the data description (descr.json) file as ClassifyTypes. This information comes from a .rpp/classifyTypes.json file generated by rpp during the init process. New classes for DICOM files can be added here. To explain the syntax lets look at the first type in the file called "GE":
+Basic classification information (classify rules) are added to the data description (descr.json) file as ClassifyTypes. This information comes from a .ror/classifyTypes.json file generated by ror during the init process. New classes for DICOM files can be added here. To explain the syntax lets look at the first type in the file called "GE":
 
 ```json
   {
@@ -233,7 +233,7 @@ In general, classification rules will be site-based for many research projects. 
 To configure what image series are processed define a search filter like the following (all series with the DICOM tag SeriesNumber starting with "2")
 
 ```bash
-rpp config --select "SeriesNumber: 2"
+ror config --select "SeriesNumber: 2"
 ```
 
 This search text, a regular expression, is matched for each series against a string that contains
@@ -245,7 +245,7 @@ This search text, a regular expression, is matched for each series against a str
 where ClassifyType is a comma separated array of detected classification types. To identify the diffusion scans from above the series filter could look like this (glob style filter):
 
 ```bash
-rpp config --select "ClassifyType: .*DIFFUSION"
+ror config --select "ClassifyType: .*DIFFUSION"
 ```
 
 ### More complex input data selections using select
@@ -257,7 +257,7 @@ To generate sets of image data that are more complex than single specific image 
 For now I end up with what I know, an SQL-like grammar :-/. This is working right now (newlines and formatting are superfluous):
 
 ```bash
-rpp config --select '
+ror config --select '
 Select patient
   from study
     where series named "T1" has
@@ -282,7 +282,7 @@ Limitations: i) The 'not' operator only works on the level of individual rules. 
 
 ### Details on select as a language to specify input datasets
 
-The selection (domain specific) language first specifies a level at which the data is exported ('Select patient'). If processing depends on a single series only a 'Select series' will export a single random image series. If 'Select study' is used (default) all matching series of a study are exported. The 'from study' is not functional at the moment. In the future it is supposed to allow a construct like 'from earliest PROJECT_NAME by StudyDate as DICOM'. The third part is a list of where clauses delimited by 'also where series has' to separate selection rules for different series like one for a field map and another for a resting state scan. A where clause selecting a series can be named using the optional "named SOMENAME". This name will be available to the workflow to help identify the individual image series types. Each where clause is a list of rules that use the tags available for each series (rpp status). Only tags from 'rpp status' work. If a new tag needs to be included, which is not yet part of the series information provided by 'rpp status' add the tag first to a new classify rule. Afterwards the new tag referencing that rule appears in ClassifyTypes and can be used in select (`ClassifyType containing <new type>`).
+The selection (domain specific) language first specifies a level at which the data is exported ('Select patient'). If processing depends on a single series only a 'Select series' will export a single random image series. If 'Select study' is used (default) all matching series of a study are exported. The 'from study' is not functional at the moment. In the future it is supposed to allow a construct like 'from earliest PROJECT_NAME by StudyDate as DICOM'. The third part is a list of where clauses delimited by 'also where series has' to separate selection rules for different series like one for a field map and another for a resting state scan. A where clause selecting a series can be named using the optional "named SOMENAME". This name will be available to the workflow to help identify the individual image series types. Each where clause is a list of rules that use the tags available for each series (ror status). Only tags from 'ror status' work. If a new tag needs to be included, which is not yet part of the series information provided by 'ror status' add the tag first to a new classify rule. Afterwards the new tag referencing that rule appears in ClassifyTypes and can be used in select (`ClassifyType containing <new type>`).
 
 The possible syntax for rules is:
 
@@ -300,7 +300,7 @@ where `<field>` can be any of the following `[SeriesDescription|NumImages|Series
 In order to train a model access to all the data is required. That means that the selection level has to be 'project'. Define a filter with
 
 ```bash
-rpp config --select '
+ror config --select '
   Select project     /* export level for all data in the study */
     from study       /* not functional */
     where series has /* start of a rule set */
@@ -315,7 +315,7 @@ This project export will create a single input folder with all type CT image ser
 Selection for individual image series should be done on the 'series' level with 'Select series ...'.
 
 ```bash
-rpp config --select '
+ror config --select '
   Select series       /* export level for a single image series */
     from study        /* not functional */
     where series has  /* start of a rule set */
@@ -327,19 +327,19 @@ rpp config --select '
 
 ### Using select in the workflow
 
-For select all image series that match are in a pool of potential datasets for the 'trigger' command. There is the option to run a single random dataset of them with `rpp trigger`, or to run all of the possible datasets in a row with `rpp trigger --each`. For testing of workflows it is suggested to start with:
+For select all image series that match are in a pool of potential datasets for the 'trigger' command. There is the option to run a single random dataset of them with `ror trigger`, or to run all of the possible datasets in a row with `ror trigger --each`. For testing of workflows it is suggested to start with:
 
 ```bash
-rpp trigger --keep
+ror trigger --keep
 ```
 
 which will keep the input data to the workflow around after the trigger has finished. By default (without '--keep') all data folders are deleted after a single run. Fix any problems found with your workflow given that dataset. Do not change the content of the data folder only adjust your program. To test if your updated workflow works on the last dataset use
 
 ```bash
-rpp trigger --last
+ror trigger --last
 ```
 
-Once you workflow seems ok test with another random dataset using `rpp trigger --keep` or simply try to run the workflow on all datasets with `rpp trigger --each`.
+Once you workflow seems ok test with another random dataset using `ror trigger --keep` or simply try to run the workflow on all datasets with `ror trigger --each`.
 
 ## Acknowlegements
 

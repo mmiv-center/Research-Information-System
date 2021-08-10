@@ -41,13 +41,13 @@ import (
 	_ "image/jpeg"
 )
 
-const version string = "0.0.2"
+const version string = "0.0.3"
 
 // The string below will be replaced during build time using
 // -ldflags "-X main.compileDate=`date -u +.%Y%m%d.%H%M%S"`"
 var compileDate string = ".unknown"
 
-var own_name string = "rpp"
+var own_name string = "ror"
 
 //go:generate /Users/hauke/go/bin/goyacc -o select_group.go select_group.y
 
@@ -172,7 +172,7 @@ func readConfig(path_string string) (Config, error) {
 		mode := fileInfo.Mode()
 		mode_str := fmt.Sprintf("%s", mode)
 		if mode_str != "-rw-------" {
-			fmt.Println("Warning: Your config file is not secure. Change the permissions by 'chmod 0600 .rpp/config'. Now: ", mode)
+			fmt.Println("Warning: Your config file is not secure. Change the permissions by 'chmod 0600 .ror/config'. Now: ", mode)
 		}
 	} else {
 		fmt.Println(err)
@@ -654,7 +654,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 	var datasets = make(map[string]map[string]SeriesInfo)
 	if config.Data.Path == "" {
-		return datasets, fmt.Errorf("no data path for example data has been specified. Use\n\trpp config --data \"path-to-data\" to set such a directory of DICOM data")
+		return datasets, fmt.Errorf("no data path for example data has been specified. Use\n\tror config --data \"path-to-data\" to set such a directory of DICOM data")
 	}
 	var input_path_list []string
 	if _, err := os.Stat(config.Data.Path); err != nil && os.IsNotExist(err) {
@@ -1451,7 +1451,7 @@ func main() {
 	const (
 		defaultInputDir    = "Specify where you want to setup shop"
 		defaultTriggerTime = "A wait time in seconds or minutes before the computation is triggered"
-		errorConfigFile    = "the current directory is not an rpp directory. Change to the correct directory first or create a new folder by running\n\n\trpp init project01\n "
+		errorConfigFile    = "the current directory is not an ror directory. Change to the correct directory first or create a new folder by running\n\n\tror init project01\n "
 	)
 
 	initCommand := flag.NewFlagSet("init", flag.ContinueOnError)
@@ -1545,7 +1545,7 @@ func main() {
 	own_name = os.Args[0]
 	// Showing useful information when the user enters the --help option
 	flag.Usage = func() {
-		fmt.Printf("RPP - Remote Pipeline Processing\n")
+		fmt.Printf("ror - Remote Pipeline Processing\n")
 		fmt.Printf("Version: %s\n", version)
 		fmt.Println(" A tool to simulate research information system workflows. The program")
 		fmt.Println(" can create workflow projects and trigger a processing step similar to")
@@ -1571,7 +1571,7 @@ func main() {
 
 	if false {
 		// get dataset and ast from config
-		dir_path := input_dir + "/.rpp/config"
+		dir_path := input_dir + "/.ror/config"
 		config, err := readConfig(dir_path)
 		if err != nil {
 			exitGracefully(errors.New(errorConfigFile))
@@ -1642,9 +1642,9 @@ func main() {
 				input_dir = initCommand.Arg(0)
 			}
 
-			dir_path := input_dir + "/.rpp"
+			dir_path := input_dir + "/.ror"
 			if _, err := os.Stat(dir_path); !os.IsNotExist(err) {
-				exitGracefully(errors.New("this directories has already been initialized. Delete the .rpp directory to do this again"))
+				exitGracefully(errors.New("this directories has already been initialized. Delete the .ror directory to do this again"))
 			}
 			// do we know the author information?, do we need to know?
 			// Instead we should ask for the user token and secret so we can
@@ -1789,12 +1789,12 @@ func main() {
 				}
 			}
 			// virtualization environment
-			virt_path := input_dir + "/.rpp/virt"
+			virt_path := input_dir + "/.ror/virt"
 			if err := os.Mkdir(virt_path, 0755); os.IsExist(err) {
 				exitGracefully(errors.New("directory exist already"))
 			}
-			// classification rules so we can overwrite what rpp does on its own
-			classify_dicom_path2 := input_dir + "/.rpp/classifyDICOM.json"
+			// classification rules so we can overwrite what ror does on its own
+			classify_dicom_path2 := input_dir + "/.ror/classifyDICOM.json"
 			createStub(classify_dicom_path2, classifyRules)
 
 			if data.ProjectType == "python" || data.ProjectType == "notebook" {
@@ -1816,7 +1816,7 @@ func main() {
 			fmt.Printf("\nInit new project folder \"%s\" done.\n", input_dir)
 			fmt.Printf("You might want to add a data folder with DICOM files to get started\n\n\tcd \"%s\"\n\t%s config --data <data folder>\n\n", input_dir, own_name)
 			fmt.Println("Careful with using a data folder with too many files. Each time you trigger a\n" +
-				"computation rpp needs to look at each of the files. This might take\n" +
+				"computation ror needs to look at each of the files. This might take\n" +
 				"a long time. Test with a few hundred DICOM files first.\n\n" +
 				"If you don't have any readily available DICOM data you might want to download some by\n" +
 				" mkdir data; cd data;\n" +
@@ -1837,7 +1837,7 @@ func main() {
 
 			//fmt.Println("Config")
 			// are we init already?
-			dir_path := input_dir + "/.rpp/config"
+			dir_path := input_dir + "/.ror/config"
 			config, err := readConfig(dir_path)
 			if err != nil {
 				exitGracefully(errors.New(errorConfigFile))
@@ -1959,7 +1959,7 @@ func main() {
 				input_dir = statusCommand.Arg(0)
 			}
 
-			dir_path := input_dir + "/.rpp/config"
+			dir_path := input_dir + "/.ror/config"
 			config, err := readConfig(dir_path)
 			if err != nil {
 				exitGracefully(errors.New(errorConfigFile))
@@ -2090,7 +2090,7 @@ func main() {
 				return
 			}
 
-			dir_path := input_dir + "/.rpp/config"
+			dir_path := input_dir + "/.ror/config"
 			// we have a couple of example datasets that we can select
 			config, err := readConfig(dir_path)
 			if err != nil {
@@ -2101,17 +2101,17 @@ func main() {
 				// we would like to run a specific folder with the call string
 				folder := config.LastDataFolder
 				if folder == "" {
-					exitGracefully(fmt.Errorf("there is no folder with data. Create one with 'rpp trigger --keep'"))
+					exitGracefully(fmt.Errorf("there is no folder with data. Create one with 'ror trigger --keep'"))
 				}
 				if _, err := os.Stat(folder); os.IsNotExist(err) {
-					exitGracefully(fmt.Errorf("%s could not be found. Create one with 'rpp trigger --keep'", folder))
+					exitGracefully(fmt.Errorf("%s could not be found. Create one with 'ror trigger --keep'", folder))
 				}
 				callProgram(config, triggerWaitTime, trigger_container, folder)
 			}
 
 			// make sure we have updated classifyRules.json loaded here ... just in case if the user
-			// puts his/her own rules into .rpp/classifyRules.json
-			classifyDICOM_path := input_dir + "/.rpp/classifyDICOM.json"
+			// puts his/her own rules into .ror/classifyRules.json
+			classifyDICOM_path := input_dir + "/.ror/classifyDICOM.json"
 			if _, err := os.Stat(classifyDICOM_path); !os.IsNotExist(err) {
 				// read the classifyDICOM
 				classifyDICOMFile, err := os.Open(classifyDICOM_path)
@@ -2195,7 +2195,7 @@ func main() {
 			for _, idx := range runIdx {
 				fmt.Printf("found %d matching series sets. Picked index %d, trigger series: %s\n", len(selectFromB), idx, strings.Join(selectFromB[idx], ", "))
 
-				dir, err := ioutil.TempDir(config.TempDirectory, fmt.Sprintf("rpp_trigger_run_%s_*", time.Now().Weekday()))
+				dir, err := ioutil.TempDir(config.TempDirectory, fmt.Sprintf("ror_trigger_run_%s_*", time.Now().Weekday()))
 				if err != nil {
 					fmt.Printf("%s", err)
 					exitGracefully(errors.New("could not create the temporary directory for the trigger"))
@@ -2207,7 +2207,7 @@ func main() {
 				}
 				if trigger_keep {
 					// change the LastDataFolder in config
-					dir_path := input_dir + "/.rpp/config"
+					dir_path := input_dir + "/.ror/config"
 					// we have a couple of example datasets that we can select
 					config, err := readConfig(dir_path)
 					if err != nil {
@@ -2290,7 +2290,7 @@ func main() {
 				return
 			}
 			// we should just gather the requirements for now
-			dir_path := input_dir + "/.rpp/config"
+			dir_path := input_dir + "/.ror/config"
 			// we have a couple of example datasets that we can select
 			config, err := readConfig(dir_path)
 			if err != nil {
@@ -2305,9 +2305,9 @@ func main() {
 			fmt.Println("\nThere are only two steps that need to be done, create a list of")
 			fmt.Println("requirements and build a container. Run pip freeze to update the")
 			fmt.Println("list of python packages (requires pip):")
-			fmt.Println("\n\tpip list --format=freeze >", path.Join(input_dir, ".rpp", "virt", "requirements.txt"))
+			fmt.Println("\n\tpip list --format=freeze >", path.Join(input_dir, ".ror", "virt", "requirements.txt"))
 			fmt.Println("\nCreate a container of your workflow:")
-			fmt.Println("\n\tdocker build --no-cache -t", fmt.Sprintf("workflow_%s", projectName), "-f", path.Join(input_dir, ".rpp", "virt", "Dockerfile"), ".")
+			fmt.Println("\n\tdocker build --no-cache -t", fmt.Sprintf("workflow_%s", projectName), "-f", path.Join(input_dir, ".ror", "virt", "Dockerfile"), ".")
 			fmt.Println("\nNote: This build might fail if pip is not able to resolve all the requirements")
 			//fmt.Println("In this case it might help to update all packages first with something like:")
 			//fmt.Println("\n\tpip list --outdated --format=freeze | grep -v '^\\-e' | cut -d = -f 1 | xargs -n1 pip install -U ")
@@ -2326,13 +2326,13 @@ func main() {
 			if err != nil {
 				fmt.Println("error computing the absolution path of the temp_directory")
 			}
-			// is there a rpp_trigger folder?
-			folders, err := filepath.Glob(fmt.Sprintf("%s/rpp_trigger_run_*", abs_temp_path))
+			// is there a ror_trigger folder?
+			folders, err := filepath.Glob(fmt.Sprintf("%s/ror_trigger_run_*", abs_temp_path))
 			var folder string
 			if err != nil || len(folders) < 1 {
 				fmt.Printf("Error: Could not find an example data folder in the temp directory %s.\n\tCreate one with\n\n\t%s trigger --keep\n\n",
 					abs_temp_path, own_name)
-				folder = "<rpp_trigger_run_folder>"
+				folder = "<ror_trigger_run_folder>"
 			} else {
 				// first folder found in temp_directory
 				folder = folders[0]
@@ -2350,7 +2350,7 @@ func main() {
 		// fall back to parsing without a command
 		flag.Parse()
 		if show_version {
-			fmt.Printf("rpp version %s%s\n", version, compileDate)
+			fmt.Printf("ror version %s%s\n", version, compileDate)
 			os.Exit(0)
 		}
 	}
