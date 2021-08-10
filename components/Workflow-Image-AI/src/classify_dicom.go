@@ -72,7 +72,7 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 					break
 				}
 			}
-			if found == false {
+			if !found {
 				// we do not have a value for this tag. that means this test fails
 				foundValue = false
 			}

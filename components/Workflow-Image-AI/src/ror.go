@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -171,7 +172,7 @@ func readConfig(path_string string) (Config, error) {
 	if fileInfo, err := os.Stat(path_string); err == nil {
 		mode := fileInfo.Mode()
 		mode_str := fmt.Sprintf("%s", mode)
-		if mode_str != "-rw-------" {
+		if mode_str != "-rw-------" && runtime.GOOS != "windows" {
 			fmt.Println("Warning: Your config file is not secure. Change the permissions by 'chmod 0600 .ror/config'. Now: ", mode)
 		}
 	} else {
@@ -976,14 +977,14 @@ func createStub(p string, str string) {
 // - We can add a new ruleset with a random rule
 func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float64) {
 	// collect all the values in all the SeriesInfo fields
-	tmpTargetValues := make(map[string]map[string]bool, 0)
-	tmpTargetValues["StudyDescription"] = make(map[string]bool, 0)
-	tmpTargetValues["SeriesDescription"] = make(map[string]bool, 0)
-	tmpTargetValues["Modality"] = make(map[string]bool, 0)
-	tmpTargetValues["SequenceName"] = make(map[string]bool, 0)
-	tmpTargetValues["Manufacturer"] = make(map[string]bool, 0)
-	tmpTargetValues["NumImages"] = make(map[string]bool, 0)
-	tmpTargetValues["SeriesNumber"] = make(map[string]bool, 0)
+	tmpTargetValues := make(map[string]map[string]bool)
+	tmpTargetValues["StudyDescription"] = make(map[string]bool)
+	tmpTargetValues["SeriesDescription"] = make(map[string]bool)
+	tmpTargetValues["Modality"] = make(map[string]bool)
+	tmpTargetValues["SequenceName"] = make(map[string]bool)
+	tmpTargetValues["Manufacturer"] = make(map[string]bool)
+	tmpTargetValues["NumImages"] = make(map[string]bool)
+	tmpTargetValues["SeriesNumber"] = make(map[string]bool)
 	for _, v := range datasets {
 		for _, v2 := range v {
 			tmpTargetValues["SeriesDescription"][v2.SeriesDescription] = true
@@ -995,7 +996,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			tmpTargetValues["SeriesNumber"][fmt.Sprintf("%d", v2.SeriesNumber)] = true
 		}
 	}
-	targetValues := make(map[string][]string, 0)
+	targetValues := make(map[string][]string)
 	targetValues["StudyDescription"] = []string{}
 	targetValues["SeriesDescription"] = []string{}
 	targetValues["Modality"] = []string{}
@@ -1010,7 +1011,10 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		return "text"
 	}
 	for k, v := range tmpTargetValues {
-		for k2, _ := range v {
+		for k2 := range v {
+			if k2 == "" {
+				continue
+			}
 			if k == "StudyDescription" {
 				targetValues["StudyDescription"] = append(targetValues["StudyDescription"], k2)
 			}
@@ -1034,20 +1038,43 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			}
 		}
 	}
+	// we might have some entries that only have empty values, we don't like those as they
+	// always match to anything
+	for k, v := range targetValues {
+		if len(v) == 0 {
+			delete(targetValues, k)
+		}
+	}
 
 	// likelihood: we want to minimize this function
 	likelihood := func(ast AST) float64 {
+		allSeriesNum := 0.0
+		for _, v := range datasets {
+			allSeriesNum = allSeriesNum + float64(len(v))
+		}
+
 		// compute the match with the data
 		a, _ := findMatchingSets(ast, datasets)
 		//  we like to have all a's equally big (studyinstanceuid with same #seriesinstanceuid)
 		var sumX float64
-		for k, v := range a {
-			numSeries := len(a[k])
-			numSelected := len(v)
-			sumX += float64(numSelected) / float64(numSeries)
+		for _, v := range a {
+			//numSeries := len(a[k])
+			// number of series for this study
+			SeriesInstanceUID := v[0]
+			var numSeriesByStudy float64 = 0.0 
+			for _, vv := range datasets {
+				for siuid := range vv {
+					if SeriesInstanceUID == siuid {
+						numSeriesByStudy = float64(len(vv))
+					}
+				}
+			}
+
+			numSelected := float64(len(v)) / numSeriesByStudy
+			sumX += float64(numSelected)
 		}
 		if len(a) > 0 {
-			sumX = sumX / float64(len(a))
+			sumX = sumX / allSeriesNum
 		} else {
 			sumX = 0
 		}
@@ -1058,7 +1085,8 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		for _, rulelist := range ast.Rules {
 			total = total + float64(len(rulelist))
 		}
-		return sumX + math.Log2(float64(total)+1.0)
+		b := sumX + 1.0/math.Log2(total+1.0)
+		return b
 	}
 	// addRule: add a single rule
 	addRule := func(rules *[]Rule, targetValues map[string][]string) bool {
@@ -1073,7 +1101,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		t := ""
 		val := ""
 		// this does not work as the sorting order is not guaranteed
-		for k, _ := range targetValues {
+		for k := range targetValues {
 			if counter == fieldIdx {
 				t = k
 				val = targetValues[k][rand.Intn((len(targetValues[k])-0)+0)]
@@ -1185,15 +1213,16 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		if l2 > l {
 			ast = copyRule
 			l = l2
+			fmt.Printf("improve rule now: %f\n", l2)
 		} else {
 			var prob float64 = rand.Float64()
-			if prob > 0.5 {
+			if prob > 0.99 {
 				ast = copyRule
 				l = l2
+				fmt.Printf("not improvement but Metropolis update: %f\n", l2)
 			}
 		}
 	}
-
 	return ast, likelihood(ast)
 }
 
@@ -1273,7 +1302,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 				// only append our series for this study
 				// append all SeriesInstanceUIDs now
 				var ss []string
-				for k, _ := range value {
+				for k := range value {
 					ss = append(ss, k)
 				}
 				selectFromB = append(selectFromB, ss)
@@ -1310,7 +1339,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 				// only append our series for this study
 				// append all SeriesInstanceUIDs now
 				var ss []string
-				for k, _ := range value {
+				for k := range value {
 					ss = append(ss, k)
 				}
 				selectFromB = append(selectFromB, ss)
@@ -1348,7 +1377,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 			if allThere {
 				// only append our series for this study
 				// append all SeriesInstanceUIDs now
-				for k, _ := range value {
+				for k := range value {
 					ss = append(ss, k)
 				}
 			}
