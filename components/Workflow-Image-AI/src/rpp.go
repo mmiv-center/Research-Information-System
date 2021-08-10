@@ -2060,6 +2060,28 @@ func main() {
 			} else {
 				fmt.Println("This short status does not contain data information. Use the --all option to obtain all info.")
 			}
+			if status_detailed && config.SeriesFilterType == "select"{
+				comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
+				series_filter_no_comments := comments.ReplaceAllString(config.SeriesFilter, " ")
+
+				// now parse the input string
+				InitParser()
+				line := []byte(series_filter_no_comments)
+				yyParse(&exprLex{line: line})
+				if !errorOnParse {
+					s, _ := json.MarshalIndent(ast, "", "  ")
+					ss := humanizeFilter(ast)
+					fmt.Printf("Parsing series filter successful\n%s\n%s\n", string(s), ss)
+					config.SeriesFilterType = "select"
+					// check if we have any matches - cheap for us here
+					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
+					postfix := "s"
+					if len(matches) == 1 {
+						postfix = ""
+					}
+					fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
+				}
+			}
 		}
 	case "trigger":
 		if err := triggerCommand.Parse(os.Args[2:]); err == nil {
