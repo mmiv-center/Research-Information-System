@@ -1199,11 +1199,20 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 
 	// Metropolis
 	l := likelihood(ast)
+	var bestRulesetEver AST
+	foundBestRuleset := false
+	bestL2 := math.Inf(1)
 	for i := 0; i < 1000; i++ {
 		// make a copy of the rule
 		jast, _ := json.Marshal(ast)
 		var copyRule AST
 		json.Unmarshal(jast, &copyRule)
+		if !foundBestRuleset {
+			json.Unmarshal(jast, &bestRulesetEver)
+			foundBestRuleset = true
+			bestL2 = likelihood(bestRulesetEver)
+		}
+
 		ok := changeRules(copyRule, targetValues)
 		if !ok {
 			fmt.Println("End here, no change to the rules could be implemented")
@@ -1213,17 +1222,27 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		if l2 > l {
 			ast = copyRule
 			l = l2
-			fmt.Printf("improve rule now: %f\n", l2)
+			if bestL2 < l2 {
+				jast, _ := json.Marshal(ast)
+				json.Unmarshal(jast, &bestRulesetEver)
+				bestL2 = l2
+			}
+			//fmt.Printf("improve rule now: %f\n", l2)
 		} else {
 			var prob float64 = rand.Float64()
 			if prob > 0.99 {
 				ast = copyRule
 				l = l2
-				fmt.Printf("not improvement but Metropolis update: %f\n", l2)
+				if bestL2 < l2 {
+					jast, _ := json.Marshal(ast)
+					json.Unmarshal(jast, &bestRulesetEver)
+					bestL2 = l2
+				}
+				//fmt.Printf("not improvement but Metropolis update: %f\n", l2)
 			}
 		}
 	}
-	return ast, likelihood(ast)
+	return bestRulesetEver, likelihood(bestRulesetEver)
 }
 
 // findMatchingSets returns all matching sets for this rule and the provided data
@@ -2124,7 +2143,7 @@ func main() {
 			if status_detailed {
 				// get dataset and ast from config
 				// create an ast
-				fmt.Println("Suggested abstract syntax tree for your data:")
+				// fmt.Println("Suggested abstract syntax tree for your data:")
 				InitParser()
 				line := []byte("Select series from series where series has ClassifyType containing CT")
 				yyParse(&exprLex{line: line})
@@ -2132,7 +2151,7 @@ func main() {
 				ast, l := ast.improveAST(config.Data.DataInfo)
 
 				s, _ := json.MarshalIndent(ast, "", "  ")
-				fmt.Printf("suggested ast [%f]\n%s\n", l, string(s))
+				fmt.Printf("Suggested abstract syntax tree for your data [%f]\n%s\n", l, string(s))
 				fmt.Println(humanizeFilter(ast))
 
 				matches, _ := findMatchingSets(ast, config.Data.DataInfo)
