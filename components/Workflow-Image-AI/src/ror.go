@@ -262,17 +262,21 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 	//table := []byte(ASCIISTR3)
 	buf := new(bytes.Buffer)
 
-	g := color.Gray16Model.Convert(img.At(0, 0))
-	maxVal := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
-	minVal := maxVal
-
+	firstSet := false
+	var minVal int64
+	var maxVal int64
 	for i := 0; i < h; i++ {
 		for j := 0; j < w; j++ {
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
 			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
-			if PixelPaddingValue != 0 && y == int64(PixelPaddingValue) {
+			if PixelPaddingValue != 32768 && y == int64(PixelPaddingValue) {
 				continue
+			}
+			if !firstSet {
+				maxVal = y
+				minVal = maxVal
+				firstSet = true			
 			}
 			if y > maxVal {
 				maxVal = y
@@ -295,7 +299,7 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
 			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
-			if PixelPaddingValue != 0 && y == int64(PixelPaddingValue) {
+			if PixelPaddingValue != 32768 && y == int64(PixelPaddingValue) {
 				continue
 			}
 			//if math.IsInf(float64(y), 0) || math.IsNaN(float64(y)) {
@@ -344,7 +348,7 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
 			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
-			if PixelPaddingValue != 0 && y == int64(PixelPaddingValue) {
+			if PixelPaddingValue != 32768 && y == int64(PixelPaddingValue) {
 				_ = buf.WriteByte(' ')
 				continue
 			}
@@ -607,7 +611,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 								exitGracefully(errors.New("could not create symlink data directory"))
 							}
 						}
-						symOrderPatientPath := filepath.Join(symOrderPath, PatientID+PatientName)
+						symOrderPatientPath := filepath.Join(symOrderPath, PatientID+"_"+PatientName)
 						if _, err := os.Stat(symOrderPatientPath); os.IsNotExist(err) {
 							err := os.Mkdir(symOrderPatientPath, 0755)
 							if err != nil {
@@ -734,7 +738,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							i--
 						}
 					}
-					// now convert to out all entry
+					// now convert for the All secion
 					var all []TagAndValue = make([]TagAndValue, len(all_dicom))
 					for i := 0; i < len(all_dicom); i++ {
 						all[i].Tag.Element = all_dicom[i].Tag.Element
@@ -1139,6 +1143,9 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		if len(ast.Rules) > 0 {
 			rulesetIdx = rand.Intn((len(ast.Rules) - 0) + 0)
 		}
+		if rulesetIdx == -1 {
+			return  false
+		}
 		var ruleIdx int = -1
 		if len(ast.Rules[rulesetIdx]) > 0 {
 			ruleIdx = rand.Intn((len(ast.Rules[rulesetIdx]) - 0) + 0)
@@ -1156,6 +1163,8 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 					}
 				}
 			}
+		} else {
+			return false
 		}
 		return true
 	}
@@ -1493,7 +1502,7 @@ func main() {
 	var trigger_test bool
 	triggerCommand.BoolVar(&trigger_test, "test", false, "Don't actually run anything, just show what you would do.")
 	var trigger_keep bool
-	triggerCommand.BoolVar(&trigger_keep, "keep", false, "Keep the created directory around for testing.")
+	triggerCommand.BoolVar(&trigger_keep, "keep", false, "Keep the data directory around for testing.")
 	var trigger_each bool
 	triggerCommand.BoolVar(&trigger_each, "each", false, "Trigger for each found series, not just for a single random one.")
 	var trigger_container string
@@ -1545,7 +1554,7 @@ func main() {
 	own_name = os.Args[0]
 	// Showing useful information when the user enters the --help option
 	flag.Usage = func() {
-		fmt.Printf("ror - Remote Pipeline Processing\n")
+		fmt.Printf("ror - Research Workflow Processing\n")
 		fmt.Printf("Version: %s\n", version)
 		fmt.Println(" A tool to simulate research information system workflows. The program")
 		fmt.Println(" can create workflow projects and trigger a processing step similar to")
@@ -2081,6 +2090,28 @@ func main() {
 					}
 					fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
 				}
+			}
+			// we can suggest a select filter for this dataset
+			if status_detailed {
+				// get dataset and ast from config
+				// create an ast
+				fmt.Println("Suggested abstract syntax tree for your data:")
+				InitParser()
+				line := []byte("Select series from series where series has ClassifyType containing CT")
+				yyParse(&exprLex{line: line})
+
+				ast, l := ast.improveAST(config.Data.DataInfo)
+
+				s, _ := json.MarshalIndent(ast, "", "  ")
+				fmt.Printf("suggested ast [%f]\n%s\n", l, string(s))
+				fmt.Println(humanizeFilter(ast))
+
+				matches, _ := findMatchingSets(ast, config.Data.DataInfo)
+				postfix := "s"
+				if len(matches) == 1 {
+					postfix = ""
+				}
+				fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
 			}
 		}
 	case "trigger":

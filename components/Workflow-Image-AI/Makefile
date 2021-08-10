@@ -1,5 +1,6 @@
 all:	build/linux-amd64/ror	build/macos-amd64/ror	build/windows-amd64/ror.exe
 	@echo "Done"
+.PHONY : all
 
 src/select_group.go: src/select_group.y
 	cd src
