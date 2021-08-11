@@ -295,16 +295,18 @@ The possible syntax for rules is:
 
 where `<field>` can be any of the following `[SeriesDescription|NumImages|SeriesNumber|SequenceName|Modality|StudyDescription|Manufacturer|ManufacturerModelName|PatientID|PatientName|ClassifyTypes]`.
 
+Notice: It is now possible to reference any DICOM tag of an image. In order to support this feature an 'ALL'-section has been added for each series that contains the DICOM tags of the first image of each series.
+
 ### Select use-case: training a model
 
 In order to train a model access to all the data is required. That means that the selection level has to be 'project'. Define a filter with
 
 ```bash
 ror config --select '
-  Select project     /* export level for all data in the study */
-    from study       /* not functional */
-    where series has /* start of a rule set */
-      Modality = CT  /* selection rule */
+  Select project       /* export level for all data in the study */
+    from study         /* not functional */
+      where series has /* start of a rule set */
+        Modality = CT  /* selection rule */
 '
 ```
 
@@ -318,10 +320,10 @@ Selection for individual image series should be done on the 'series' level with 
 ror config --select '
   Select series       /* export level for a single image series */
     from study        /* not functional */
-    where series has  /* start of a rule set */
-      Modality = CT   /* selection rule */
-    and
-      NumImages > 100 /* numeric rule for number of slices in series */
+      where series has  /* start of a rule set */
+        Modality = CT   /* selection rule */
+      and
+        NumImages > 100 /* numeric rule for number of slices in series */
 '
 ```
 
@@ -331,16 +333,17 @@ If 2 selected series in a study should share the same FrameOfReferenceUID (can b
 
 ```bash
 ror config  --select '
-Select study from project
-  where series named COR has
-    ClassifyType containing  coronal
-also
-  where series named AX has
-    ClassifyType containing axial;
-Check
-    COR@FrameOfReferenceUID = AX@FrameOfReferenceUID
-  AND
-    COR@Modality = AX@Modality
+  Select study 
+    from project
+      where series named COR has
+        ClassifyType containing coronal
+    also
+      where series named AX has
+        ClassifyType containing axial
+  Check
+      COR@FrameOfReferenceUID = AX@FrameOfReferenceUID
+    AND
+      COR@Modality = AX@Modality
 '
 ```
 
