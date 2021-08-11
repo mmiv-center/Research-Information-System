@@ -69,11 +69,13 @@ top:
 command_list:
     command
     {
-
+        //fmt.Printf("IN COMMAND \"%s\"\n",$$)
+        $$ = $1
     }
-|   command ';' command_list
+|   command command_list
     {
-
+        //fmt.Println("IN COMMAND SEMICOLON")
+        $$ = fmt.Sprintf("%s ; %s", $1, $2)
     }
 
 command:
@@ -332,7 +334,14 @@ level_types:
 base_check:
     CHECK check_rule_list
     {
-        // do nothing for now...
+        if ast.CheckRules == nil {
+           ast.CheckRules = make([][]Rule,0)
+        }
+        if len(currentCheckRules)  > 0 {
+            ast.CheckRules  = append(ast.CheckRules, currentCheckRules)
+        }
+        currentCheckRules = nil
+        $$ = $2
     }
 
 check_rule_list:
@@ -340,7 +349,10 @@ check_rule_list:
     {
         //fmt.Printf("found a rule: \"%s\"\n", $1)
         // add the rule to the current list of rules
-
+        if len(currentCheckRules) > 0 {
+            ast.CheckRules  = append(ast.CheckRules, currentCheckRules)
+            currentCheckRules = nil 
+        }
         $$ = $1
     }
 |   check_rule_list AND check_rule
@@ -369,82 +381,30 @@ check_rule:
             Tag: currentCheckTag1,
             Tag2: currentCheckTag2,
             Operator: "==",
-            Value: $3,
+            Value: fmt.Sprintf("%s == %s", $1, $3),
         }
         currentCheckRules = append(currentCheckRules, r)
-        $$ = fmt.Sprintf("Variable %s = %s", $1, $3)
-    }
-|   STRING CONTAINING STRING
-    {
-        r := Rule{
-            Tag: []string{$1},
-            Operator: "contains",
-            Value: $3,
-        }
-        currentCheckRules = append(currentCheckRules, r)
-
-        $$ = fmt.Sprintf("Variable %s contains %s", $1, $3)
-    }
-|   STRING SMALLER NUM
-    {
-        r := Rule{
-            Tag: []string{$1},
-            Operator: "<",
-            Value: $3,
-        }
-        currentCheckRules = append(currentCheckRules, r)
-
-        $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
-    }
-|   STRING LARGER NUM
-    {
-        r := Rule{
-            Tag: []string{$1},
-            Operator: ">",
-            Value: $3,
-        }
-        currentCheckRules = append(currentCheckRules, r)
-
-        $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
-    }
-|   STRING REGEXP STRING
-    {
-        r := Rule{
-            Tag: []string{$1},
-            Operator: "regexp",
-            Value: $3,
-        }
-        currentCheckRules = append(currentCheckRules, r)
-
-        $$ = fmt.Sprintf("Variable %s contains %s", $1, $3)
+        $$ = fmt.Sprintf("Variable %s == %s", $1, $3)
     }
 
 check_tag1:
-    /* empty */
-    {
-
-    }
-|   STRING AT tag_string
+    STRING AT tag_string
     {
         currentCheckTag1 = []string{$1, lastGroupTag[0]}
         if len(lastGroupTag) > 1 {
             currentCheckTag1 =  append(currentCheckTag1, lastGroupTag[1])
         }
-        $$ = fmt.Sprintf("%s . %s", $1, $3)
+        $$ = fmt.Sprintf("%s @ %s", $1, $3)
     }
 
 check_tag2:
-    /* empty */
-    {
-
-    }
-|   STRING AT tag_string
+    STRING AT tag_string
     {
         currentCheckTag2 = []string{$1, lastGroupTag[0]}
         if len(lastGroupTag) > 1 {
             currentCheckTag2 =  append(currentCheckTag2, lastGroupTag[1])
         }
-        $$ = fmt.Sprintf("%s . %s", $1, $3)
+        $$ = fmt.Sprintf("%s @ %s", $1, $3)
     }
 
 

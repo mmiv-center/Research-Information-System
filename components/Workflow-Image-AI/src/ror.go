@@ -1977,7 +1977,7 @@ func main() {
 
 				} else {
 					// maybe its a simple glob expression? We should add in any case
-					fmt.Printf("We tried to parse the series filter but failed. Maybe you just want to grep?")
+					fmt.Println("We tried to parse the series filter but failed. Maybe you just want to grep?")
 					config.SeriesFilterType = "glob"
 				}
 				config.SeriesFilter = config_series_filter

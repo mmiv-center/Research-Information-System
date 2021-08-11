@@ -325,6 +325,25 @@ ror config --select '
 '
 ```
 
+### Select use-case: dependencies between series in a study
+
+If 2 selected series in a study should share the same FrameOfReferenceUID (can be fused without registration) such a check can be enforced by adding a 'CHECK' section with rules that reference the named series from Select.
+
+```bash
+ror config  --select '
+Select study from project
+  where series named COR has
+    ClassifyType containing  coronal
+also
+  where series named AX has
+    ClassifyType containing axial;
+Check
+    COR@FrameOfReferenceUID = AX@FrameOfReferenceUID
+  AND
+    COR@Modality = AX@Modality
+'
+```
+
 ### Using select in the workflow
 
 For select all image series that match are in a pool of potential datasets for the 'trigger' command. There is the option to run a single random dataset of them with `ror trigger`, or to run all of the possible datasets in a row with `ror trigger --each`. For testing of workflows it is suggested to start with:
