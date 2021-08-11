@@ -1957,6 +1957,9 @@ func main() {
 
 				// now parse the input string
 				InitParser()
+				yyErrorVerbose = true
+				yyDebug = 1
+
 				line := []byte(series_filter_no_comments)
 				yyParse(&exprLex{line: line})
 				if !errorOnParse {

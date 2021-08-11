@@ -34,6 +34,8 @@ var currentRules []Rule = nil       // we store one rules information here
 var currentCheckRules []Rule = nil  // for checks there is a separate list
 var errorOnParse = false
 var lastGroupTag []string           // a pair of group, tag in decimal format
+var currentCheckTag1 []string       // a pair of named series '.' DICOM name
+var currentCheckTag2 []string       // a pair of named series '.' DICOM name
 
 %}
 
@@ -43,11 +45,11 @@ var lastGroupTag []string           // a pair of group, tag in decimal format
 }
 
 %type <word> command, select_stmt, base_select, level_types, rule_list, rule, where_clause, where_clauses, level_types_with_name
-%type <word> check_stmt base_check check_rule_list check_rule tag_string group_tag_pair
+%type <word> check_stmt base_check check_rule_list check_rule tag_string group_tag_pair check_tag1 check_tag2 command_list
 
 %token '+' '-' '*' '/' '(' ')' '"' '\''
 %token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND ALSO
-%token CONTAINING SMALLER LARGER REGEXP NOT NAMED PROJECT CHECK
+%token CONTAINING SMALLER LARGER REGEXP NOT NAMED PROJECT CHECK AT
 
 %token	<num>	NUM
 %token  <word>  STRING NOT
@@ -57,16 +59,22 @@ var lastGroupTag []string           // a pair of group, tag in decimal format
 %%
 
 top:
-    command semicolon_opt
+    command_list
     {
         //fmt.Printf("command \"%w\"\n", $1)
         //s, _ := json.MarshalIndent(ast, "", "  ")
         //fmt.Printf("internal ast is: \"%s\"\n",string(s))
     };
 
-semicolon_opt:
-/*empty*/ {}
-| ';' {};
+command_list:
+    command
+    {
+
+    }
+|   command ';' command_list
+    {
+
+    }
 
 command:
     select_stmt
@@ -355,10 +363,11 @@ check_rule:
         }
         $$ = fmt.Sprintf("%s NOT %s", $$, $1)
     }
-|   STRING EQUALS STRING
+|   check_tag1 EQUALS check_tag2
     {
         r := Rule{
-            Tag: []string{$1},
+            Tag: currentCheckTag1,
+            Tag2: currentCheckTag2,
             Operator: "==",
             Value: $3,
         }
@@ -410,6 +419,33 @@ check_rule:
         $$ = fmt.Sprintf("Variable %s contains %s", $1, $3)
     }
 
+check_tag1:
+    /* empty */
+    {
+
+    }
+|   STRING AT tag_string
+    {
+        currentCheckTag1 = []string{$1, lastGroupTag[0]}
+        if len(lastGroupTag) > 1 {
+            currentCheckTag1 =  append(currentCheckTag1, lastGroupTag[1])
+        }
+        $$ = fmt.Sprintf("%s . %s", $1, $3)
+    }
+
+check_tag2:
+    /* empty */
+    {
+
+    }
+|   STRING AT tag_string
+    {
+        currentCheckTag2 = []string{$1, lastGroupTag[0]}
+        if len(lastGroupTag) > 1 {
+            currentCheckTag2 =  append(currentCheckTag2, lastGroupTag[1])
+        }
+        $$ = fmt.Sprintf("%s . %s", $1, $3)
+    }
 
 
 %%
@@ -469,6 +505,8 @@ func (x *exprLex) Lex(yylval *yySymType) int {
             return LARGER
         case '=':
             return EQUALS
+        case '@':
+            return AT
         case '"':
             // read until the next delimiter (eat up spaces as well)
             return x.word(c, yylval, rune('"'))
@@ -633,6 +671,6 @@ func (x *exprLex) Error(s string) {
     if charpos < len(program) {
     	fmt.Printf("parse error (before pos %d): \"%s\" program: %s\n", charpos, s, program)
     } else {
-    	fmt.Printf("parse error (before pos %d): \"%s\" program: %s\n", charpos, s, program)
+    	fmt.Printf("parse error (before pos %d): \"%s\" program: %s\nline: \"%v\"\n", charpos, s, program, x.line)
     }
 }

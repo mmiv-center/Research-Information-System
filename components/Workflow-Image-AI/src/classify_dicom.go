@@ -27,6 +27,7 @@ type Class struct {
 
 type Rule struct {
 	Tag      []string    `json:"tag"`
+	Tag2	 []string    `json:"tag2"`	// only used for checkrules, contains the name of the series and a variable name
 	Value    interface{} `json:"value"` // value can be a string or an array, we have to find out which is which first
 	Operator string      `json:"operator"`
 	Negate   string      `json:"negate"`
