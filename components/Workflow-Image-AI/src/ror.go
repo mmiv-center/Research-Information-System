@@ -277,7 +277,7 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 			if !firstSet {
 				maxVal = y
 				minVal = maxVal
-				firstSet = true			
+				firstSet = true
 			}
 			if y > maxVal {
 				maxVal = y
@@ -760,7 +760,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							}
 						default:
 							// todo: handle sequences here
-							fmt.Printf("Warning: we don't know that type yet %v\n", all_dicom[i].Value.ValueType())
+							//fmt.Printf("Warning: we don't know that type yet %v\n", all_dicom[i].Value.ValueType())
 							// ...
 						}
 					}
@@ -1061,7 +1061,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			//numSeries := len(a[k])
 			// number of series for this study
 			SeriesInstanceUID := v[0]
-			var numSeriesByStudy float64 = 0.0 
+			var numSeriesByStudy float64 = 0.0
 			for _, vv := range datasets {
 				for siuid := range vv {
 					if SeriesInstanceUID == siuid {
@@ -1172,7 +1172,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			rulesetIdx = rand.Intn((len(ast.Rules) - 0) + 0)
 		}
 		if rulesetIdx == -1 {
-			return  false
+			return false
 		}
 		var ruleIdx int = -1
 		if len(ast.Rules[rulesetIdx]) > 0 {
@@ -1403,6 +1403,35 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 		}
 		selectFromB = append(selectFromB, ss)
 		names = append(names, currentNamesByRule)
+	}
+
+	// we need to check the CheckRules as well - if we have those we might loose some more entries here
+	if ast.CheckRules != nil {
+		checkCheckRules := func(entry []string, ast AST, dataInfo map[string]map[string]SeriesInfo) bool {
+			// entry is now a list of SeriesInstanceUIDs
+			works := true
+			for _, ruleset := range ast.CheckRules {
+				// does this ruleset work for all our selected series?
+				for _, rule := range ruleset {
+					// each one is an integer, we look for r here
+					//tag1 := rule.Tag
+					//tag2 := rule.Tag2
+					// find the correspondingly named series
+
+					fmt.Println("%v\n", rule)
+					works = false
+				}
+			}
+			return works
+		}
+		for _, set := range selectFromB {
+			if !checkCheckRules(set, ast, dataInfo) {
+				fmt.Println("We would remove this set based on CheckRules")
+			} else {
+				fmt.Println("We keep this set based on CheckRules")
+			}
+		}
+
 	}
 
 	return selectFromB, names
@@ -1788,6 +1817,8 @@ func main() {
 			}
 			if init_type == "bash" {
 				data.CallString = "./stub.sh"
+			} else if init_type == "webapp" {
+				data.CallString = "open http://127.0.0.1:8000"
 			}
 			file, _ := json.MarshalIndent(data, "", " ")
 			_ = ioutil.WriteFile(dir_path+"/config", file, 0600)
@@ -1957,7 +1988,7 @@ func main() {
 
 				// now parse the input string
 				InitParser()
-				yyErrorVerbose = true
+				//yyErrorVerbose = true
 				yyDebug = 1
 
 				line := []byte(series_filter_no_comments)
@@ -2120,7 +2151,7 @@ func main() {
 			} else {
 				fmt.Println("This short status does not contain data information. Use the --all option to obtain all info.")
 			}
-			if status_detailed && config.SeriesFilterType == "select"{
+			if status_detailed && config.SeriesFilterType == "select" {
 				comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
 				series_filter_no_comments := comments.ReplaceAllString(config.SeriesFilter, " ")
 
