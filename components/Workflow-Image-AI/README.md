@@ -129,7 +129,7 @@ ror_trigger_run_Thursday_269448975
 │   ├── 000014.dcm
 │   └── 000015.dcm
 ├── input_view_dicom_series
-│   └── TCGA-BA-4077SIIM^Neela            # PatientID-PatientName
+│   └── TCGA-BA-4077SIIM^Neela            # PatientID_PatientName
 │       └── 19960514_125626.308000        # StudyDate_StudyTime
 │           └── 607_CORONALS<MPR\ Range>  # SeriesNumber_SeriesDescription
 │               ├── 000000.dcm -> ../../../../input/000000.dcm
@@ -277,7 +277,7 @@ Select patient
 '
 ```
 
-Limitations: i) The 'not' operator only works on the level of individual rules. ii) There is support for braces '(', ')', but that is not very useful at the moment - maybe for 'not'. iii) There is no 'or' compared to the 'and'. iv) There is no way to specify dependencies between found series such as 'same FrameOfReferenceUID'.
+Limitations: i) The 'not' operator only works on the level of individual rules. ii) There is support for braces '(', ')', but that is not very useful at the moment - maybe for 'not'. iii) There is no 'or' compared to the 'and'. iv) There is a way to specify dependencies between series with 'check' but such dependencies are not yet enforced (such as 'same FrameOfReferenceUID').
 
 
 ### Details on select as a language to specify input datasets
@@ -295,7 +295,7 @@ The possible syntax for rules is:
 
 where `<field>` can be any of the following `[SeriesDescription|NumImages|SeriesNumber|SequenceName|Modality|StudyDescription|Manufacturer|ManufacturerModelName|PatientID|PatientName|ClassifyTypes]`.
 
-Notice: It is now possible to reference any DICOM tag of an image. In order to support this feature an 'ALL'-section has been added for each series that contains the DICOM tags of the first image of each series.
+Notice: It is now possible to reference any DICOM tag of an image. In order to support this feature an 'ALL'-section has been added for each series that contains the DICOM tags of the first image of each series. An arbitrary tag can be referenced using the '(0000,0000)' notation of group and tag.
 
 ### Select use-case: training a model
 
@@ -310,7 +310,7 @@ ror config --select '
 '
 ```
 
-This project export will create a single input folder with all type CT image series for all participants and studies.
+This data selection will create at most one matching dataset, a single input folder with all (modality CT) image series for all participants and studies in the project.
 
 ### Select use-case: prediction on a single matching image series
 
