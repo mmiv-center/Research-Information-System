@@ -27,11 +27,80 @@ type Class struct {
 
 type Rule struct {
 	Tag      []string    `json:"tag"`
-	Tag2	 []string    `json:"tag2"`	// only used for checkrules, contains the name of the series and a variable name
+	Tag2     []string    `json:"tag2"`  // only used for checkrules, contains the name of the series and a variable name
 	Value    interface{} `json:"value"` // value can be a string or an array, we have to find out which is which first
 	Operator string      `json:"operator"`
 	Negate   string      `json:"negate"`
 	Rule     string      `json:"rule"`
+}
+
+// dataInfo.checkRules(rule, SeriesInstanceUID1, SeriesInstanceUID2)
+func evalCheckRule(rule Rule, SeriesInstanceUID1 string, SeriesInstanceUID2 string, dataInfo map[string]map[string]SeriesInfo) bool {
+	// we already have the series instance uids for both series in the rule
+	var si1 SeriesInfo
+	var si2 SeriesInfo
+	for _, v := range dataInfo {
+		for SeriesInstanceUID, vv := range v {
+			if SeriesInstanceUID == SeriesInstanceUID1 {
+				si1 = vv
+			}
+			if SeriesInstanceUID == SeriesInstanceUID2 {
+				si2 = vv
+			}
+		}
+	}
+	if si1.All != nil && si2.All != nil {
+		fmt.Println("OK we have found the two SeriesInfos")
+		ok, data1 := si1.getData(rule.Tag[1], rule.Tag[2])
+		if !ok {
+			return false
+		}
+		ok, data2 := si2.getData(rule.Tag2[1], rule.Tag2[2])
+		if !ok {
+			return false
+		}
+		// operator test, lets assume we have "=="
+		if rule.Operator == "==" {
+			for i, j := 0, 0; i < len(data1) && j < len(data2); i, j = i+1, j+1 {
+				if data1[i] != data2[j] {
+					return false
+				}
+			}
+		} else {
+			fmt.Println("WARNING: Operator not supported")
+			return false
+		}
+		return true
+	}
+
+	return false
+}
+
+// getData returns the data from the data SeriesInfo for the DICOM group_str, tag_str
+func (data SeriesInfo) getData(group_str string, tag_str string) (bool, []string) {
+	dataData := []string{""}
+
+	group_str = strings.Replace(group_str, "0x", "", -1)
+	group_str = strings.Replace(group_str, "0X", "", -1)
+	group, err := strconv.ParseInt(group_str, 16, 64)
+	if err != nil {
+		exitGracefully(err)
+	}
+	tag_str = strings.Replace(tag_str, "0x", "", -1)
+	tag_str = strings.Replace(tag_str, "0X", "", -1)
+	tag, err := strconv.ParseInt(tag_str, 16, 64)
+	if err != nil {
+		exitGracefully(err)
+	}
+	found := false
+	for _, v := range data.All {
+		if v.Tag.Group == uint16(group) && v.Tag.Element == uint16(tag) && v.Value != nil {
+			found = true
+			dataData = v.Value
+			break
+		}
+	}
+	return found, dataData
 }
 
 // return the index of the rule that matched together with the error
@@ -53,30 +122,7 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 			// values should be read by hexadecimal number
 			var group_str = t[0]
 			var tag_str = t[1]
-			group_str = strings.Replace(group_str, "0x", "", -1)
-			group_str = strings.Replace(group_str, "0X", "", -1)
-			group, err := strconv.ParseInt(group_str, 16, 64)
-			if err != nil {
-				exitGracefully(err)
-			}
-			tag_str = strings.Replace(tag_str, "0x", "", -1)
-			tag_str = strings.Replace(tag_str, "0X", "", -1)
-			tag, err := strconv.ParseInt(tag_str, 16, 64)
-			if err != nil {
-				exitGracefully(err)
-			}
-			found := false
-			for _, v := range data.All {
-				if v.Tag.Group == uint16(group) && v.Tag.Element == uint16(tag) && v.Value != nil {
-					found = true
-					dataData = v.Value
-					break
-				}
-			}
-			if !found {
-				// we do not have a value for this tag. that means this test fails
-				foundValue = false
-			}
+			foundValue, dataData = data.getData(group_str, tag_str)
 
 		} else { // we have a single entry (really?) and treat it as the name of a variable
 			if t[0] == "ClassifyType" {

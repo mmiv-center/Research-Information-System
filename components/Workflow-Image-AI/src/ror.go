@@ -1058,6 +1058,9 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		//  we like to have all a's equally big (studyinstanceuid with same #seriesinstanceuid)
 		var sumX float64
 		for _, v := range a {
+			if len(v) == 0 {
+				continue
+			}
 			//numSeries := len(a[k])
 			// number of series for this study
 			SeriesInstanceUID := v[0]
@@ -1407,31 +1410,104 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 
 	// we need to check the CheckRules as well - if we have those we might loose some more entries here
 	if ast.CheckRules != nil {
-		checkCheckRules := func(entry []string, ast AST, dataInfo map[string]map[string]SeriesInfo) bool {
+		checkCheckRules := func(entry []string, names []string, ast AST, dataInfo map[string]map[string]SeriesInfo) []string {
 			// entry is now a list of SeriesInstanceUIDs
-			works := true
+			okSeriesIDS := make([]string, 0)
 			for _, ruleset := range ast.CheckRules {
 				// does this ruleset work for all our selected series?
 				for _, rule := range ruleset {
 					// each one is an integer, we look for r here
-					//tag1 := rule.Tag
-					//tag2 := rule.Tag2
-					// find the correspondingly named series
-
+					tag1 := rule.Tag
+					tag2 := rule.Tag2
+					if len(tag1) == 3 && len(tag2) == 3 {
+						// find the correct series
+						series_name1 := tag1[0]
+						series_name2 := tag2[0]
+						series_idx1 := -1
+						series_idx2 := -1
+						// find the correspondingly named series
+						// but for a rule we need to compare two series
+						// one name can happen several times so we need to
+						// collect all possible sets
+						pairs := make([][]int, 0)
+						for i, name := range names {
+							if name == series_name1 {
+								series_idx1 = i
+							}
+							if name == series_name2 {
+								series_idx2 = i
+							}
+							if series_idx1 != -1 && series_idx2 != -1 {
+								// one pair
+								p := []int{series_idx1, series_idx2}
+								// try to find if that pair exists already
+								found := false
+								for _, ps := range pairs {
+									if ps[0] == p[0] && ps[1] == p[1] {
+										found = true
+										break
+									}
+								}
+								if !found {
+									pairs = append(pairs, []int{series_idx1, series_idx2})
+								}
+							}
+						}
+						if len(pairs) == 0 {
+							// we will now be able to check if the rule applies
+							//fmt.Println("IDS could not be found with", series_idx1, series_idx2)
+							continue
+						}
+						// what are the values we have for the two series?
+						for _, p := range pairs {
+							SeriesInstanceUID1 := entry[p[0]]
+							SeriesInstanceUID2 := entry[p[1]]
+							ok := evalCheckRule(rule, SeriesInstanceUID1, SeriesInstanceUID2, dataInfo)
+							if ok {
+								// that means we will keep these series ids
+								fmt.Println("This rule works!")
+								okSeriesIDS = append(okSeriesIDS, SeriesInstanceUID1)
+								okSeriesIDS = append(okSeriesIDS, SeriesInstanceUID2)
+							}
+						}
+					}
 					fmt.Println("%v\n", rule)
-					works = false
 				}
 			}
-			return works
+			return okSeriesIDS
 		}
-		for _, set := range selectFromB {
-			if !checkCheckRules(set, ast, dataInfo) {
-				fmt.Println("We would remove this set based on CheckRules")
-			} else {
-				fmt.Println("We keep this set based on CheckRules")
+		for idx, set := range selectFromB {
+			set_names := names[idx]
+			okSeriesIDS := checkCheckRules(set, set_names, ast, dataInfo)
+			//if len(okSeriesIDS) > 0 { // we actually have some series we want to keep
+			//	fmt.Println("We have some series that work with this rule, some we might have to remove")
+			//} else {
+			//	fmt.Println("We need to remove all entries")
+			//}
+			contains := func(s []string, e string) bool {
+				for _, a := range s {
+					if a == e {
+						return true
+					}
+				}
+				return false
 			}
-		}
+			remove := func(s []string, i int) []string {
+				s[i] = s[len(s)-1]
+				return s[:len(s)-1]
+			}
+			for idx2 := 0; idx2 < len(selectFromB[idx]); idx2++ {
+				v := selectFromB[idx][idx2]
+				if !contains(okSeriesIDS, v) {
+					// remove this series
+					//fmt.Println("Removing", v)
+					selectFromB[idx] = remove(selectFromB[idx], idx2)
+					names[idx] = remove(names[idx], idx2)
+					idx2--
+				}
+			}
 
+		}
 	}
 
 	return selectFromB, names
@@ -2014,6 +2090,7 @@ func main() {
 				config.SeriesFilter = config_series_filter
 			}
 			if call_string != "" {
+				//fmt.Println("Set the call string to :", call_string)
 				config.CallString = call_string
 			}
 			if no_sort_dicom {
