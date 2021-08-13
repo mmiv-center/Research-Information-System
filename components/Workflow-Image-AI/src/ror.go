@@ -1471,7 +1471,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 							}
 						}
 					}
-					fmt.Println("%v\n", rule)
+					//fmt.Println("%v\n", rule)
 				}
 			}
 			return okSeriesIDS
