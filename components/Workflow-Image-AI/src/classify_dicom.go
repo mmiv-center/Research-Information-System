@@ -50,7 +50,7 @@ func evalCheckRule(rule Rule, SeriesInstanceUID1 string, SeriesInstanceUID2 stri
 		}
 	}
 	if si1.All != nil && si2.All != nil {
-		fmt.Println("OK we have found the two SeriesInfos")
+		//fmt.Println("OK we have found the two SeriesInfos")
 		ok, data1 := si1.getData(rule.Tag[1], rule.Tag[2])
 		if !ok {
 			return false
