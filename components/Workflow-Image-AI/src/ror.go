@@ -2630,7 +2630,23 @@ func main() {
 		// fall back to parsing without a command
 		flag.Parse()
 		if show_version {
-			fmt.Printf("ror version %s%s\n", version, compileDate)
+			timeThen := time.Now()
+			setTime := false
+			if compileDate != "" {
+				layout :=  ".20060102.150405"
+				t, err := time.Parse(layout, compileDate)
+				if err == nil {
+					timeThen = t 
+					setTime = true
+				}
+			}
+
+			fmt.Printf("ror version %s%s", version, compileDate)
+			if setTime {
+				fmt.Printf(" build %.0f days ago\n", math.Round(time.Now().Sub(timeThen).Hours() / 24))
+			} else {
+				fmt.Println()
+			}
 			os.Exit(0)
 		}
 	}
