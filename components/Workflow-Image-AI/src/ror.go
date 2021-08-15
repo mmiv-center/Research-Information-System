@@ -268,6 +268,7 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 	var maxVal int64
 	for i := 0; i < h; i++ {
 		for j := 0; j < w; j++ {
+			// this might be wrong if we have 8bit data - we interpret them as 16bit here which shifts them up
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
 			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
@@ -320,7 +321,7 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 	var min2 int64 = minVal
 	s := histogram[0]
 	for i := 1; i < bins; i++ {
-		if float32(s) >= (float32(sum) * 2.0 / 100.0) { // sum / 100 = ? / 2
+		if float32(s) >= (float32(sum) * 20.0 / 100.0) { // sum / 100 = ? / 2
 			min2 = minVal + int64(float32(i)/float32(bins)*float32(maxVal-minVal))
 			break
 		}
@@ -329,7 +330,7 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 	var max99 int64 = maxVal
 	s = histogram[0]
 	for i := 1; i < bins; i++ {
-		if float32(s) >= (float32(sum) * 98.0 / 100.0) { // sum / 100 = ? / 2
+		if float32(s) >= (float32(sum) * 80.0 / 100.0) { // sum / 100 = ? / 2
 			max99 = minVal + int64(float32(i)/float32(bins)*float32(maxVal-minVal))
 			break
 		}
@@ -1533,7 +1534,7 @@ func humanizeFilter(ast AST) string {
 	} else {
 		ss = fmt.Sprintf("%s\nWe will select cases with %d image series.\n", ss, len(ast.Rules))
 	}
-	fmt.Printf("To use this select statement call:\n%s config --select '\n%s\n'", own_name, ast2Select(ast))
+	fmt.Printf("To use this select statement call:\n%s config --select '\n%s\n'\n", own_name, ast2Select(ast))
 
 	return ss
 }
@@ -1880,7 +1881,14 @@ func main() {
 			// we can check if their information is not tampered with.
 			// We could use the REDCap token for a user. That way we have control
 			// over the metadata as well - but we would expose REDCap.
-			if author_name == "" || author_email == "" {
+			if author_name == "" {
+				author_name = "Anonymous"
+			}
+			if author_email == "" {
+				author_email = "no-reply@unkown.org"
+			}
+			// do not ask for author information... we can do this at any time in the future
+			if false && (author_name == "" || author_email == "") {
 
 				reader := bufio.NewReader(os.Stdin)
 				// we can ask interactively about the author information
@@ -1917,17 +1925,18 @@ func main() {
 						fmt.Println("Does not look like an email - but you know best.")
 					}
 				}
-				if init_type == "" {
-					fmt.Printf("Project type (python, notebook, bash, webapp): ")
-					init_type, err = reader.ReadString('\n')
-					if err != nil {
-						init_type = "notebook"
-					}
-					init_type = strings.TrimSuffix(init_type, "\n")
-					if init_type != "python" && init_type != "notebook" && init_type != "bash" && init_type != "webapp" {
-						init_type = "notebook"
-						fmt.Println("Warning: That is not a type we know. We will give you a python notebook project to get started.")
-					}
+			}
+			if init_type == "" {
+				reader := bufio.NewReader(os.Stdin)
+				fmt.Printf("Project type (python, notebook, bash, webapp): ")
+				init_type, err = reader.ReadString('\n')
+				if err != nil {
+					init_type = "notebook"
+				}
+				init_type = strings.TrimSuffix(init_type, "\n")
+				if init_type != "python" && init_type != "notebook" && init_type != "bash" && init_type != "webapp" {
+					init_type = "notebook"
+					fmt.Println("Warning: That is not a type we know. We will give you a python notebook project to get started.")
 				}
 			}
 			// now we can create the folder - not earlier

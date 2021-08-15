@@ -516,7 +516,12 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
             charpos = charpos + 1
             break L
 		default:
-			break L
+            if delimiter != rune(0) && (c == '-' || c == '_') {
+    			add(&b, c)
+                charpos = charpos + 1
+            } else {
+			    break L
+            }
 		}
 	}
 	if c != eof {
