@@ -1798,33 +1798,6 @@ func main() {
 	}
 
 	if false {
-		// get dataset and ast from config
-		dir_path := input_dir + "/.ror/config"
-		config, err := readConfig(dir_path)
-		if err != nil {
-			exitGracefully(errors.New(errorConfigFile))
-		}
-		if config.SeriesFilterType != "select" {
-			fmt.Println("Cannot improve glob, only select.")
-		} else {
-			// create an ast cron config
-			InitParser()
-			line := []byte(config.SeriesFilter)
-			fmt.Printf("TEST EXPRESSION PARSER: %s\n", string(line))
-			yyParse(&exprLex{line: line})
-
-			s, _ := json.MarshalIndent(ast, "", "  ")
-			fmt.Printf("ast before: %s\n", string(s))
-
-			ast, l := ast.improveAST(config.Data.DataInfo)
-
-			s, _ = json.MarshalIndent(ast, "", "  ")
-			fmt.Printf("ast [%f] after: %s\n", l, string(s))
-
-		}
-	}
-
-	if false {
 		//
 		// test the expression parser for select
 		//
@@ -1848,7 +1821,6 @@ func main() {
 		yyParse(&exprLex{line: line})
 		s, _ = json.MarshalIndent(ast, "", "  ")
 		fmt.Printf("ast is: %s\n", string(s))
-
 	}
 
 	switch os.Args[1] {
