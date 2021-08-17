@@ -7,12 +7,14 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	_ "embed"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"image"
+	"io"
 	"io/ioutil"
 	"log"
 	"math"
@@ -49,6 +51,9 @@ const version string = "0.0.3"
 var compileDate string = ".unknown"
 
 var own_name string = "ror"
+
+// will store the path to the config file
+var input_dir string
 
 //go:generate /Users/hauke/go/bin/goyacc -o select_group.go select_group.y
 
@@ -179,25 +184,64 @@ func readConfig(path_string string) (Config, error) {
 		fmt.Println(err)
 	}
 
-	jsonFile, err := os.Open(path_string)
-	// if we os.Open returns an error then handle it
+	// var buf bytes.Buffer
+	fi, err := os.Open(path_string)
+    if err != nil {
+        return Config{}, err
+    }
+    defer fi.Close()
+
+	gzreader, err := gzip.NewReader(fi)
 	if err != nil {
-		fmt.Println(err)
-		return Config{}, fmt.Errorf("could not open the file %s", path_string)
+		log.Fatal(err)
 	}
-	//fmt.Println("Successfully Opened users.json")
-	// defer the closing of our jsonFile so that we can parse it later on
-	defer jsonFile.Close()
+	byteValue, err := io.ReadAll(gzreader)
+	if err != nil {
+		log.Fatal(err)		
+	}
 
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-
-	// we initialize our Users array
 	var config Config
 
 	// we unmarshal our byteArray which contains our
 	// jsonFile's content into 'users' which we defined above
 	json.Unmarshal(byteValue, &config)
+
+	if err := gzreader.Close(); err != nil {
+		log.Fatal(err)
+	}
+
 	return config, nil
+}
+
+//writeConfig writes the provided config to the given path
+func (config Config) writeConfig() bool {
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+
+	dir_path := input_dir + "/.ror/config"	
+
+	// Setting the Header fields is optional.
+	zw.Name = dir_path
+	zw.Comment = "see github.com/MMIV-Center/Research-Information-System/"
+	zw.ModTime = time.Now()
+
+	file, _ := json.MarshalIndent(config, "", " ")
+	_, err := zw.Write(file)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := zw.Close(); err != nil {
+		log.Fatal(err)
+	}
+
+	err = ioutil.WriteFile(dir_path, buf.Bytes(), 0600)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return true
 }
 
 type Description struct {
@@ -321,7 +365,7 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 	var min2 int64 = minVal
 	s := histogram[0]
 	for i := 1; i < bins; i++ {
-		if float32(s) >= (float32(sum) * 20.0 / 100.0) { // sum / 100 = ? / 2
+		if float32(s) >= (float32(sum) * 10.0 / 100.0) { // sum / 100 = ? / 2
 			min2 = minVal + int64(float32(i)/float32(bins)*float32(maxVal-minVal))
 			break
 		}
@@ -330,7 +374,7 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 	var max99 int64 = maxVal
 	s = histogram[0]
 	for i := 1; i < bins; i++ {
-		if float32(s) >= (float32(sum) * 80.0 / 100.0) { // sum / 100 = ? / 2
+		if float32(s) >= (float32(sum) * 95.0 / 100.0) { // sum / 100 = ? / 2
 			max99 = minVal + int64(float32(i)/float32(bins)*float32(maxVal-minVal))
 			break
 		}
@@ -685,6 +729,23 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 			if err != nil {
 				return err
 			}
+			// every once in a while we should save the datasets - so we can break reading without lossing work
+			if counter > 0 && counter%1000 == 0 {
+				dir_path := input_dir + "/.ror/config"
+				config2, err := readConfig(dir_path)
+				if err != nil {
+					exitGracefully(errors.New("could not read config file"))
+				}
+				config2.Data.DataInfo = datasets
+				// do we need to copy this - do we need to copy more???
+				config2.Data.Path = config.Data.Path
+
+				// write out config again
+				config2.writeConfig()
+				//file, _ := json.MarshalIndent(config2, "", " ")
+				//_ = ioutil.WriteFile(dir_path, file, 0600)
+			}
+
 			// we could be faster here if we ignore zip files, those are large and we don't want them (?)
 			// there is a way to detect a zip file, but we should just check the size first as that might be
 			// an indicator as well - might be faster just reading otherwise?
@@ -779,7 +840,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							}
 						}
 						// this is what we have in here from before, it does not contain the current image...
-						var dataset_info string = langFmt.Sprintf("Studies: %d Series: %d Images: %d Non-DICOM: %d", numStudies, numSeries, numImages, nonDICOM)
+						var dataset_info string = langFmt.Sprintf("%d Studies, %d Series, %d Images, and %d Non-DICOM files", numStudies, numSeries, numImages, nonDICOM)
 						showDataset(dataset, counter, path, dataset_info)
 					} else {
 						fmt.Printf("%05d files\r", counter)
@@ -1686,7 +1747,6 @@ func main() {
 	statusCommand := flag.NewFlagSet("status", flag.ContinueOnError)
 	buildCommand := flag.NewFlagSet("build", flag.ContinueOnError)
 
-	var input_dir string
 	initCommand.StringVar(&input_dir, "input_dir", ".", defaultInputDir)
 	var init_help bool
 	initCommand.BoolVar(&init_help, "help", false, "Show help for init.")
@@ -1942,8 +2002,11 @@ func main() {
 			} else if init_type == "webapp" {
 				data.CallString = "open http://127.0.0.1:8000"
 			}
-			file, _ := json.MarshalIndent(data, "", " ")
-			_ = ioutil.WriteFile(dir_path+"/config", file, 0600)
+			if ! data.writeConfig() {
+				exitGracefully(errors.New("could not write config file"))
+			}
+			//file, _ := json.MarshalIndent(data, "", " ")
+			//_ = ioutil.WriteFile(dir_path+"/config", file, 0600)
 
 			readme_path := filepath.Join(input_dir, "README.md")
 			createStub(readme_path, readme)
@@ -2182,8 +2245,11 @@ func main() {
 				fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
 			}
 			// write out config again
-			file, _ := json.MarshalIndent(config, "", " ")
-			_ = ioutil.WriteFile(dir_path, file, 0600)
+			if !config.writeConfig()  {
+				exitGracefully(errors.New("failed to write config file"))
+			}
+			//file, _ := json.MarshalIndent(config, "", " ")
+			//_ = ioutil.WriteFile(dir_path, file, 0600)
 		}
 	case "status":
 		if err := statusCommand.Parse(os.Args[2:]); err == nil {
@@ -2476,8 +2542,11 @@ func main() {
 					}
 					config.LastDataFolder = dir
 					// and save again
-					file, _ := json.MarshalIndent(config, "", " ")
-					_ = ioutil.WriteFile(dir_path, file, 0600)
+					if !config.writeConfig() {
+						exitGracefully(errors.New(errorConfigFile))
+					}
+					//file, _ := json.MarshalIndent(config, "", " ")
+					//_ = ioutil.WriteFile(dir_path, file, 0600)
 				}
 
 				// we should copy all files into this directory that we need for processing
