@@ -42,6 +42,9 @@ import (
 
 	"image/color"
 	_ "image/jpeg"
+
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
 )
 
 const version string = "0.0.3"
@@ -107,6 +110,12 @@ var webapp_css_bootstrap string
 
 //go:embed templates/webapp/Dockerfile_webapp
 var webapp_dockerfile string
+
+var structure *tview.TextView
+var viewer *tview.TextView
+var footer  *tview.TextView
+var globalHeight int
+var globalWidth int
 
 func exitGracefully(err error) {
 	fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -298,7 +307,7 @@ func complement2(x uint16) int16 {
 }
 
 // printImage2ASCII prints the image as ASCII art
-func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation string, PixelPaddingValue int) []byte {
+func printImage2ASCII(img image.Image, PhotometricInterpretation string, PixelPaddingValue int) []byte {
 	//table := []byte(reverse(ASCIISTR))
 	table := []byte(reverse(ASCIISTR2))
 	if PhotometricInterpretation == "MONOCHROME1" { // only valid if samples per pixel is 1
@@ -306,6 +315,8 @@ func printImage2ASCII(img image.Image, w, h int, PhotometricInterpretation strin
 	}
 	//table := []byte(ASCIISTR3)
 	buf := new(bytes.Buffer)
+	w := img.Bounds().Max.X
+	h := img.Bounds().Max.Y
 
 	firstSet := false
 	var minVal int64
@@ -476,20 +487,43 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 			img, _ = fr.GetImage() // The Go image.Image for this frame
 		}
 
+		//twidth = 196.0/2.0
+
+		app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+			w, h := screen.Size()
+			globalHeight = h
+			globalWidth  = w
+			return false
+		})
+		// this does not work, we need access to the screen to be able to call Size()
+		// _, _, _, theight = viewer.GetInnerRect()
+
+		twidth := globalWidth - 32
+		theight := int(math.Round(float64(globalWidth-32) / (80.0/30.0)))
+
 		origbounds := img.Bounds()
 		orig_width, orig_height := origbounds.Max.X, origbounds.Max.Y
-		newImage := image.NewGray16(image.Rect(0, 0, 196/2, int(math.Round(196.0/2.0/(80.0/30.0)))))
+		newImage := image.NewGray16(image.Rect(0, 0, twidth, theight))
 
-		draw.ApproxBiLinear.Scale(newImage, image.Rect(0, 0, 196/2, int(math.Round(196.0/2.0/(80.0/30.0)))), img, origbounds, draw.Over, nil)
+		draw.ApproxBiLinear.Scale(newImage, image.Rect(0, 0, twidth, theight), img, origbounds, draw.Over, nil)
 
-		bounds := newImage.Bounds()
-		width, height := bounds.Max.X, bounds.Max.Y
-		p := printImage2ASCII(newImage, width, height, PhotometricInterpretation, PixelPaddingValue)
-		fmt.Printf("%s", string(p))
-		langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
+		//bounds := newImage.Bounds()
+		// width, height := bounds.Max.X, bounds.Max.Y
+		p := printImage2ASCII(newImage, PhotometricInterpretation, PixelPaddingValue)
+		//fmt.Printf("%s", string(p))
+		viewer.Clear()
+		//app.SetFocus(viewer)
+		footer.Clear()
+		structure.Clear()
+		fmt.Fprintf(viewer, "%s", string(p))
+		// langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
+		//  fmt.Fprintf(footer, langFmt.Sprintf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+		fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
 		if len(info) > 0 {
-			langFmt.Printf("\033[2K%s\n", info)
+			//fmt.Fprintf(structure, langFmt.Sprintf("\033[2K%s\n%d", info, theight))
+			fmt.Fprintf(structure, langFmt.Sprintf("%s", info))
 		}
+		app.Draw()
 	}
 }
 
@@ -840,7 +874,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							}
 						}
 						// this is what we have in here from before, it does not contain the current image...
-						var dataset_info string = langFmt.Sprintf("%d Studies, %d Series, %d Images, and %d Non-DICOM files", numStudies, numSeries, numImages, nonDICOM)
+						var dataset_info string = langFmt.Sprintf("%d Studies\n%d Series\n%d Images, and\n%d Non-DICOM files", numStudies, numSeries, numImages, nonDICOM)
 						showDataset(dataset, counter, path, dataset_info)
 					} else {
 						fmt.Printf("%05d files\r", counter)
@@ -1728,6 +1762,9 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	}
 }
 
+
+var app *tview.Application
+
 func main() {
 
 	rand.Seed(time.Now().UnixNano())
@@ -2125,6 +2162,36 @@ func main() {
 						exitGracefully(errors.New("this data path does not exist or contains no data"))
 					}
 				}
+				// try to play with a tui interface here
+				if true {
+					newPrimitive := func(text string) *tview.TextView {
+						return tview.NewTextView().
+							SetTextAlign(tview.AlignLeft).
+							SetText(text)
+					}
+					structure = newPrimitive("")
+					structure.SetBorder(true).SetTitle("Info")
+					viewer = newPrimitive("")
+					footer = newPrimitive("")
+					footer.SetBorder(true)
+					viewer.SetBorder(true).SetTitle("Viewer")
+				
+					flex := tview.NewFlex().SetDirection(tview.FlexRow). 
+						AddItem(tview.NewFlex().SetDirection(tview.FlexColumn). 
+							AddItem(structure, 30, 1, false).
+							AddItem(viewer, 0, 1, true), 0, 1, false).
+						AddItem(footer, 3, 1, false)
+					
+					tviewrun := func() {
+						app = tview.NewApplication()
+						if err :=  app.SetRoot(flex, true).EnableMouse(false).Run(); err != nil {
+							panic(err)
+						}
+					}
+					go tviewrun()
+					defer app.Stop()
+				}
+
 				config.Data.Path = data_path
 				studies, err = dataSets(config)
 				check(err)
