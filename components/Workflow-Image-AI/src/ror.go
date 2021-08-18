@@ -776,6 +776,7 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 
 				// write out config again
 				config2.writeConfig()
+				app.Sync()
 				//file, _ := json.MarshalIndent(config2, "", " ")
 				//_ = ioutil.WriteFile(dir_path, file, 0600)
 			}
@@ -874,7 +875,19 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							}
 						}
 						// this is what we have in here from before, it does not contain the current image...
-						var dataset_info string = langFmt.Sprintf("%d Studies\n%d Series\n%d Images, and\n%d Non-DICOM files", numStudies, numSeries, numImages, nonDICOM)
+						s1 := "y"
+						if numStudies > 1 {
+							s1 = "ies"
+						}
+						s2 := ""
+						if numImages > 1 {
+							s2 = "s"
+						}
+						s3 := ""
+						if nonDICOM > 1 {
+							s3 = "s"
+						}
+						var dataset_info string = langFmt.Sprintf("%d Stud%s\n%d Series\n%d Image%s, and\n%d Non-DICOM file%s", numStudies, s1, numSeries, numImages, s2, nonDICOM, s3)
 						showDataset(dataset, counter, path, dataset_info)
 					} else {
 						fmt.Printf("%05d files\r", counter)
@@ -2170,11 +2183,12 @@ func main() {
 							SetText(text)
 					}
 					structure = newPrimitive("")
-					structure.SetBorder(true).SetTitle("Info")
+					structure.SetBorder(true).SetTitle("Database")
 					viewer = newPrimitive("")
 					footer = newPrimitive("")
 					footer.SetBorder(true)
-					viewer.SetBorder(true).SetTitle("Viewer")
+					footer.SetTitle("File")
+					viewer.SetBorder(true).SetTitle("DICOM")
 				
 					flex := tview.NewFlex().SetDirection(tview.FlexRow). 
 						AddItem(tview.NewFlex().SetDirection(tview.FlexColumn). 
@@ -2187,14 +2201,18 @@ func main() {
 						if err :=  app.SetRoot(flex, true).EnableMouse(false).Run(); err != nil {
 							panic(err)
 						}
+						app.Stop()
 					}
 					go tviewrun()
-					defer app.Stop()
+					//defer app.Stop()
 				}
+				//defer app.Stop()
+				fmt.Println("")
 
 				config.Data.Path = data_path
 				studies, err = dataSets(config)
 				check(err)
+				app.Stop()
 				if len(studies) == 0 {
 					fmt.Println("We did not find any DICOM files in the folder you provided. Please check if the files are available, un-compress any zip files to make the accessible to this tool.")
 				} else {
