@@ -113,7 +113,7 @@ var webapp_dockerfile string
 
 var structure *tview.TextView
 var viewer *tview.TextView
-var footer  *tview.TextView
+var footer *tview.TextView
 var globalHeight int
 var globalWidth int
 
@@ -195,10 +195,10 @@ func readConfig(path_string string) (Config, error) {
 
 	// var buf bytes.Buffer
 	fi, err := os.Open(path_string)
-    if err != nil {
-        return Config{}, err
-    }
-    defer fi.Close()
+	if err != nil {
+		return Config{}, err
+	}
+	defer fi.Close()
 
 	gzreader, err := gzip.NewReader(fi)
 	if err != nil {
@@ -206,7 +206,7 @@ func readConfig(path_string string) (Config, error) {
 	}
 	byteValue, err := io.ReadAll(gzreader)
 	if err != nil {
-		log.Fatal(err)		
+		log.Fatal(err)
 	}
 
 	var config Config
@@ -227,7 +227,7 @@ func (config Config) writeConfig() bool {
 	var buf bytes.Buffer
 	zw := gzip.NewWriter(&buf)
 
-	dir_path := input_dir + "/.ror/config"	
+	dir_path := input_dir + "/.ror/config"
 
 	// Setting the Header fields is optional.
 	zw.Name = dir_path
@@ -488,18 +488,20 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 		}
 
 		//twidth = 196.0/2.0
-
-		app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
-			w, h := screen.Size()
-			globalHeight = h
-			globalWidth  = w
-			return false
-		})
-		// this does not work, we need access to the screen to be able to call Size()
-		// _, _, _, theight = viewer.GetInnerRect()
-
+		if app != nil {
+			app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+				w, h := screen.Size()
+				globalHeight = h
+				globalWidth = w
+				return false
+			})
+			// this does not work, we need access to the screen to be able to call Size()
+			// _, _, _, theight = viewer.GetInnerRect()
+		} else {
+			globalWidth = 192 / 2
+		}
 		twidth := globalWidth - 32
-		theight := int(math.Round(float64(globalWidth-32) / (80.0/30.0)))
+		theight := int(math.Round(float64(globalWidth-32) / (80.0 / 30.0)))
 
 		origbounds := img.Bounds()
 		orig_width, orig_height := origbounds.Max.X, origbounds.Max.Y
@@ -511,19 +513,23 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 		// width, height := bounds.Max.X, bounds.Max.Y
 		p := printImage2ASCII(newImage, PhotometricInterpretation, PixelPaddingValue)
 		//fmt.Printf("%s", string(p))
-		viewer.Clear()
-		//app.SetFocus(viewer)
-		footer.Clear()
-		structure.Clear()
-		fmt.Fprintf(viewer, "%s", string(p))
-		// langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
-		//  fmt.Fprintf(footer, langFmt.Sprintf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
-		fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
-		if len(info) > 0 {
-			//fmt.Fprintf(structure, langFmt.Sprintf("\033[2K%s\n%d", info, theight))
-			fmt.Fprintf(structure, langFmt.Sprintf("%s", info))
+		if app != nil {
+			viewer.Clear()
+			//app.SetFocus(viewer)
+			footer.Clear()
+			structure.Clear()
+			fmt.Fprintf(viewer, "%s", string(p))
+			// langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
+			//  fmt.Fprintf(footer, langFmt.Sprintf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+			fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+			if len(info) > 0 {
+				//fmt.Fprintf(structure, langFmt.Sprintf("\033[2K%s\n%d", info, theight))
+				fmt.Fprintf(structure, langFmt.Sprintf("%s", info))
+			}
+			app.Draw()
+		} else {
+			langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
 		}
-		app.Draw()
 	}
 }
 
@@ -868,26 +874,41 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 						numStudies := len(datasets)
 						numSeries := 0
 						numImages := 0
+						var participants map[string]bool = make(map[string]bool, 0)
+						var modalities map[string]bool = make(map[string]bool, 0)
 						for _, v := range datasets {
 							numSeries += len(v)
 							for _, vv := range v {
 								numImages += vv.NumImages
+								modalities[vv.Modality] = true
+								participants[fmt.Sprintf("%s%s", vv.PatientID, vv.PatientName)] = true
 							}
 						}
+						numModalities := len(modalities)
+						numParticipants := len(participants)
 						// this is what we have in here from before, it does not contain the current image...
 						s1 := "y"
-						if numStudies > 1 {
+						if numStudies != 1 {
 							s1 = "ies"
 						}
 						s2 := ""
-						if numImages > 1 {
+						if numImages != 1 {
 							s2 = "s"
 						}
 						s3 := ""
-						if nonDICOM > 1 {
+						if nonDICOM != 1 {
 							s3 = "s"
 						}
-						var dataset_info string = langFmt.Sprintf("%d Stud%s\n%d Series\n%d Image%s, and\n%d Non-DICOM file%s", numStudies, s1, numSeries, numImages, s2, nonDICOM, s3)
+						s4 := "y"
+						if numModalities != 1 {
+							s4 = "ies"
+						}
+						s5 := ""
+						if numParticipants != 1 {
+							s5 = "s"
+						}
+						var dataset_info string = langFmt.Sprintf("%d Participant%s\n%d Stud%s\n%d Series\n%d Image%s\n%d Modalit%s, and\n%d Non-DICOM file%s",
+							numParticipants, s5, numStudies, s1, numSeries, numImages, s2, numModalities, s4, nonDICOM, s3)
 						showDataset(dataset, counter, path, dataset_info)
 					} else {
 						fmt.Printf("%05d files\r", counter)
@@ -1775,8 +1796,7 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	}
 }
 
-
-var app *tview.Application
+var app *tview.Application = nil
 
 func main() {
 
@@ -2052,7 +2072,7 @@ func main() {
 			} else if init_type == "webapp" {
 				data.CallString = "open http://127.0.0.1:8000"
 			}
-			if ! data.writeConfig() {
+			if !data.writeConfig() {
 				exitGracefully(errors.New("could not write config file"))
 			}
 			//file, _ := json.MarshalIndent(data, "", " ")
@@ -2189,16 +2209,16 @@ func main() {
 					footer.SetBorder(true)
 					footer.SetTitle("File")
 					viewer.SetBorder(true).SetTitle("DICOM")
-				
-					flex := tview.NewFlex().SetDirection(tview.FlexRow). 
-						AddItem(tview.NewFlex().SetDirection(tview.FlexColumn). 
+
+					flex := tview.NewFlex().SetDirection(tview.FlexRow).
+						AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
 							AddItem(structure, 30, 1, false).
 							AddItem(viewer, 0, 1, true), 0, 1, false).
 						AddItem(footer, 3, 1, false)
-					
+
 					tviewrun := func() {
 						app = tview.NewApplication()
-						if err :=  app.SetRoot(flex, true).EnableMouse(false).Run(); err != nil {
+						if err := app.SetRoot(flex, true).EnableMouse(false).Run(); err != nil {
 							panic(err)
 						}
 						app.Stop()
@@ -2330,7 +2350,7 @@ func main() {
 				fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
 			}
 			// write out config again
-			if !config.writeConfig()  {
+			if !config.writeConfig() {
 				exitGracefully(errors.New("failed to write config file"))
 			}
 			//file, _ := json.MarshalIndent(config, "", " ")
@@ -2768,17 +2788,17 @@ func main() {
 			timeThen := time.Now()
 			setTime := false
 			if compileDate != "" {
-				layout :=  ".20060102.150405"
+				layout := ".20060102.150405"
 				t, err := time.Parse(layout, compileDate)
 				if err == nil {
-					timeThen = t 
+					timeThen = t
 					setTime = true
 				}
 			}
 
 			fmt.Printf("ror version %s%s", version, compileDate)
 			if setTime {
-				fmt.Printf(" build %.0f days ago\n", math.Round(time.Now().Sub(timeThen).Hours() / 24))
+				fmt.Printf(" build %.0f days ago\n", math.Round(time.Now().Sub(timeThen).Hours()/24))
 			} else {
 				fmt.Println()
 			}
