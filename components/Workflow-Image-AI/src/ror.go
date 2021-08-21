@@ -1865,6 +1865,8 @@ func main() {
 	statusCommand.BoolVar(&status_detailed, "all", false, "Display all information.")
 	var status_help bool
 	statusCommand.BoolVar(&status_help, "help", false, "Show help for status.")
+	var status_tui bool
+	statusCommand.BoolVar(&status_tui, "tui", false, "Show the datasets.")
 
 	var build_help bool
 	buildCommand.BoolVar(&build_help, "help", false, "Show help for build.")
@@ -2373,6 +2375,16 @@ func main() {
 			config, err := readConfig(dir_path)
 			if err != nil {
 				exitGracefully(errors.New(errorConfigFile))
+			}
+
+			if status_tui {
+				// We want to setup a screen where we can see the list of raw data and the list of
+				// matching datasets. We want to be able to see the images in the dataset and we want
+				// to be able to trigger a workflow.
+				var statusTui StatusTUI{
+					dataSets : config.Data.DataInfo,
+				}
+				status_tui.InitTUI()
 			}
 
 			if !status_detailed {
