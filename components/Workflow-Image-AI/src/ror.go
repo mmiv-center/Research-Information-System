@@ -2381,10 +2381,9 @@ func main() {
 				// We want to setup a screen where we can see the list of raw data and the list of
 				// matching datasets. We want to be able to see the images in the dataset and we want
 				// to be able to trigger a workflow.
-				var statusTui StatusTUI{
-					dataSets : config.Data.DataInfo,
-				}
-				status_tui.InitTUI()
+				var statusTui StatusTUI
+				statusTui.dataSets = config.Data.DataInfo
+				statusTui.Init()
 			}
 
 			if !status_detailed {

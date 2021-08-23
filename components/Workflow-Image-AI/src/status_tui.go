@@ -3,15 +3,15 @@ package main
 import "github.com/rivo/tview"
 
 type StatusTUI struct {
-	dataSets map[string]map[string]SeriesInfo 
-	viewer *tview.TextView
-	summary *tview.TextView
+	dataSets  map[string]map[string]SeriesInfo
+	viewer    *tview.TextView
+	summary   *tview.TextView
 	selection *tview.TextView
-	app *tview.Application
-	flex *tview.Flex
+	app       *tview.Application
+	flex      *tview.Flex
 }
 
-func (statusTUI StatusTUI) InitTUI() {
+func (statusTUI StatusTUI) Init() {
 	newPrimitive := func(text string) *tview.TextView {
 		return tview.NewTextView().
 			SetTextAlign(tview.AlignLeft).
