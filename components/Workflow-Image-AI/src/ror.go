@@ -43,7 +43,6 @@ import (
 	"image/color"
 	_ "image/jpeg"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -427,10 +426,10 @@ func Scale(src image.Image, rect image.Rectangle, scale draw.Scaler) image.Image
 }
 
 // showDataset is a helper function to display the dataset
-func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
+func showDataset(dataset dicom.Dataset, counter int, path string, info string, viewer *tview.TextView) (int, int) {
 	pixelDataElement, err := dataset.FindElementByTag(tag.PixelData)
 	if err != nil {
-		return
+		return 0, 0
 	}
 	var PixelRepresentation int = 0
 	PixelRepresentationVal, err := dataset.FindElementByTag(tag.PixelRepresentation)
@@ -488,7 +487,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 		}
 
 		//twidth = 196.0/2.0
-		if app != nil {
+		/*if app != nil {
 			app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
 				w, h := screen.Size()
 				globalHeight = h
@@ -499,9 +498,11 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 			// _, _, _, theight = viewer.GetInnerRect()
 		} else {
 			globalWidth = 192 / 2
-		}
-		twidth := globalWidth - 32
-		theight := int(math.Round(float64(globalWidth-32) / (80.0 / 30.0)))
+		} */
+		_, _, globalWidth, globalHeight = viewer.GetInnerRect()
+
+		twidth := globalWidth
+		theight := int(math.Round(float64(globalWidth) / (80.0 / 30.0)))
 
 		origbounds := img.Bounds()
 		orig_width, orig_height := origbounds.Max.X, origbounds.Max.Y
@@ -513,24 +514,26 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string) {
 		// width, height := bounds.Max.X, bounds.Max.Y
 		p := printImage2ASCII(newImage, PhotometricInterpretation, PixelPaddingValue)
 		//fmt.Printf("%s", string(p))
-		if app != nil {
+		if viewer != nil {
 			viewer.Clear()
 			//app.SetFocus(viewer)
-			footer.Clear()
-			structure.Clear()
+			//footer.Clear()
+			//structure.Clear()
 			fmt.Fprintf(viewer, "%s", string(p))
+			return orig_width, orig_height
 			// langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
 			//  fmt.Fprintf(footer, langFmt.Sprintf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
-			fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
-			if len(info) > 0 {
-				//fmt.Fprintf(structure, langFmt.Sprintf("\033[2K%s\n%d", info, theight))
-				fmt.Fprintf(structure, langFmt.Sprintf("%s", info))
-			}
-			app.Draw()
+			//fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+			//if len(info) > 0 {
+			//	//fmt.Fprintf(structure, langFmt.Sprintf("\033[2K%s\n%d", info, theight))
+			//	fmt.Fprintf(structure, langFmt.Sprintf("%s", info))
+			//}
+			//app.Draw()
 		} else {
 			langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
 		}
 	}
+	return 0, 0
 }
 
 // copyFiles will copy all DICOM files that fit the string to the dest_path directory.
@@ -586,7 +589,17 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 					// we can get a version of the image, scale it and print out on the command line
 					showImage := true
 					if showImage {
-						showDataset(dataset, counter+1, path, "")
+						footer.Clear()
+						structure.Clear()
+						info := ""
+						langFmt := message.NewPrinter(language.English)
+						orig_width, orig_height := showDataset(dataset, counter+1, path, info, viewer)
+						fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+						if len(info) > 0 {
+							//fmt.Fprintf(structure, langFmt.Sprintf("\033[2K%s\n%d", info, theight))
+							fmt.Fprintf(structure, langFmt.Sprintf("%s", info))
+						}
+						app.Draw()
 					}
 
 					//fmt.Printf("%05d files\r", counter)
@@ -909,7 +922,13 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 						}
 						var dataset_info string = langFmt.Sprintf("%d Participant%s\n%d Stud%s\n%d Series\n%d Image%s\n%d Modalit%s, and\n%d Non-DICOM file%s",
 							numParticipants, s5, numStudies, s1, numSeries, numImages, s2, numModalities, s4, nonDICOM, s3)
-						showDataset(dataset, counter, path, dataset_info)
+						footer.Clear()
+						structure.Clear()
+						viewer.Clear()
+						orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, viewer)
+						fmt.Fprintf(structure, langFmt.Sprintf("%s", dataset_info))
+						fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+						app.Draw()
 					} else {
 						fmt.Printf("%05d files\r", counter)
 					}
@@ -2383,6 +2402,13 @@ func main() {
 				// to be able to trigger a workflow.
 				var statusTui StatusTUI
 				statusTui.dataSets = config.Data.DataInfo
+				if config.SeriesFilterType != "select" {
+					exitGracefully(errors.New("we can only work with Select filters"))
+				}
+				InitParser()
+				line := []byte(config.SeriesFilter)
+				yyParse(&exprLex{line: line})
+				statusTui.ast = ast
 				statusTui.Init()
 			}
 
