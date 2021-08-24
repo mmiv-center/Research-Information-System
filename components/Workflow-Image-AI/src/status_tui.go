@@ -146,8 +146,8 @@ func (statusTUI StatusTUI) Init() {
 
 func (statusTUI StatusTUI) Run() {
 	statusTUI.app = tview.NewApplication()
-	statusTUI.app.SetFocus(statusTUI.selection)
-	if err := statusTUI.app.SetRoot(statusTUI.flex, true).EnableMouse(true).Run(); err != nil {
+	if err := statusTUI.app.SetRoot(statusTUI.flex, true).SetFocus(statusTUI.selection).EnableMouse(true).Run(); err != nil {
+		fmt.Println("Error: The --tui mode is only available in a propper terminal.")
 		panic(err)
 	}
 	defer statusTUI.app.Stop()

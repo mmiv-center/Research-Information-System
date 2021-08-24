@@ -346,9 +346,6 @@ func printImage2ASCII(img image.Image, PhotometricInterpretation string, PixelPa
 	// todo: better to use a histogram to scale at 2%...99.9% per image
 	var histogram [1024]int64
 	bins := len(histogram)
-	for i := 0; i < bins; i++ {
-		histogram[i] = 0
-	}
 
 	for i := 0; i < h; i++ {
 		for j := 0; j < w; j++ {
@@ -363,13 +360,16 @@ func printImage2ASCII(img image.Image, PhotometricInterpretation string, PixelPa
 			//}
 			idx := int(math.Round((float64(y) - float64(minVal)) / float64(maxVal-minVal) * float64(bins-1)))
 			idx = int(math.Min(float64(bins)-1, math.Max(0, float64(idx))))
-			histogram[idx] += 1
+			if idx != 0 && idx != bins-1 {
+				histogram[idx] += 1
+			}
 		}
 	}
 	//fmt.Println(histogram)
 	// compute the 2%, 99% borders in the cumulative density
-	sum := histogram[0]
-	for i := 1; i < bins; i++ {
+	// for now we can remove the lowest and highest intensity value found
+	sum := histogram[1]
+	for i := 2; i < bins-1; i++ {
 		sum += histogram[i]
 	}
 	var min2 int64 = minVal
@@ -499,8 +499,12 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 		} else {
 			globalWidth = 192 / 2
 		} */
-		_, _, globalWidth, globalHeight = viewer.GetInnerRect()
-
+		if viewer != nil {
+			_, _, globalWidth, globalHeight = viewer.GetInnerRect()
+		} else {
+			globalWidth = 192 / 2
+			globalHeight = 192 / 2
+		}
 		twidth := globalWidth
 		theight := int(math.Round(float64(globalWidth) / (80.0 / 30.0)))
 
@@ -530,7 +534,9 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 			//}
 			//app.Draw()
 		} else {
+			fmt.Printf("%s", string(p))
 			langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
+			return orig_width, orig_height
 		}
 	}
 	return 0, 0
@@ -776,6 +782,9 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 	for p := range input_path_list {
 		err := filepath.Walk(input_path_list[p], func(path string, info os.FileInfo, err error) error {
 			//fmt.Println(path)
+			if info.IsDir() && (info.Name() == ".DS_Store" || info.Name() == "$RECYCLE.BIN") {
+				return filepath.SkipDir
+			}
 			if info.IsDir() {
 				return nil
 			}
@@ -922,13 +931,18 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 						}
 						var dataset_info string = langFmt.Sprintf("%d Participant%s\n%d Stud%s\n%d Series\n%d Image%s\n%d Modalit%s, and\n%d Non-DICOM file%s",
 							numParticipants, s5, numStudies, s1, numSeries, numImages, s2, numModalities, s4, nonDICOM, s3)
-						footer.Clear()
-						structure.Clear()
-						viewer.Clear()
-						orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, viewer)
-						fmt.Fprintf(structure, langFmt.Sprintf("%s", dataset_info))
-						fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
-						app.Draw()
+						if app != nil {
+							footer.Clear()
+							structure.Clear()
+							viewer.Clear()
+							orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, viewer)
+							fmt.Fprintf(structure, langFmt.Sprintf("%s", dataset_info))
+							fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+							app.Draw()
+						} else {
+							orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, nil)
+							fmt.Printf(langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+						}
 					} else {
 						fmt.Printf("%05d files\r", counter)
 					}
@@ -1214,10 +1228,12 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			// number of series for this study
 			SeriesInstanceUID := v[0]
 			var numSeriesByStudy float64 = 0.0
+		L:
 			for _, vv := range datasets {
 				for siuid := range vv {
 					if SeriesInstanceUID == siuid {
 						numSeriesByStudy = float64(len(vv))
+						break L
 					}
 				}
 			}
@@ -1354,7 +1370,8 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 	var bestRulesetEver AST
 	foundBestRuleset := false
 	bestL2 := math.Inf(1)
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
+		fmt.Printf("\033[A\033[2K%d/100 %.3f\n", i+1, bestL2)
 		// make a copy of the rule
 		jast, _ := json.Marshal(ast)
 		var copyRule AST
@@ -2240,7 +2257,10 @@ func main() {
 					tviewrun := func() {
 						app = tview.NewApplication()
 						if err := app.SetRoot(flex, true).EnableMouse(false).Run(); err != nil {
-							panic(err)
+							fmt.Println("No text user interface provided, fall back to text only")
+							// panic(err)
+							app = nil
+							return
 						}
 						app.Stop()
 					}

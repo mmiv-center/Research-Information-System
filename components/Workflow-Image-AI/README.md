@@ -92,18 +92,27 @@ cd project01
 ror config --data ./data --temp_directory `pwd`
 ```
 
+![Screenshot of configuring data folder](images/configData.png)
+
 Notice: In order to speed up testing you should not have too many DICOM files in the data directory. Specify a subset of the folders in the data directory by using double quotes (prevents the shell from interpreting your path) and the special glob-characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006 up to and including 009 with `--data "./data/00[6-9]*"` (double quotes are important here to prevent the shell from replacing the value prematurely).
 
-Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .ror directory (need to do more work to make this sub-command more useful).
+Use the status command to see the current settings of your project. This call will simply print out the hidden config file in the .ror directory.
 
 ```bash
 ror status
 ```
 
-To simulate what the system does for testing purposes we can trigger the processing of a DICOM series by
+Status can also be used to review the selected image series with a basic text user interface:
 
 ```bash
-ror trigger --keep 
+ror status --tui
+```
+
+
+To simulate what the system does for testing purposes we 'trigger' the processing of a DICOM series by
+
+```bash
+ror trigger --keep
 ```
 
 This call will create a new folder in the temp system folder (change with `ror config --temp_directory <new location>`). Inside that folder ror creates a copy of the selected image series (input/ folder). Using '--keep' option the folder will stay around after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated should be placed in the 'output/' folder. Here is an example folder structure after processing.
@@ -253,6 +262,53 @@ ror config --select "ClassifyType: .*DIFFUSION"
 Analysis workflows might depend on more than an individual image series. If we do a longitudinal analysis all time points for a patient need to be available for analysis (patient level processing). This is also of interest if we require more than one image series, for example a fieldmap and a functional scan, or an anatomical T1 and a FLAIR scan from the same study (study level processing). The above glob-style filter will not work in these cases as it only provides a single matching image series as input to the workflow.
 
 To generate sets of image data that are more complex than single specific image series instead of the glob-like filter a more complex selection language can be used. This language allows us to specify a unit of processing as complex as "a diffusion image series with a closest in time T1-weighted image series", or "all resting state image series with a suitable field map", or "all T1 weighted image series in the study from the first time point by patient, use the best quality scan if there is more than one for a patient". A better way to do this might be to mimic GraphQL where properties of the result objects are described. Goal would be to create a flexible enough type system to map to the above use cases.
+
+You can use ror to suggest a selection. This call might take a long time if you have lots of data as it tries to randomly generate a 'good' selection that will create many series level datasets.
+
+```bash
+ror config --suggest
+100/100 1.999
+Suggested abstract syntax tree for your data [1.999383]
+{
+  "Output_level": "series",
+  "Select_level": "series",
+  "Select_level_by_rule": [
+    "series"
+  ],
+  "Rule_list_names": [
+    "no-name"
+  ],
+  "Rules": [
+    [
+      {
+        "tag": [
+          "Modality"
+        ],
+        "tag2": null,
+        "value": "CR",
+        "operator": "contains",
+        "negate": "",
+        "rule": ""
+      }
+    ]
+  ],
+  "CheckRules": null
+}
+To use this select statement call:
+ror config --select '
+SELECT series
+  FROM study
+    WHERE series NAMED "no-name" HAS
+       Modality containing CR
+'
+
+We will run processing on any single image series that matches.
+We will select cases with a single matching image series.
+
+Given our current test data we can identify 9721 matching datasets.
+```
+
+In the above example the best rule that was found simply selectes all series based on the modality (CR).
 
 For now I end up with what I know, an SQL-like grammar :-/. This is working right now (newlines and formatting are superfluous):
 
