@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rivo/tview"
@@ -21,6 +22,7 @@ type StatusTUI struct {
 	ast       AST
 	selectedDatasets []dicom.Dataset
 	currentImage int
+	selectedSeriesInformation SeriesInfo
 }
 
 func findSeriesInfo(dataSets map[string]map[string]SeriesInfo, SeriesInstanceUID string) (SeriesInfo, error) {
@@ -99,6 +101,8 @@ func (statusTUI *StatusTUI) Init() {
 			fmt.Println("we got an error", err)
 			return
 		}
+		// remember the series information
+		statusTUI.selectedSeriesInformation = series
 		searchPath := series.Path
 		if _, err := os.Stat(searchPath); os.IsNotExist(err) {
 			fmt.Println("warning: this search path could not be found.. we give up here")
@@ -184,8 +188,16 @@ func nextImage(statusTUI *StatusTUI, t time.Time) {
 	if statusTUI.app != nil {
 		statusTUI.app.Draw()
 	}
+	var sAllInfo string
+	for _, a := range statusTUI.selectedSeriesInformation.All {
+		sAllInfo += fmt.Sprintf(" %v\n", a) 
+	}
+
 	statusTUI.summary.Clear()
-	fmt.Fprintf(statusTUI.summary, "image %d/%d", statusTUI.currentImage+1, len(statusTUI.selectedDatasets))
+	fmt.Fprintf(statusTUI.summary, "image %d/%d\n%s\n%s\n\n%s", statusTUI.currentImage+1, len(statusTUI.selectedDatasets),
+		statusTUI.selectedSeriesInformation.SeriesDescription, strings.Join(statusTUI.selectedSeriesInformation.ClassifyTypes, ","),
+		sAllInfo)
+	statusTUI.summary.ScrollToBeginning()
 }
 
 func (statusTUI *StatusTUI) Run() {
