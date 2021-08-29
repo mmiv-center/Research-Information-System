@@ -12,6 +12,8 @@ github.com/lucasb-eyer/go-colorful v1.2.0 h1:1nnpGOrhyZZuNyfu1QjKiUICQ74+3FNCN69
 github.com/lucasb-eyer/go-colorful v1.2.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
 github.com/mattn/go-runewidth v0.0.10 h1:CoZ3S2P7pvtP45xOtBw+/mDL2z0RKI576gSkzRRpdGg=
 github.com/mattn/go-runewidth v0.0.10/go.mod h1:RAqKPSqVFrSLVXbA8x7dzmKdmGzieGRCM46jaSJTDAk=
+github.com/mkmik/argsort v1.1.0 h1:+L/3fsTV3cf+rwWeVCJGH8mn3SI4zmi3e9KW2SbEBPI=
+github.com/mkmik/argsort v1.1.0/go.mod h1:p7hnzFvQ7+BTf9C0IvBxJhd+EakmJntn5NFpzFDw4Do=
 github.com/rivo/tview v0.0.0-20210624165335-29d673af0ce2 h1:I5N0WNMgPSq5NKUFspB4jMJ6n2P0ipz5FlOlB4BXviQ=
 github.com/rivo/tview v0.0.0-20210624165335-29d673af0ce2/go.mod h1:IxQujbYMAh4trWr0Dwa8jfciForjVmxyHpskZX6aydQ=
 github.com/rivo/uniseg v0.1.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=

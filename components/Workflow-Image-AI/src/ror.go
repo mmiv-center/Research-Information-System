@@ -33,6 +33,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/mkmik/argsort"
 	"github.com/suyashkumar/dicom"
 	"github.com/suyashkumar/dicom/pkg/tag"
 
@@ -1676,7 +1677,48 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 		}
 	}
 
-	return selectFromB, names
+	// we should also allow the sorting of the results
+	// maybe easiest for now if we sort by number of image series?
+	// for each patient we would like to sort by date as well
+	order := argsort.SortSlice(selectFromB, func(i, j int) bool {
+		l1 := 0
+		for _, a := range selectFromB[i] {
+			//  ok, a is a series instance uid, I need to get the info from that series
+			L1:
+			for _, b := range dataInfo {
+				for SeriesInstanceUID, c := range b {
+					if SeriesInstanceUID == a {
+						l1 += c.NumImages
+						break L1
+					}
+				}
+			}
+		}
+		l2 := 0
+		for _, a := range selectFromB[j] {
+			L2:
+			for _, b := range dataInfo {
+				for SeriesInstanceUID, c := range b {
+					if SeriesInstanceUID == a {
+						l2 += c.NumImages
+						break L2
+					}
+				}
+			}
+		}
+		return l1 > l2
+	})
+	// fmt.Println("%v", order)
+	// we should apply the order now
+	var outSelect [][]string
+	var outNames [][]string
+	for i := 0; i < len(order); i++ {
+		outSelect = append(outSelect, selectFromB[order[i]])
+		outNames = append(outNames, names[order[i]])
+	}
+
+	//return selectFromB, names
+	return outSelect, outNames
 }
 
 func humanizeFilter(ast AST) string {

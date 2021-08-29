@@ -184,7 +184,8 @@ func nextImage(statusTUI *StatusTUI, t time.Time) {
 	if statusTUI.app != nil {
 		statusTUI.app.Draw()
 	}
-	//fmt.Fprintf(statusTUI.summary, "new image %d", statusTUI.currentImage)
+	statusTUI.summary.Clear()
+	fmt.Fprintf(statusTUI.summary, "image %d/%d", statusTUI.currentImage+1, len(statusTUI.selectedDatasets))
 }
 
 func (statusTUI *StatusTUI) Run() {
