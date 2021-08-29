@@ -1,10 +1,10 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/rivo/tview"
 	"github.com/suyashkumar/dicom"
@@ -19,6 +19,8 @@ type StatusTUI struct {
 	app       *tview.Application
 	flex      *tview.Flex
 	ast       AST
+	selectedDatasets []dicom.Dataset
+	currentImage int
 }
 
 func findSeriesInfo(dataSets map[string]map[string]SeriesInfo, SeriesInstanceUID string) (SeriesInfo, error) {
@@ -30,7 +32,11 @@ func findSeriesInfo(dataSets map[string]map[string]SeriesInfo, SeriesInstanceUID
 	return SeriesInfo{}, fmt.Errorf("SeriesInstanceUID %s not found", SeriesInstanceUID)
 }
 
-func (statusTUI StatusTUI) Init() {
+func addDataset(statusTUI *StatusTUI, dataset dicom.Dataset) {
+	(*statusTUI).selectedDatasets = append((*statusTUI).selectedDatasets, dataset)
+}
+
+func (statusTUI *StatusTUI) Init() {
 	if statusTUI.dataSets == nil || len(statusTUI.dataSets) == 0 {
 		fmt.Println("Warning: there are no datasets to visualize")
 	}
@@ -99,6 +105,8 @@ func (statusTUI StatusTUI) Init() {
 			return
 		}
 		SelectedSeriesInstanceUID := SeriesInstanceUID
+		statusTUI.selectedDatasets = nil
+		statusTUI.currentImage = 0
 		filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
 			if info.IsDir() {
 				return nil
@@ -119,12 +127,19 @@ func (statusTUI StatusTUI) Init() {
 					if err != nil {
 						return nil // ignore files that have no images
 					}
+					addDataset(statusTUI, dataset)
+					//fmt.Printf("add dataset to address: %p\n", statusTUI.selectedDatasets)
+					//statusTUI.selectedDatasets = append(statusTUI.selectedDatasets, dataset)
 
-					showDataset(dataset, 1, path, "", statusTUI.viewer)
+					/* showDataset(dataset, 1, path, "", statusTUI.viewer)
 					if statusTUI.app != nil {
 						statusTUI.app.Draw()
-					}
-					return errors.New("found an image, stop the walk")
+					} */
+					statusTUI.summary.Clear()
+					fmt.Fprintf(statusTUI.summary, "images found: %d\n", len(statusTUI.selectedDatasets))
+					// return errors.New("found an image, stop the walk")
+					// we have at least one image, so we can display the next one now
+
 				}
 			}
 			return nil
@@ -144,7 +159,38 @@ func (statusTUI StatusTUI) Init() {
 	statusTUI.Run()
 }
 
-func (statusTUI StatusTUI) Run() {
+func doEvery(d time.Duration, statusTUI *StatusTUI, f func(*StatusTUI, time.Time)) {
+	for x := range time.Tick(d) {
+		f(statusTUI, x)
+	}
+}
+
+//nextImage displays one image from the currently selected image series in the viewer
+func nextImage(statusTUI *StatusTUI, t time.Time) {
+	//fmt.Printf("do something %p\n", &statusTUI.selectedDatasets)
+	if len(statusTUI.selectedDatasets) == 0 {
+		return 
+	}
+
+	idx := (statusTUI.currentImage + 1) % len(statusTUI.selectedDatasets)
+	if idx >= len(statusTUI.selectedDatasets) {
+		idx = len(statusTUI.selectedDatasets) - 1
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	statusTUI.currentImage = idx
+	showDataset(statusTUI.selectedDatasets[idx], 1, "path", "", statusTUI.viewer)
+	if statusTUI.app != nil {
+		statusTUI.app.Draw()
+	}
+	//fmt.Fprintf(statusTUI.summary, "new image %d", statusTUI.currentImage)
+}
+
+func (statusTUI *StatusTUI) Run() {
+	// start a timer to display an image, should be like very 500msec
+	go doEvery(200*time.Millisecond, statusTUI, nextImage)
+
 	statusTUI.app = tview.NewApplication()
 	if err := statusTUI.app.SetRoot(statusTUI.flex, true).SetFocus(statusTUI.selection).EnableMouse(true).Run(); err != nil {
 		fmt.Println("Error: The --tui mode is only available in a propper terminal.")
