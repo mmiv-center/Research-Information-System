@@ -15,7 +15,7 @@ ror build
 This will ask you to update a Dockerfile and successfully test it using:
 
 ```bash
-ror trigger --keep --cont
+ror trigger --keep --cont workflow_<project name>
 ```
 
 In order to upload your workflow to the research PACS you need a submission token for your research project. Such a token can be obtained from the research PACS interface on:
