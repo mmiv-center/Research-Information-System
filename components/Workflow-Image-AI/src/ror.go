@@ -2301,7 +2301,7 @@ func main() {
 					structure = newPrimitive("")
 					structure.SetBorder(true).SetTitle("Database")
 					viewer = newPrimitive("")
-					footer = newPrimitive("")
+					footer = newPrimitive(fmt.Sprintf("Start looking for files in %s", data_path))
 					footer.SetBorder(true)
 					footer.SetTitle("File")
 					viewer.SetBorder(true).SetTitle("DICOM")
@@ -2542,6 +2542,19 @@ func main() {
 							if element2.PatientName != "" && element2.PatientName != name {
 								name = name + "-" + element2.PatientName
 							}
+							studyDate := ""
+							for _, a := range element2.All {
+								t  := tag.StudyDate
+								if a.Tag == t {
+									studyDate = strings.Join(a.Value, ",")
+									layout := "20060102"
+									t, err := time.Parse(layout, studyDate)
+									if err == nil {
+										studyDate = fmt.Sprintf("%s", t.Format("2006/01/02"))
+									}
+									break
+								}
+							}
 							// TODO: This is not correct, it might happen that the PatientName for
 							// some of the images is empty. Those would not be printed even
 							// if they are in the same study.
@@ -2555,8 +2568,8 @@ func main() {
 							}
 							if counter2 == 1 { // change in study
 								counterStudy = counterStudy + 1
-								fmt.Printf("  Study: %s (%d/%d)\n",
-									key, counterStudy,
+								fmt.Printf("  Study: %s %s (%d/%d)\n",
+									studyDate, key, counterStudy,
 									len(config.Data.DataInfo))
 							}
 							var de string = element2.SeriesDescription
