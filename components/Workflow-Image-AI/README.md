@@ -317,7 +317,7 @@ Given our current test data we can identify 9721 matching datasets.
 
 In the above example the best rule that was found simply selectes all series based on the modality (CR).
 
-For now I end up with what I know, an SQL-like grammar :-/. This is working right now (newlines and formatting are superfluous):
+Here is a more complex example of a select statement. The syntax is similar to SQL, newlines and formatting are superfluous.
 
 ```bash
 ror config --select '
@@ -340,7 +340,7 @@ Select patient
 '
 ```
 
-Limitations: i) The 'not' operator only works on the level of individual rules. ii) There is support for braces '(', ')', but that is not very useful at the moment - maybe for 'not'. iii) There is no 'or' compared to the 'and'. iv) There is a way to specify dependencies between series with 'check' but such dependencies are not yet enforced (such as 'same FrameOfReferenceUID').
+Limitations: i) The 'not' operator only works on the level of individual rules. ii) There is support for braces '(', ')', but that is not very useful at the moment - maybe for 'not'. iii) There is no 'or', there is only 'and'.
 
 
 ### Details on select as a language to specify input datasets
