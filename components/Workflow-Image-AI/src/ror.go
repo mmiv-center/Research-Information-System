@@ -594,19 +594,35 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 					}
 
 					// we can get a version of the image, scale it and print out on the command line
+					// for a trigger call this has to work without the tui interface
 					showImage := true
 					if showImage {
-						footer.Clear()
-						structure.Clear()
+						if app != nil {
+							footer.Clear()
+							structure.Clear()
+						}
 						info := ""
 						langFmt := message.NewPrinter(language.English)
+						if app == nil {
+							viewer = nil
+						}
 						orig_width, orig_height := showDataset(dataset, counter+1, path, info, viewer)
-						fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+						if app != nil {
+							fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+						} else {
+							fmt.Println(langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+						}
 						if len(info) > 0 {
 							//fmt.Fprintf(structure, langFmt.Sprintf("\033[2K%s\n%d", info, theight))
-							fmt.Fprintf(structure, langFmt.Sprintf("%s", info))
+							if app != nil {
+								fmt.Fprintf(structure, langFmt.Sprintf("%s", info))
+							} else {
+								fmt.Printf(langFmt.Sprintf("%s", info))
+							}
 						}
-						app.Draw()
+						if app != nil {
+							app.Draw()
+						}
 					}
 
 					//fmt.Printf("%05d files\r", counter)
