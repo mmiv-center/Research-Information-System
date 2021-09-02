@@ -1792,7 +1792,7 @@ func ast2Select(ast AST) string {
 				opstr = "regexp"
 			}
 			if len(rule.Tag) == 2 {
-				s = fmt.Sprintf("%s%s (%s,%s) %s %s", s, a, rule.Tag[0], rule.Tag[1], opstr, rule.Value)
+				s = fmt.Sprintf("%s%s (%s,%s) %s %v", s, a, rule.Tag[0], rule.Tag[1], opstr, rule.Value)
 			} else {
 				s = fmt.Sprintf("%s%s %s %s %s", s, a, rule.Tag[0], opstr, rule.Value)
 			}
@@ -2440,10 +2440,10 @@ func main() {
 				line := []byte("Select series from series where series has ClassifyType containing CT")
 				yyParse(&exprLex{line: line})
 
-				ast, l := ast.improveAST(config.Data.DataInfo)
+				ast, _ := ast.improveAST(config.Data.DataInfo)
 
-				s, _ := json.MarshalIndent(ast, "", "  ")
-				fmt.Printf("Suggested abstract syntax tree for your data [%f]\n%s\n", l, string(s))
+				//s, l := json.MarshalIndent(ast, "", "  ")
+				//fmt.Printf("Suggested abstract syntax tree for your data [%f]\n%s\n", l, string(s))
 				fmt.Println(humanizeFilter(ast))
 
 				matches, _ := findMatchingSets(ast, config.Data.DataInfo)

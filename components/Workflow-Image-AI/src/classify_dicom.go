@@ -167,12 +167,21 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 			}
 		} else if o == "<" {
 			for _, vv := range dataData {
+				if vv == "" { // no value matches nothing
+					foundValue = false
+					continue
+				}
 				numValue, err := strconv.ParseFloat(vv, 32)
 				if err != nil {
 					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
 					exitGracefully(err)
 				}
-				numValue2, err := strconv.ParseFloat(fmt.Sprintf("%v", v), 32)
+				tmp_str := fmt.Sprintf("%v", v)
+				if tmp_str == "" { // no value matches nothing
+					foundValue = false
+					continue
+				}
+				numValue2, err := strconv.ParseFloat(tmp_str, 32)
 				if err != nil {
 					fmt.Printf("Error: could not convert value to numeric: \"%s\" rule: %v\n", v, val)
 					exitGracefully(err)
@@ -183,12 +192,21 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 			}
 		} else if o == ">" {
 			for _, vv := range dataData {
+				if vv == "" { // no value matches nothing
+					foundValue = false
+					continue
+				}
 				numValue, err := strconv.ParseFloat(vv, 32)
 				if err != nil {
 					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
 					exitGracefully(err)
 				}
-				numValue2, err := strconv.ParseFloat(fmt.Sprintf("%v", v), 32)
+				tmp_str := fmt.Sprintf("%v", v)
+				if tmp_str == "" { // no value matches nothing
+					foundValue = false
+					continue
+				}
+				numValue2, err := strconv.ParseFloat(tmp_str, 32)
 				if err != nil {
 					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", v, val)
 					exitGracefully(err)
