@@ -7,21 +7,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/suyashkumar/dicom"
 	"github.com/suyashkumar/dicom/pkg/tag"
 )
 
 type StatusTUI struct {
-	dataSets  map[string]map[string]SeriesInfo
-	viewer    *tview.TextView
-	summary   *tview.TextView
-	selection *tview.TreeView
-	app       *tview.Application
-	flex      *tview.Flex
-	ast       AST
-	selectedDatasets []dicom.Dataset
-	currentImage int
+	dataSets                  map[string]map[string]SeriesInfo
+	viewer                    *tview.TextView
+	summary                   *tview.TextView
+	selection                 *tview.TreeView
+	app                       *tview.Application
+	flex                      *tview.Flex
+	ast                       AST
+	selectedDatasets          []dicom.Dataset
+	currentImage              int
 	selectedSeriesInformation SeriesInfo
 }
 
@@ -57,6 +58,17 @@ func (statusTUI *StatusTUI) Init() {
 	statusTUI.selection.SetBorder(true)
 	statusTUI.selection.SetTitle("Selections")
 	statusTUI.viewer.SetBorder(true).SetTitle("DICOM")
+
+	path_config := input_dir + "/.ror/config"
+	conf, err := readConfig(path_config)
+	if err == nil {
+		var col tcell.Color
+		// we set a text color only if the value is set (not equal to empty string)
+		if conf.Viewer.TextColor != "" {
+			col = tcell.GetColor(conf.Viewer.TextColor)
+			statusTUI.viewer.SetTextColor(col)
+		}
+	}
 
 	statusTUI.flex = tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
@@ -173,7 +185,7 @@ func doEvery(d time.Duration, statusTUI *StatusTUI, f func(*StatusTUI, time.Time
 func nextImage(statusTUI *StatusTUI, t time.Time) {
 	//fmt.Printf("do something %p\n", &statusTUI.selectedDatasets)
 	if len(statusTUI.selectedDatasets) == 0 {
-		return 
+		return
 	}
 
 	idx := (statusTUI.currentImage + 1) % len(statusTUI.selectedDatasets)
@@ -190,7 +202,7 @@ func nextImage(statusTUI *StatusTUI, t time.Time) {
 	}
 	var sAllInfo string
 	for _, a := range statusTUI.selectedSeriesInformation.All {
-		sAllInfo += fmt.Sprintf(" %v\n", a) 
+		sAllInfo += fmt.Sprintf(" %v\n", a)
 	}
 
 	statusTUI.summary.Clear()

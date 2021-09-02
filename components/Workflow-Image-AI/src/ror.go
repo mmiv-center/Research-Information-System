@@ -137,6 +137,10 @@ type DataInfo struct {
 	DataInfo map[string]map[string]SeriesInfo
 }
 
+type Viewer struct {
+	TextColor string
+}
+
 type Config struct {
 	Date             string
 	Data             DataInfo
@@ -150,6 +154,7 @@ type Config struct {
 	ProjectType      string
 	ProjectToken     string
 	LastDataFolder   string
+	Viewer           Viewer
 }
 
 type TagAndValue struct {
@@ -1700,7 +1705,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 		l1 := 0
 		for _, a := range selectFromB[i] {
 			//  ok, a is a series instance uid, I need to get the info from that series
-			L1:
+		L1:
 			for _, b := range dataInfo {
 				for SeriesInstanceUID, c := range b {
 					if SeriesInstanceUID == a {
@@ -1712,7 +1717,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 		}
 		l2 := 0
 		for _, a := range selectFromB[j] {
-			L2:
+		L2:
 			for _, b := range dataInfo {
 				for SeriesInstanceUID, c := range b {
 					if SeriesInstanceUID == a {
@@ -2544,7 +2549,7 @@ func main() {
 							}
 							studyDate := ""
 							for _, a := range element2.All {
-								t  := tag.StudyDate
+								t := tag.StudyDate
 								if a.Tag == t {
 									studyDate = strings.Join(a.Value, ",")
 									layout := "20060102"
