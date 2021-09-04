@@ -141,6 +141,10 @@ type Viewer struct {
 	TextColor string
 }
 
+type Annotate struct {
+	Ontology interface{}
+}
+
 type Config struct {
 	Date             string
 	Data             DataInfo
@@ -155,6 +159,7 @@ type Config struct {
 	ProjectToken     string
 	LastDataFolder   string
 	Viewer           Viewer
+	Annotate         Annotate
 }
 
 type TagAndValue struct {
@@ -1915,6 +1920,7 @@ func main() {
 	triggerCommand := flag.NewFlagSet("trigger", flag.ContinueOnError)
 	statusCommand := flag.NewFlagSet("status", flag.ContinueOnError)
 	buildCommand := flag.NewFlagSet("build", flag.ContinueOnError)
+	annotateCommand := flag.NewFlagSet("annotate", flag.ContinueOnError)
 
 	initCommand.StringVar(&input_dir, "input_dir", ".", defaultInputDir)
 	var init_help bool
@@ -1994,6 +2000,12 @@ func main() {
 	var show_version bool
 	flag.BoolVar(&show_version, "version", false, "Show the version number.")
 
+	var annotate_help bool
+	annotateCommand.BoolVar(&annotate_help, "help", false, "Show help for annotate.")
+
+	var annotate_ontology string
+	annotateCommand.StringVar(&annotate_ontology, "ontology", "", "Ontology to use for annotation.")
+
 	var user_name string
 	user, err := user.Current()
 	if err != nil {
@@ -2020,6 +2032,8 @@ func main() {
 		triggerCommand.PrintDefaults()
 		fmt.Printf("\nOption build:\n  Create a containerized version of your workflow.\n\n")
 		buildCommand.PrintDefaults()
+		fmt.Printf("\nOption annotate:\n  Add annotations to datasets.\n\n")
+		annotateCommand.PrintDefaults()
 		fmt.Println("")
 	}
 
@@ -2913,6 +2927,56 @@ func main() {
 			)
 			fmt.Println("")
 			fmt.Println("If the above call was sufficient to run your workflow, we can now submit.")
+		}
+	case "annotate":
+		if err := annotateCommand.Parse(os.Args[2:]); err == nil {
+			if annotate_help {
+				annotateCommand.PrintDefaults()
+				return
+			}
+			dir_path := input_dir + "/.ror/config"
+			config, err := readConfig(dir_path)
+			if err != nil {
+				exitGracefully(errors.New(errorConfigFile))
+			}
+			// add the ontology
+			if annotate_ontology != "" {
+				if _, err := os.Stat(annotate_ontology); err != nil && os.IsNotExist(err) {
+					fmt.Printf("file %s does not exist", annotate_ontology)
+				} else {
+					fi, err := os.Open(annotate_ontology)
+					if err != nil {
+						byteValue, err := io.ReadAll(fi)
+						if err != nil {
+							log.Fatal(err)
+						}
+						json.Unmarshal(byteValue, &config.Annotate.Ontology)
+
+						if !config.writeConfig() {
+							exitGracefully(errors.New("failed to write config file"))
+						}
+					}
+					defer fi.Close()
+				}
+			}
+
+			var annotate_tui bool = true
+			if annotate_tui {
+				// We want to setup a screen where we can see the list of raw data and the list of
+				// matching datasets. We want to be able to see the images in the dataset and we want
+				// to be able to trigger a workflow.
+				var annotateTui AnnotateTUI
+				annotateTui.dataSets = config.Data.DataInfo
+				if config.SeriesFilterType != "select" {
+					exitGracefully(errors.New("we can only work with Select filters"))
+				}
+				InitParser()
+				line := []byte(config.SeriesFilter)
+				yyParse(&exprLex{line: line})
+				annotateTui.ast = ast
+				annotateTui.Init()
+			}
+
 		}
 	default:
 		// fall back to parsing without a command
