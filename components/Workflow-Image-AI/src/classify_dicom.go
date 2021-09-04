@@ -190,6 +190,56 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 					foundValue = true
 				}
 			}
+		} else if o == ">=" {
+			for _, vv := range dataData {
+				if vv == "" { // no value matches nothing
+					foundValue = false
+					continue
+				}
+				numValue, err := strconv.ParseFloat(vv, 32)
+				if err != nil {
+					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
+					exitGracefully(err)
+				}
+				tmp_str := fmt.Sprintf("%v", v)
+				if tmp_str == "" { // no value matches nothing
+					foundValue = false
+					continue
+				}
+				numValue2, err := strconv.ParseFloat(tmp_str, 32)
+				if err != nil {
+					fmt.Printf("Error: could not convert value to numeric: \"%s\" rule: %v\n", v, val)
+					exitGracefully(err)
+				}
+				if numValue >= numValue2 {
+					foundValue = true
+				}
+			}
+		} else if o == "<=" {
+			for _, vv := range dataData {
+				if vv == "" { // no value matches nothing
+					foundValue = false
+					continue
+				}
+				numValue, err := strconv.ParseFloat(vv, 32)
+				if err != nil {
+					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
+					exitGracefully(err)
+				}
+				tmp_str := fmt.Sprintf("%v", v)
+				if tmp_str == "" { // no value matches nothing
+					foundValue = false
+					continue
+				}
+				numValue2, err := strconv.ParseFloat(tmp_str, 32)
+				if err != nil {
+					fmt.Printf("Error: could not convert value to numeric: \"%s\" rule: %v\n", v, val)
+					exitGracefully(err)
+				}
+				if numValue <= numValue2 {
+					foundValue = true
+				}
+			}
 		} else if o == ">" {
 			for _, vv := range dataData {
 				if vv == "" { // no value matches nothing
@@ -425,14 +475,28 @@ func applyOperator(r Rule, tagValue string) bool {
 	} else if operator == "<" {
 		var1, err1 := strconv.ParseFloat(tagValue, 32)
 		var2, err2 := strconv.ParseFloat(value_string, 32)
-		if err1 != nil && err2 != nil && var1 >= var2 {
+		if err1 != nil && err2 != nil && var1 < var2 {
+			//fmt.Println("== sign operator false for", tagValue, r.Value)
+			thisCheck = false
+		}
+	} else if operator == "<=" {
+		var1, err1 := strconv.ParseFloat(tagValue, 32)
+		var2, err2 := strconv.ParseFloat(value_string, 32)
+		if err1 != nil && err2 != nil && var1 <= var2 {
 			//fmt.Println("== sign operator false for", tagValue, r.Value)
 			thisCheck = false
 		}
 	} else if operator == ">" {
 		var1, err1 := strconv.ParseFloat(tagValue, 32)
 		var2, err2 := strconv.ParseFloat(value_string, 32)
-		if err1 != nil && err2 != nil && var1 <= var2 {
+		if err1 != nil && err2 != nil && var1 > var2 {
+			//fmt.Println("== sign operator false for", tagValue, r.Value)
+			thisCheck = false
+		}
+	} else if operator == ">=" {
+		var1, err1 := strconv.ParseFloat(tagValue, 32)
+		var2, err2 := strconv.ParseFloat(value_string, 32)
+		if err1 != nil && err2 != nil && var1 >= var2 {
 			//fmt.Println("== sign operator false for", tagValue, r.Value)
 			thisCheck = false
 		}

@@ -49,7 +49,7 @@ var currentCheckTag2 []string       // a pair of named series '.' DICOM name
 
 %token '+' '-' '*' '/' '(' ')' '"' '\''
 %token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND ALSO
-%token CONTAINING SMALLER LARGER REGEXP NOT NAMED PROJECT CHECK AT
+%token CONTAINING SMALLER LARGER REGEXP NOT NAMED PROJECT CHECK AT SMALLEREQUAL LARGEREQUAL
 
 %token	<num>	NUM
 %token  <word>  STRING NOT
@@ -453,19 +453,35 @@ func (x *exprLex) Lex(yylval *yySymType) int {
 		case '÷':
             charpos = charpos + 1
 			return '/'
-        case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z':
+        case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'ø', 'å', 'æ':
             return x.word(c, yylval, rune(0))
-        case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
+        case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'Ø', 'Å', 'Æ':
             return x.word(c, yylval, rune(0))
         case '^', '$', '[', ']', '.':
             return x.word(c, yylval, rune(0))
         case '<':
+            // how about <= ?
+            if x.peek == '=' {
+                _ = x.next()
+                charpos = charpos + 2
+                return SMALLEREQUAL
+            }
+            charpos = charpos + 1
             return SMALLER
         case '>':
+            // how about >= ?
+            if x.peek == '=' {
+                _ = x.next()
+                charpos = charpos + 2
+                return LARGEREQUAL
+            }
+            charpos = charpos + 1
             return LARGER
         case '=':
+            charpos = charpos + 1
             return EQUALS
         case '@':
+            charpos = charpos + 1
             return AT
         case '"':
             // read until the next delimiter (eat up spaces as well)
@@ -502,10 +518,10 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
             }
         }
 		switch c {
-		case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z':
+		case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'ø', 'å', 'æ':
 			add(&b, c)
             charpos = charpos + 1
-        case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
+        case 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'Ø', 'Å', 'Æ':
 			add(&b, c)
             charpos = charpos + 1
         case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '^', '$', '.', '*', '[', ']':
@@ -535,6 +551,8 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
     } else if b.String() == "project" {
         return PROJECT
     } else if b.String() == "patient" {
+        return PATIENT
+    } else if b.String() == "participant" {
         return PATIENT
     } else if b.String() == "study" {
         return STUDY
