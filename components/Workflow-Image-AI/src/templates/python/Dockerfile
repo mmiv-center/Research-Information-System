@@ -30,7 +30,7 @@ COPY . /app
 RUN adduser -u 5678 -m -d /home/appuser/ --disabled-password --gecos "" appuser && chown -R appuser /app
 USER appuser
 
-RUN /usr/local/conda/bin/conda init
+RUN /usr/local/conda/bin/conda init && chown -R appuser /home/appuser
 
 # set this value to the name of your conda environment in requirements.yml
 # provide it to docker build as an environment variable
