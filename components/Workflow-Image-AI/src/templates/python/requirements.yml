@@ -1,0 +1,1 @@
+# To ensure app dependencies are ported from your conda virtual environment, run 'conda env export --name "name" > requirements.yml' in the terminal to overwrite this file
