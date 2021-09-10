@@ -36,8 +36,8 @@ RUN /usr/local/conda/bin/conda init
 # provide it to docker build as an environment variable
 ARG conda_env=placeholder
 
-# This file has to exist in your local directory.
-COPY requirements.yml /tmp/
+# This file comes with ror, if you have your own change the following location.
+COPY .ror/virt/requirements.yml /tmp/
 RUN bash --login -c -i "conda env update -f=/tmp/requirements.yml"
 
 # for conda we need this
