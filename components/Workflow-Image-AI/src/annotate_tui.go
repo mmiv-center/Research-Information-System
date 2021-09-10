@@ -27,6 +27,7 @@ type AnnotateTUI struct {
 	selectedDatasets          []dicom.Dataset
 	currentImage              int
 	selectedSeriesInformation SeriesInfo
+	ontology                  interface{}
 }
 
 /*func findSeriesInfo(dataSets map[string]map[string]SeriesInfo, SeriesInstanceUID string) (SeriesInfo, error) {

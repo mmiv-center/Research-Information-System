@@ -95,7 +95,7 @@ func (statusTUI *StatusTUI) Init() {
 			if firstSeries.NumImages == 1 {
 				s = ""
 			}
-			node2 := tview.NewTreeNode(fmt.Sprintf("%s series %d %s %d image%s", names[idx][idx2], firstSeries.SeriesNumber, entry2, firstSeries.NumImages, s)).
+			node2 := tview.NewTreeNode(fmt.Sprintf("%s series %d [gray]%s[-] %d image%s", names[idx][idx2], firstSeries.SeriesNumber, entry2, firstSeries.NumImages, s)).
 				SetReference(entry2).
 				SetSelectable(true)
 			node.AddChild(node2)

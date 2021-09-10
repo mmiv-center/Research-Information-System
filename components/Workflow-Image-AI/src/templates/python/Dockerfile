@@ -8,8 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Install pip requirements
-COPY .rpp/virt/requirements.txt .
-RUN python -m pip install -r requirements.txt
+#COPY .rpp/virt/requirements.txt .
+#RUN python -m pip install -r requirements.txt
 
 # CONDA ENVIRONMENT
 # Make RUN commands use `bash --login`:

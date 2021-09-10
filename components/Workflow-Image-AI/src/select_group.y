@@ -281,6 +281,7 @@ tag_string:
     }
 |   '(' group_tag_pair ')'
     {
+        fmt.Println("We are in the group tag pair now")
         $$ = $2
     }
 
@@ -302,6 +303,28 @@ group_tag_pair:
         }
         //lastGroupTag = []int{int(group), int(tag)}
         lastGroupTag = []string{$1, $3}
+        $$ = fmt.Sprintf("(%d,%d)", group, tag)
+    }
+|   NUM ',' NUM
+    {
+        // interpret the numbers as strings (todo we want hex immediately)
+        g1 := fmt.Sprintf("%f", $1)
+        g2 := fmt.Sprintf("%f", $3)
+        // get the corresponding group and tag from hexadecimal
+        group_str := strings.Replace(g1,"0x","",-1)
+        group_str = strings.Replace(group_str, "0X","", -1)
+        group, err := strconv.ParseInt(group_str, 16, 64)
+        if err != nil {
+            exitGracefully(err)
+        }
+        tag_str := strings.Replace(g2,"0x","",-1)
+        tag_str = strings.Replace(tag_str, "0X","", -1)
+        tag, err := strconv.ParseInt(tag_str, 16, 64)
+        if err != nil {
+            exitGracefully(err)
+        }
+        //lastGroupTag = []int{int(group), int(tag)}
+        lastGroupTag = []string{g1, g2}
         $$ = fmt.Sprintf("(%d,%d)", group, tag)
     }
 

@@ -75,6 +75,9 @@ var stub_sh string
 //go:embed templates/python/requirements.txt
 var requirements string
 
+//go:embed templates/python/requirements.yml
+var requirements_yml string
+
 //go:embed templates/python/Dockerfile
 var dockerfile string
 
@@ -2258,6 +2261,9 @@ func main() {
 			if data.ProjectType == "python" || data.ProjectType == "notebook" {
 				requirements_path2 := filepath.Join(virt_path, "requirements.txt")
 				createStub(requirements_path2, requirements)
+
+				requirements_path3 := filepath.Join(virt_path, "requirements.yml")
+				createStub(requirements_path3, requirements_yml)
 			}
 			dockerignore_path2 := filepath.Join(virt_path, ".dockerignore")
 			createStub(dockerignore_path2, dockerignore)
@@ -2397,7 +2403,7 @@ func main() {
 				// now parse the input string
 				InitParser()
 				//yyErrorVerbose = true
-				yyDebug = 1
+				yyDebug = 3
 
 				line := []byte(series_filter_no_comments)
 				yyParse(&exprLex{line: line})
@@ -2902,8 +2908,10 @@ func main() {
 			fmt.Printf("\tconda install -c conda-forge pydicom numpy matplotlib\n")
 			fmt.Printf("\nAdjust the list of packages based on your workflow. The above list should be\n")
 			fmt.Printf("sufficient for the default workflow. Now repeat the above steps.\n")
+			fmt.Println("\nA corresponding yml file can be created with:")
+			fmt.Println("\n\tconda env export --name \"name\" >", path.Join(input_dir, ".ror", "virt", "requirements.yml"))
 
-			fmt.Println("\nSimulate a docker based processing workflow using one of the trigger generated folders:")
+			fmt.Println("\n\nSimulate a docker based processing workflow using one of the trigger generated folders:")
 			abs_temp_path, err := filepath.Abs(config.TempDirectory)
 			if err != nil {
 				fmt.Println("error computing the absolution path of the temp_directory")
@@ -2967,6 +2975,7 @@ func main() {
 				// to be able to trigger a workflow.
 				var annotateTui AnnotateTUI
 				annotateTui.dataSets = config.Data.DataInfo
+				annotateTui.ontology = config.Annotate.Ontology
 				if config.SeriesFilterType != "select" {
 					exitGracefully(errors.New("we can only work with Select filters"))
 				}
