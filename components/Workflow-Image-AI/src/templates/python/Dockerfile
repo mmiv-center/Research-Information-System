@@ -33,7 +33,8 @@ USER appuser
 RUN /usr/local/conda/bin/conda init
 
 # set this value to the name of your conda environment in requirements.yml
-ARG conda_env=rpp-EC-segm-SciRep
+# provide it to docker build as an environment variable
+ARG conda_env=placeholder
 
 # This file has to exist in your local directory.
 COPY requirements.yml /tmp/

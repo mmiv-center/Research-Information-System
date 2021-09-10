@@ -2910,6 +2910,8 @@ func main() {
 			fmt.Printf("sufficient for the default workflow. Now repeat the above steps.\n")
 			fmt.Println("\nA corresponding yml file can be created with:")
 			fmt.Println("\n\tconda env export --name \"name\" >", path.Join(input_dir, ".ror", "virt", "requirements.yml"))
+			fmt.Println("\nwhere \"name\" is the name of your docker environment. Create the container now with:")
+			fmt.Println("\n\tdocker build --no-cache --build-arg conda-env=\"name\" -t", fmt.Sprintf("workflow_%s", projectName), "-f", path.Join(input_dir, ".ror", "virt", "Dockerfile"), ".")
 
 			fmt.Println("\n\nSimulate a docker based processing workflow using one of the trigger generated folders:")
 			abs_temp_path, err := filepath.Abs(config.TempDirectory)
