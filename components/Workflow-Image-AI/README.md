@@ -70,11 +70,13 @@ Use the provided Makefile to build ror for all three platforms.
 
 ## Create a first project
 
+Before you start you will need some DICOM data. Best if you have a couple of participants DICOM studies. Using such a collection the ror tool will be able to simulate different data arriving for selection and for processing. You do not need to select image series for processing - this is a feature of the ror tool so it will be part of the following workflow.
+
 ```bash
 ror init project01
 ```
 
-The above call will create a new directory project01. The directory contains a starter package of a certain type and a README.md. Init will also create a hidden .ror/config file that is used by ror to remember your settings and information about your project.
+The above call will create a new directory project01. The directory contains a starter package and a README.md. The 'init' option will also create a hidden .ror/config file that is used by ror to remember your settings and information about your project.
 
 ![Create a new workflow](images/workflowCreateProject.gif)
 
