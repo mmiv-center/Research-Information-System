@@ -66,6 +66,7 @@ This project depends on go, goyacc, and make. Install goyacc with
 ```bash
 go get -u golang.org/x/tools/cmd/goyacc
 ```
+
 Use the provided Makefile to build ror for all three platforms.
 
 ## Create a first project
@@ -110,7 +111,6 @@ Status can also be used to review the selected image series with a basic text us
 ror status --tui
 ```
 
-
 To simulate what the system does for testing purposes we 'trigger' the processing of a DICOM series by
 
 ```bash
@@ -119,7 +119,7 @@ ror trigger --keep
 
 This call will create a new folder in the temp system folder (change with `ror config --temp_directory <new location>`). Inside that folder ror creates a copy of the selected image series (input/ folder). Using '--keep' option the folder will stay around after processing instead of being deleted. Any messages produced by the processing pipeline will end up in a 'log/' folder. Any output generated should be placed in the 'output/' folder. Here is an example folder structure after processing.
 
-```
+```text
 ror_trigger_run_Thursday_269448975
 ├── descr.json
 ├── input
@@ -343,7 +343,6 @@ Select patient
 ```
 
 Limitations: i) The 'not' operator only works on the level of individual rules. ii) There is support for braces '(', ')', but that is not very useful at the moment - maybe for 'not'. iii) There is no 'or', there is only 'and'.
-
 
 ### Details on select as a language to specify input datasets
 

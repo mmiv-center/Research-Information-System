@@ -11,26 +11,25 @@ ENV PYTHONUNBUFFERED=1
 #COPY .rpp/virt/requirements.txt .
 #RUN python -m pip install -r requirements.txt
 
-# CONDA ENVIRONMENT
-# Make RUN commands use `bash --login`:
-SHELL ["/bin/bash", "--login", "-c"]
 
 RUN apt update \
         && apt install -y curl \
         && cd /tmp \
         && curl -O https://repo.anaconda.com/archive/Anaconda3-2020.02-Linux-x86_64.sh \
         && chmod +x /tmp/Anaconda3-2020.02-Linux-x86_64.sh \
-        && /tmp/Anaconda3-2020.02-Linux-x86_64.sh -b -p /usr/local/conda
+        && /tmp/Anaconda3-2020.02-Linux-x86_64.sh -b -p /usr/local/conda \
+        && rm /tmp/Anaconda3-2020.02-Linux-x86_64.sh
 
 WORKDIR /app
 COPY . /app
 
+
 # Creates a non-root user with an explicit UID and adds permission to access the /app folder
 # For more info, please refer to https://aka.ms/vscode-docker-python-configure-containers
-RUN adduser -u 5678 -m -d /home/appuser/ --disabled-password --gecos "" appuser && chown -R appuser /app
+RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app
 USER appuser
 
-RUN /usr/local/conda/bin/conda init && chown -R appuser /home/appuser
+RUN bash --login -c -i "/usr/local/conda/bin/conda init && echo \"unset SUDO_UID SUDO_GID SUDO_USER\" >> /home/appuser/.bashrc"
 
 # set this value to the name of your conda environment in requirements.yml
 # provide it to docker build as an environment variable
@@ -38,7 +37,9 @@ ARG conda_env=placeholder
 
 # This file comes with ror, if you have your own change the following location.
 COPY .ror/virt/requirements.yml /tmp/
-RUN bash --login -c -i "conda env update -f=/tmp/requirements.yml"
+
+#USER appuser
+#RUN bash --login -c -i "conda env update -f=/tmp/requirements.yml"
 
 # for conda we need this
 ENTRYPOINT ["/bin/bash", "--login", "-c", "-i", "conda run -n $conda_env python ./stub.py"]

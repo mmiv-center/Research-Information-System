@@ -47,8 +47,8 @@ var currentCheckTag2 []string       // a pair of named series '.' DICOM name
 %type <word> command, select_stmt, base_select, level_types, rule_list, rule, where_clause, where_clauses, level_types_with_name
 %type <word> check_stmt base_check check_rule_list check_rule tag_string group_tag_pair check_tag1 check_tag2 command_list
 
-%token '+' '-' '*' '/' '(' ')' '"' '\''
-%token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND ALSO
+%token '+' '-' '*' '/' '"' '\''
+%token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND ALSO LBRACKET RBRACKET COMMA
 %token CONTAINING SMALLER LARGER REGEXP NOT NAMED PROJECT CHECK AT SMALLEREQUAL LARGEREQUAL
 
 %token	<num>	NUM
@@ -198,7 +198,7 @@ rule_list:
     }
 
 rule:
-    '(' rule_list ')'
+    LBRACKET rule_list RBRACKET
     {
         $$ = fmt.Sprintf("%s, brackets %s", $$, $2)
     }
@@ -279,14 +279,14 @@ tag_string:
             lastGroupTag = []string{$1} // This could be classifyType, keep the value provided
         }
     }
-|   '(' group_tag_pair ')'
+|   LBRACKET group_tag_pair RBRACKET
     {
         fmt.Println("We are in the group tag pair now")
         $$ = $2
     }
 
 group_tag_pair:
-    STRING ',' STRING
+    STRING COMMA STRING
     {
         // get the corresponding group and tag from hexadecimal
         group_str := strings.Replace($1,"0x","",-1)
@@ -305,7 +305,7 @@ group_tag_pair:
         lastGroupTag = []string{$1, $3}
         $$ = fmt.Sprintf("(%d,%d)", group, tag)
     }
-|   NUM ',' NUM
+|   NUM COMMA NUM
     {
         // interpret the numbers as strings (todo we want hex immediately)
         g1 := fmt.Sprintf("%f", $1)
@@ -385,7 +385,7 @@ check_rule_list:
     }
 
 check_rule:
-    '(' check_rule_list ')'
+    LBRACKET check_rule_list RBRACKET
     {
         $$ = fmt.Sprintf("%s, brackets %s", $$, $2)
     }
@@ -464,7 +464,7 @@ func (x *exprLex) Lex(yylval *yySymType) int {
 			return eof
 		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			return x.num(c, yylval)
-		case '+', '-', '*', '/', '(', ')':
+		case '+', '-', '*', '/':
             charpos = charpos + 1
 			return int(c)
 
@@ -503,6 +503,15 @@ func (x *exprLex) Lex(yylval *yySymType) int {
         case '=':
             charpos = charpos + 1
             return EQUALS
+        case '(':
+            charpos = charpos + 1
+            return LBRACKET
+        case ')':
+            charpos = charpos + 1
+            return RBRACKET
+        case ',':
+            charpos = charpos + 1
+            return COMMA
         case '@':
             charpos = charpos + 1
             return AT

@@ -926,8 +926,8 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 						numStudies := len(datasets)
 						numSeries := 0
 						numImages := 0
-						var participants map[string]bool = make(map[string]bool, 0)
-						var modalities map[string]bool = make(map[string]bool, 0)
+						var participants map[string]bool = make(map[string]bool)
+						var modalities map[string]bool = make(map[string]bool)
 						for _, v := range datasets {
 							numSeries += len(v)
 							for _, vv := range v {
@@ -2575,7 +2575,7 @@ func main() {
 									layout := "20060102"
 									t, err := time.Parse(layout, studyDate)
 									if err == nil {
-										studyDate = fmt.Sprintf("%s", t.Format("2006/01/02"))
+										studyDate = t.Format("2006/01/02")
 									}
 									break
 								}
@@ -3006,7 +3006,7 @@ func main() {
 
 			fmt.Printf("ror version %s%s", version, compileDate)
 			if setTime {
-				fmt.Printf(" build %.0f days ago\n", math.Round(time.Now().Sub(timeThen).Hours()/24))
+				fmt.Printf(" build %.0f days ago\n", math.Round(time.Since(timeThen).Hours()/24))
 			} else {
 				fmt.Println()
 			}
