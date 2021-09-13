@@ -462,7 +462,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 		PixelPaddingValue = dicom.MustGetInts(PixelPaddingValueVal.Value)[0]
 	}
 
-	langFmt := message.NewPrinter(language.English)
+	//langFmt := message.NewPrinter(language.English)
 
 	pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
 	for _, fr := range pixelDataInfo.Frames {
@@ -549,7 +549,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 			//app.Draw()
 		} else {
 			fmt.Printf("%s", string(p))
-			langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
+			//langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
 			return orig_width, orig_height
 		}
 	}
@@ -2072,7 +2072,7 @@ func main() {
 	}
 
 	switch os.Args[1] {
-	case "init":
+	case "init", "create":
 		if len(os.Args[2:]) == 0 {
 			initCommand.PrintDefaults()
 			return
@@ -3011,6 +3011,9 @@ func main() {
 				fmt.Println()
 			}
 			os.Exit(0)
+		} else {
+			flag.Usage()
+			os.Exit(-1)
 		}
 	}
 }
