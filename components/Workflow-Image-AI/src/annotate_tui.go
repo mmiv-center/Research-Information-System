@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -165,8 +164,8 @@ func (annotateTUI *AnnotateTUI) Init() {
 					if statusTUI.app != nil {
 						statusTUI.app.Draw()
 					} */
-					annotateTUI.summary.Clear()
-					fmt.Fprintf(annotateTUI.summary, "images found: %d\n", len(annotateTUI.selectedDatasets))
+					/* annotateTUI.summary.Clear()
+					fmt.Fprintf(annotateTUI.summary, "images found: %d\n", len(annotateTUI.selectedDatasets)) */
 					// return errors.New("found an image, stop the walk")
 					// we have at least one image, so we can display the next one now
 
@@ -186,7 +185,34 @@ func (annotateTUI *AnnotateTUI) Init() {
 		}
 	})
 
+	if annotateTUI.ontology != nil {
+		annotations := getAnnotations(annotateTUI, annotateTUI.ontology)
+		printAnnotations(annotations, annotateTUI.summary)
+	}
+
 	annotateTUI.Run()
+}
+
+func printAnnotations(annotations []string, viewer *tview.TextView) {
+	var an map[string]string = make(map[string]string)
+	var counter int = 0
+	for _, annotation := range annotations {
+		counter = counter + 1
+		an[fmt.Sprintf("%d", counter)] = annotation
+	}
+	fmt.Fprintf(viewer, "Ontology\n")
+	for key, value := range an {
+		fmt.Fprintf(viewer, "%s: %s\n", key, value)
+	}
+}
+
+func getAnnotations(annotateTUI *AnnotateTUI, ontology interface{}) []string {
+	var annotations []string
+	for key, entry := range ontology.(map[string]interface{}) {
+		fmt.Fprintf(annotateTUI.example1, "found a key %s and value %s\n", key, entry)
+		annotations = append(annotations, key)
+	}
+	return annotations
 }
 
 func doEveryAnnotate(d time.Duration, annotateTUI *AnnotateTUI, f func(*AnnotateTUI, time.Time)) {
@@ -219,11 +245,11 @@ func nextImageAnnotate(annotateTUI *AnnotateTUI, t time.Time) {
 		sAllInfo += fmt.Sprintf(" %v\n", a)
 	}
 
-	annotateTUI.summary.Clear()
+	/*annotateTUI.summary.Clear()
 	fmt.Fprintf(annotateTUI.summary, "image %d/%d\n%s\n%s\n\n%s", annotateTUI.currentImage+1, len(annotateTUI.selectedDatasets),
 		annotateTUI.selectedSeriesInformation.SeriesDescription, strings.Join(annotateTUI.selectedSeriesInformation.ClassifyTypes, ","),
 		sAllInfo)
-	annotateTUI.summary.ScrollToBeginning()
+	annotateTUI.summary.ScrollToBeginning() */
 }
 
 func (annotateTUI *AnnotateTUI) Run() {

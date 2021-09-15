@@ -1127,6 +1127,11 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 			} else {
 				nonDICOM = nonDICOM + 1
 				//fmt.Println("NONDICOM FILE: ", path, err, dataset)
+				if app != nil {
+					footer.Clear()
+					fmt.Fprintf(footer, langFmt.Sprintf("[%d] non-DICOM file %s\n", nonDICOM, path))
+					app.Draw()
+				}
 			}
 			return nil
 		})
@@ -1178,6 +1183,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 	tmpTargetValues["Manufacturer"] = make(map[string]bool)
 	tmpTargetValues["NumImages"] = make(map[string]bool)
 	tmpTargetValues["SeriesNumber"] = make(map[string]bool)
+	tmpTargetValues["ManufacturerModelName"] = make(map[string]bool)
 	for _, v := range datasets {
 		for _, v2 := range v {
 			tmpTargetValues["SeriesDescription"][v2.SeriesDescription] = true
@@ -1187,6 +1193,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			tmpTargetValues["Manufacturer"][v2.Manufacturer] = true
 			tmpTargetValues["NumImages"][fmt.Sprintf("%d", v2.NumImages)] = true
 			tmpTargetValues["SeriesNumber"][fmt.Sprintf("%d", v2.SeriesNumber)] = true
+			tmpTargetValues["ManufacturerModelName"][v2.ManufacturerModelName] = true
 		}
 	}
 	targetValues := make(map[string][]string)
@@ -1197,6 +1204,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 	targetValues["Manufacturer"] = []string{}
 	targetValues["NumImages"] = []string{}
 	targetValues["SeriesNumber"] = []string{}
+	targetValues["ManufacturerModelName"] = []string{}
 	targetType := func(s string) string {
 		if s == "NumImages" || s == "SeriesNumber" {
 			return "numeric"
@@ -1228,6 +1236,9 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			}
 			if k == "SeriesNumber" {
 				targetValues["SeriesNumber"] = append(targetValues["SeriesNumber"], k2)
+			}
+			if k == "ManufacturerModelName" {
+				targetValues["ManufacturerModelName"] = append(targetValues["ManufacturerModelName"], k2)
 			}
 		}
 	}
@@ -1802,7 +1813,7 @@ func ast2Select(ast AST) string {
 			if len(rule.Tag) == 2 {
 				s = fmt.Sprintf("%s%s (%s,%s) %s %v", s, a, rule.Tag[0], rule.Tag[1], opstr, rule.Value)
 			} else {
-				s = fmt.Sprintf("%s%s %s %s %s", s, a, rule.Tag[0], opstr, rule.Value)
+				s = fmt.Sprintf("%s%s %s %s %v", s, a, rule.Tag[0], opstr, rule.Value)
 			}
 		}
 		if idx2 > 0 {
@@ -2170,6 +2181,8 @@ func main() {
 			if err := os.Mkdir(dir_path, 0700); os.IsExist(err) {
 				exitGracefully(errors.New("directory already exists"))
 			}
+			var annotate Annotate
+			annotate.Ontology = nil // by default we don't have an ontology available
 			data := Config{
 				Date: time.Now().String(),
 				Author: AuthorInfo{
@@ -2184,6 +2197,7 @@ func main() {
 				ProjectName:      path.Base(input_dir),
 				ProjectToken:     project_token,
 				LastDataFolder:   "",
+				Annotate:         annotate,
 			}
 			if init_type == "bash" {
 				data.CallString = "./stub.sh"
@@ -2403,7 +2417,7 @@ func main() {
 				// now parse the input string
 				InitParser()
 				//yyErrorVerbose = true
-				yyDebug = 3
+				yyDebug = 1
 
 				line := []byte(series_filter_no_comments)
 				yyParse(&exprLex{line: line})
@@ -2955,7 +2969,7 @@ func main() {
 					fmt.Printf("file %s does not exist", annotate_ontology)
 				} else {
 					fi, err := os.Open(annotate_ontology)
-					if err != nil {
+					if err == nil {
 						byteValue, err := io.ReadAll(fi)
 						if err != nil {
 							log.Fatal(err)
@@ -2979,7 +2993,7 @@ func main() {
 				annotateTui.dataSets = config.Data.DataInfo
 				annotateTui.ontology = config.Annotate.Ontology
 				if config.SeriesFilterType != "select" {
-					exitGracefully(errors.New("we can only work with Select filters"))
+					exitGracefully(errors.New("Need a Select filter, use 'ror config --suggest' to create one."))
 				}
 				InitParser()
 				line := []byte(config.SeriesFilter)

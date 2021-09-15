@@ -281,7 +281,7 @@ tag_string:
     }
 |   LBRACKET group_tag_pair RBRACKET
     {
-        fmt.Println("We are in the group tag pair now")
+        //fmt.Println("We are in the group tag pair now")
         $$ = $2
     }
 
@@ -303,13 +303,13 @@ group_tag_pair:
         }
         //lastGroupTag = []int{int(group), int(tag)}
         lastGroupTag = []string{$1, $3}
-        $$ = fmt.Sprintf("(%d,%d)", group, tag)
+        $$ = fmt.Sprintf("(%x,%x)", group, tag)
     }
-|   NUM COMMA NUM
+/*|   NUM COMMA NUM
     {
         // interpret the numbers as strings (todo we want hex immediately)
-        g1 := fmt.Sprintf("%f", $1)
-        g2 := fmt.Sprintf("%f", $3)
+        g1 := fmt.Sprintf("%d", $1)
+        g2 := fmt.Sprintf("%d", $3)
         // get the corresponding group and tag from hexadecimal
         group_str := strings.Replace(g1,"0x","",-1)
         group_str = strings.Replace(group_str, "0X","", -1)
@@ -326,7 +326,7 @@ group_tag_pair:
         //lastGroupTag = []int{int(group), int(tag)}
         lastGroupTag = []string{g1, g2}
         $$ = fmt.Sprintf("(%d,%d)", group, tag)
-    }
+    } */
 
 level_types:
     /*empty*/ 
@@ -463,6 +463,11 @@ func (x *exprLex) Lex(yylval *yySymType) int {
 		case eof:
 			return eof
 		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+            // read in hexadecimal as well
+            if c == '0' && (x.peek == 'x' || x.peek == 'X') {
+                // read as hexadecimal
+                return x.hex(c, yylval)
+            }
 			return x.num(c, yylval)
 		case '+', '-', '*', '/':
             charpos = charpos + 1
@@ -655,6 +660,48 @@ func (x *exprLex) num(c rune, yylval *yySymType) int {
 	}*/
 	return NUM
 }
+
+// Lex a hex-number.
+func (x *exprLex) hex(c rune, yylval *yySymType) int {
+	add := func(b *bytes.Buffer, c rune) {
+		if _, err := b.WriteRune(c); err != nil {
+			log.Fatalf("WriteRune: %s", err)
+		}
+	}
+	var b bytes.Buffer
+    add(&b, c)
+ 	L: for {
+		c = x.next()
+		switch c {
+        case 'A':
+            add(&b, 'a')
+            charpos = charpos + 1
+        case 'B':
+            add(&b, 'b')
+            charpos = charpos + 1
+        case 'C':
+            add(&b, 'c')
+            charpos = charpos + 1
+        case 'E':
+            add(&b, 'e')
+            charpos = charpos + 1
+        case 'F':
+            add(&b, 'f')
+            charpos = charpos + 1
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f':
+			add(&b, c)
+            charpos = charpos + 1
+		default:
+			break L
+		}
+	}
+	if c != eof {
+		x.peek = c
+	}
+    yylval.word = b.String()
+    return STRING
+}
+
 
 // Return the next rune for the lexer.
 func (x *exprLex) next() rune {

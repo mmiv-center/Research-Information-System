@@ -117,7 +117,11 @@ func (statusTUI *StatusTUI) Init() {
 		statusTUI.selectedSeriesInformation = series
 		searchPath := series.Path
 		if _, err := os.Stat(searchPath); os.IsNotExist(err) {
-			fmt.Println("warning: this search path could not be found.. we give up here")
+			if statusTUI.app != nil {
+				fmt.Fprintf(statusTUI.viewer, "The path %s could not be found. Maybe a drive was disconnected?\n", searchPath)
+			} else {
+				fmt.Println("warning: search path could not be found. Maybe a drive was disconnected?")
+			}
 			return
 		}
 		SelectedSeriesInstanceUID := SeriesInstanceUID
