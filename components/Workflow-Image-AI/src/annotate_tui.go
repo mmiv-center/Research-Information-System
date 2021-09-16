@@ -185,12 +185,13 @@ func (annotateTUI *AnnotateTUI) Init() {
 		}
 	})
 
+	var annotations []string
 	if annotateTUI.ontology != nil {
-		annotations := getAnnotations(annotateTUI, annotateTUI.ontology)
+		annotations = getAnnotations(annotateTUI, annotateTUI.ontology)
 		printAnnotations(annotations, annotateTUI.summary)
 	}
 
-	annotateTUI.Run()
+	annotateTUI.Run(annotations)
 }
 
 func printAnnotations(annotations []string, viewer *tview.TextView) {
@@ -252,11 +253,29 @@ func nextImageAnnotate(annotateTUI *AnnotateTUI, t time.Time) {
 	annotateTUI.summary.ScrollToBeginning() */
 }
 
-func (annotateTUI *AnnotateTUI) Run() {
+func (annotateTUI *AnnotateTUI) Run(annotations []string) {
 	// start a timer to display an image, should be like very 500msec
 	go doEveryAnnotate(200*time.Millisecond, annotateTUI, nextImageAnnotate)
 
 	annotateTUI.app = tview.NewApplication()
+
+	// add a handler for the keyboard events to assign
+	annotateTUI.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		k := event.Key()
+		ch := rune(0)
+		if k == tcell.KeyRune {
+			ch = event.Rune()
+			for k, a := range annotations {
+				if ch == rune(fmt.Sprintf("%d", k)[0]) {
+					// we received this button click
+					fmt.Fprintf(annotateTUI.summary, "clicked on %s\n", a)
+					return nil
+				}
+			}
+		}
+		return event
+	})
+
 	if err := annotateTUI.app.SetRoot(annotateTUI.flex, true).SetFocus(annotateTUI.selection).EnableMouse(true).Run(); err != nil {
 		fmt.Println("Error: The --tui mode is only available in a propper terminal.")
 		panic(err)
