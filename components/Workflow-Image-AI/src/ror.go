@@ -302,6 +302,8 @@ var ASCIISTR = "MND8OZ$7I?+=~:,.."
 // from http://paulbourke.net/dataformats/asciiart/
 var ASCIISTR2 = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'."
 var ASCIISTR3 = " .:-=+*#%@"
+var ASCIISTR4 []rune = []rune{'\u2580', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'}
+var ASCIISTR5 []rune = []rune{'\u25CC', '\u25CB', '\u25CE', '\u25CD', '\u25CF'}
 
 // reverse reverses the argument and returns the result
 func reverse(s string) string {
@@ -314,15 +316,146 @@ func reverse(s string) string {
 	return string(o)
 }
 
+func reverseRunes(s []rune) []rune {
+	o := make([]rune, len(s))
+	i := len(o)
+	for _, c := range s {
+		i--
+		o[i] = c
+	}
+	return o
+}
+
 // complement2 computes the 2-complement of a number
 func complement2(x uint16) int16 {
 	return int16(^x) + 1
 }
 
 // printImage2ASCII prints the image as ASCII art
+func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPaddingValue int) string {
+	//table := []byte(reverse(ASCIISTR))
+	//table := []byte(reverse(ASCIISTR2))
+	table := reverseRunes(ASCIISTR5)
+	if PhotometricInterpretation == "MONOCHROME1" { // only valid if samples per pixel is 1
+		table = []rune(ASCIISTR5)
+	}
+	//table := []byte(ASCIISTR3)
+	buf := new(bytes.Buffer)
+	w := img.Bounds().Max.X
+	h := img.Bounds().Max.Y
+
+	firstSet := false
+	var minVal int64
+	var maxVal int64
+	for i := 0; i < h; i++ {
+		for j := 0; j < w; j++ {
+			// this might be wrong if we have 8bit data - we interpret them as 16bit here which shifts them up
+			g := color.Gray16Model.Convert(img.At(j, i))
+			//g := img.At(j, i)
+			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			if PixelPaddingValue != 32768 && y == int64(PixelPaddingValue) {
+				continue
+			}
+			if !firstSet {
+				maxVal = y
+				minVal = maxVal
+				firstSet = true
+			}
+			if y > maxVal {
+				maxVal = y
+				//fmt.Println(y, g)
+			}
+			if y < minVal {
+				minVal = y
+			}
+		}
+	}
+	// todo: better to use a histogram to scale at 2%...99.9% per image
+	var histogram [1024]int64
+	bins := len(histogram)
+
+	for i := 0; i < h; i++ {
+		for j := 0; j < w; j++ {
+			g := color.Gray16Model.Convert(img.At(j, i))
+			//g := img.At(j, i)
+			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			if PixelPaddingValue != 32768 && y == int64(PixelPaddingValue) {
+				continue
+			}
+			//if math.IsInf(float64(y), 0) || math.IsNaN(float64(y)) {
+			//	continue
+			//}
+			idx := int(math.Round((float64(y) - float64(minVal)) / float64(maxVal-minVal) * float64(bins-1)))
+			idx = int(math.Min(float64(bins)-1, math.Max(0, float64(idx))))
+			if idx != 0 && idx != bins-1 {
+				histogram[idx] += 1
+			}
+		}
+	}
+	//fmt.Println(histogram)
+	// compute the 2%, 99% borders in the cumulative density
+	// for now we can remove the lowest and highest intensity value found
+	sum := histogram[1]
+	for i := 2; i < bins-1; i++ {
+		sum += histogram[i]
+	}
+	var min2 int64 = minVal
+	s := histogram[0]
+	for i := 1; i < bins; i++ {
+		if float32(s) >= (float32(sum) * 10.0 / 100.0) { // sum / 100 = ? / 2
+			min2 = minVal + int64(float32(i)/float32(bins)*float32(maxVal-minVal))
+			break
+		}
+		s += histogram[i]
+	}
+	var max99 int64 = maxVal
+	s = histogram[0]
+	for i := 1; i < bins; i++ {
+		if float32(s) >= (float32(sum) * 95.0 / 100.0) { // sum / 100 = ? / 2
+			max99 = minVal + int64(float32(i)/float32(bins)*float32(maxVal-minVal))
+			break
+		}
+		s += histogram[i]
+	}
+	// fmt.Println("min2:", min2, "max99:", max99, "true min:", minVal, "true max:", maxVal)
+
+	// some pixel are very dark and we need more contast
+	//fmt.Println("max ", maxVal, "min", minVal)
+	// denom := maxVal - minVal
+	denom := max99 - min2
+	if denom == 0 {
+		denom = 1
+	}
+	for i := 0; i < h; i++ {
+		for j := 0; j < w; j++ {
+			g := color.Gray16Model.Convert(img.At(j, i))
+			//g := img.At(j, i)
+			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			if PixelPaddingValue != 32768 && y == int64(PixelPaddingValue) {
+				_, err := buf.WriteRune(' ')
+				if err != nil {
+					fmt.Println("Error: writing space")
+				}
+				continue
+			}
+			//fmt.Println("got a number: ", img.At(j, i))
+			pos := int((float32(y) - float32(min2)) * float32(len(table)-1) / float32(denom))
+			pos = int(math.Min(float64(len(table)-1), math.Max(0, float64(pos))))
+			_, err := buf.WriteRune(table[pos])
+			if err != nil {
+				fmt.Println("Error: writing rune")
+			}
+		}
+		_ = buf.WriteByte('\n')
+	}
+	return buf.String()
+}
+
+// printImage2ASCII prints the image as ASCII art
 func printImage2ASCII(img image.Image, PhotometricInterpretation string, PixelPaddingValue int) []byte {
 	//table := []byte(reverse(ASCIISTR))
 	table := []byte(reverse(ASCIISTR2))
+	//table := ASCIISTR4
 	if PhotometricInterpretation == "MONOCHROME1" { // only valid if samples per pixel is 1
 		table = []byte(ASCIISTR2)
 	}
@@ -530,7 +663,9 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 
 		//bounds := newImage.Bounds()
 		// width, height := bounds.Max.X, bounds.Max.Y
-		p := printImage2ASCII(newImage, PhotometricInterpretation, PixelPaddingValue)
+		//p := printImage2ASCII(newImage, PhotometricInterpretation, PixelPaddingValue)
+		p := printImage2Runes(newImage, PhotometricInterpretation, PixelPaddingValue)
+
 		//fmt.Printf("%s", string(p))
 		if viewer != nil {
 			viewer.Clear()

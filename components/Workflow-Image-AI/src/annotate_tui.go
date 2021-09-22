@@ -27,6 +27,7 @@ type AnnotateTUI struct {
 	currentImage              int
 	selectedSeriesInformation SeriesInfo
 	ontology                  interface{}
+	annotations               map[string][]string
 }
 
 /*func findSeriesInfo(dataSets map[string]map[string]SeriesInfo, SeriesInstanceUID string) (SeriesInfo, error) {
@@ -253,6 +254,10 @@ func nextImageAnnotate(annotateTUI *AnnotateTUI, t time.Time) {
 	annotateTUI.summary.ScrollToBeginning() */
 }
 
+func (annotateTUI *AnnotateTUI) markImage(data string, a string) {
+
+}
+
 func (annotateTUI *AnnotateTUI) Run(annotations []string) {
 	// start a timer to display an image, should be like very 500msec
 	go doEveryAnnotate(200*time.Millisecond, annotateTUI, nextImageAnnotate)
@@ -269,6 +274,7 @@ func (annotateTUI *AnnotateTUI) Run(annotations []string) {
 				if ch == rune(fmt.Sprintf("%d", k)[0]) {
 					// we received this button click
 					fmt.Fprintf(annotateTUI.summary, "clicked on %s\n", a)
+					annotateTUI.markImage("SeriesInstanceUID", a)
 					return nil
 				}
 			}
