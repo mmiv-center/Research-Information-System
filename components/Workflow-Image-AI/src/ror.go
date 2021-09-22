@@ -305,6 +305,8 @@ var ASCIISTR3 = " .:-=+*#%@"
 var ASCIISTR4 []rune = []rune{'\u2580', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'}
 var ASCIISTR5 []rune = []rune{'\u25CC', '\u25CB', '\u25CE', '\u25CD', '\u25CF'}
 
+// escape sequences for shading https://github.com/posva/catimg/blob/master/src/catimg.c
+
 // reverse reverses the argument and returns the result
 func reverse(s string) string {
 	o := make([]rune, utf8.RuneCountInString(s))
