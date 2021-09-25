@@ -334,13 +334,153 @@ func complement2(x uint16) int16 {
 }
 
 // printImage2ASCII prints the image as ASCII art
+func printImage2SingleRune(img image.Image, PhotometricInterpretation string, PixelPaddingValue int) string {
+	//if PhotometricInterpretation == "MONOCHROME1" { // only valid if samples per pixel is 1
+	//	table = []rune(ASCIISTR5)
+	//}
+	//table := []byte(ASCIISTR3)
+	buf := new(bytes.Buffer)
+	w := img.Bounds().Max.X
+	h := img.Bounds().Max.Y
+
+	firstSet := false
+	var minVal int64
+	var maxVal int64
+	for i := 0; i < h; i++ {
+		for j := 0; j < w; j++ {
+			// this might be wrong if we have 8bit data - we interpret them as 16bit here which shifts them up
+			g := color.Gray16Model.Convert(img.At(j, i))
+			//g := img.At(j, i)
+			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			if PixelPaddingValue != 32768 && y == int64(PixelPaddingValue) {
+				continue
+			}
+			if !firstSet {
+				maxVal = y
+				minVal = maxVal
+				firstSet = true
+			}
+			if y > maxVal {
+				maxVal = y
+				//fmt.Println(y, g)
+			}
+			if y < minVal {
+				minVal = y
+			}
+		}
+	}
+	// todo: better to use a histogram to scale at 2%...99.9% per image
+	var histogram [1024]int64
+	bins := len(histogram)
+
+	for i := 0; i < h; i++ {
+		for j := 0; j < w; j++ {
+			g := color.Gray16Model.Convert(img.At(j, i))
+			//g := img.At(j, i)
+			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			if PixelPaddingValue != 32768 && y == int64(PixelPaddingValue) {
+				continue
+			}
+			//if math.IsInf(float64(y), 0) || math.IsNaN(float64(y)) {
+			//	continue
+			//}
+			idx := int(math.Round((float64(y) - float64(minVal)) / float64(maxVal-minVal) * float64(bins-1)))
+			idx = int(math.Min(float64(bins)-1, math.Max(0, float64(idx))))
+			if idx != 0 && idx != bins-1 {
+				histogram[idx] += 1
+			}
+		}
+	}
+	//fmt.Println(histogram)
+	// compute the 2%, 99% borders in the cumulative density
+	// for now we can remove the lowest and highest intensity value found
+	sum := histogram[1]
+	for i := 2; i < bins-1; i++ {
+		sum += histogram[i]
+	}
+	var min2 int64 = minVal
+	s := histogram[0]
+	for i := 1; i < bins; i++ {
+		if float32(s) >= (float32(sum) * 10.0 / 100.0) { // sum / 100 = ? / 2
+			min2 = minVal + int64(float32(i)/float32(bins)*float32(maxVal-minVal))
+			break
+		}
+		s += histogram[i]
+	}
+	var max99 int64 = maxVal
+	s = histogram[0]
+	for i := 1; i < bins; i++ {
+		if float32(s) >= (float32(sum) * 95.0 / 100.0) { // sum / 100 = ? / 2
+			max99 = minVal + int64(float32(i)/float32(bins)*float32(maxVal-minVal))
+			break
+		}
+		s += histogram[i]
+	}
+	// fmt.Println("min2:", min2, "max99:", max99, "true min:", minVal, "true max:", maxVal)
+
+	// some pixel are very dark and we need more contast
+	//fmt.Println("max ", maxVal, "min", minVal)
+	// denom := maxVal - minVal
+	denom := max99 - min2
+	if denom == 0 {
+		denom = 1
+	}
+
+	// this works \033[0;0f
+	_, err := buf.WriteString("\033[0;0f") // \033[?25L") // scroll up and
+	if err != nil {
+		fmt.Println("Error")
+	}
+	for i := 0; i < h; i++ {
+		for j := 0; j < w; j++ {
+			g := color.Gray16Model.Convert(img.At(j, i))
+			//g := img.At(j, i)
+			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			if PixelPaddingValue != 32768 && y == int64(PixelPaddingValue) {
+				_, err := buf.WriteString("\033[m ")
+				if err != nil {
+					fmt.Println("Error")
+				}
+				continue
+			}
+			//fmt.Println("got a number: ", img.At(j, i))
+			numGrayLevels := 16
+			pos := int((float32(y) - float32(min2)) * float32(numGrayLevels-1) / float32(denom))
+			pos = int(math.Min(float64(numGrayLevels-1), math.Max(0, float64(pos))))
+			//pos2 := pixelToInt(pos, pos, pos, 1)
+
+			// _, err := buf.WriteString(fmt.Sprintf("\033[48;5;%dm  ", pos2))
+			_, err := buf.WriteString(fmt.Sprintf("[#%02x%02x%02x]A[-]", pos, pos, pos))
+			if err != nil {
+				fmt.Println("Error")
+			}
+		}
+		_, err := buf.WriteString("\033[m\n")
+		if err != nil {
+			fmt.Println("Error")
+		}
+	}
+	return buf.String()
+}
+
+func pixelToInt(r int, g int, b int, a int) int {
+	if a == 0 {
+		return 0xffff
+	} else if r == g && g == b {
+		return 232 + (r*23)/255
+	} else {
+		return (16 + ((r*5)/255)*36 + ((g*5)/255)*6 + (b*5)/255)
+	}
+}
+
+// printImage2ASCII prints the image as ASCII art
 func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPaddingValue int) string {
 	//table := []byte(reverse(ASCIISTR))
 	//table := []byte(reverse(ASCIISTR2))
-	table := reverseRunes(ASCIISTR5)
-	if PhotometricInterpretation == "MONOCHROME1" { // only valid if samples per pixel is 1
-		table = []rune(ASCIISTR5)
-	}
+	//table := reverseRunes(ASCIISTR5)
+	//if PhotometricInterpretation == "MONOCHROME1" { // only valid if samples per pixel is 1
+	//		table = []rune(ASCIISTR5)
+	//	}
 	//table := []byte(ASCIISTR3)
 	buf := new(bytes.Buffer)
 	w := img.Bounds().Max.X
@@ -434,19 +574,25 @@ func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPa
 			//g := img.At(j, i)
 			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
 			if PixelPaddingValue != 32768 && y == int64(PixelPaddingValue) {
-				_, err := buf.WriteRune(' ')
+				_, err := buf.WriteString("[:-] ")
 				if err != nil {
 					fmt.Println("Error: writing space")
 				}
 				continue
 			}
 			//fmt.Println("got a number: ", img.At(j, i))
-			pos := int((float32(y) - float32(min2)) * float32(len(table)-1) / float32(denom))
-			pos = int(math.Min(float64(len(table)-1), math.Max(0, float64(pos))))
-			_, err := buf.WriteRune(table[pos])
-			if err != nil {
-				fmt.Println("Error: writing rune")
-			}
+			tableSize := 255
+			pos := int((float32(y) - float32(min2)) * float32(tableSize-1) / float32(denom))
+			pos = int(math.Min(float64(tableSize-1), math.Max(0, float64(pos))))
+			//buf.WriteString(fmt.Sprintf("[#%02x%02x%02x]", pos, pos, pos))
+			bla := fmt.Sprintf("[:#%02x%02x%02x] ", pos, pos, pos)
+			//fmt.Println(bla)
+			buf.WriteString(bla)
+			//_, err := buf.WriteRune(table[pos])
+			//if err != nil {
+			//	fmt.Println("Error: writing rune")
+			//}
+			//buf.WriteString("[-]")
 		}
 		_ = buf.WriteByte('\n')
 	}
@@ -666,6 +812,8 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 		//bounds := newImage.Bounds()
 		// width, height := bounds.Max.X, bounds.Max.Y
 		//p := printImage2ASCII(newImage, PhotometricInterpretation, PixelPaddingValue)
+		//p := printImage2Runes(newImage, PhotometricInterpretation, PixelPaddingValue)
+		//p := printImage2SingleRune(newImage, PhotometricInterpretation, PixelPaddingValue)
 
 		//fmt.Printf("%s", string(p))
 		if viewer != nil {
@@ -674,7 +822,10 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 			//app.SetFocus(viewer)
 			//footer.Clear()
 			//structure.Clear()
-			fmt.Fprintf(viewer, "%s", string(p))
+			//text := tview.createTextNode(p)
+			viewer.SetText(p)
+
+			// fmt.Fprintf(viewer, "%s", string(p))
 			return orig_width, orig_height
 			// langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
 			//  fmt.Fprintf(footer, langFmt.Sprintf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
@@ -2478,7 +2629,7 @@ func main() {
 					}
 					structure = newPrimitive("")
 					structure.SetBorder(true).SetTitle("Database")
-					viewer = newPrimitive("")
+					viewer = newPrimitive("").SetDynamicColors(true)
 					footer = newPrimitive(fmt.Sprintf("Start looking for files in %s", data_path))
 					footer.SetBorder(true)
 					footer.SetTitle("File")

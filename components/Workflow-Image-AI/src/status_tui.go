@@ -53,7 +53,7 @@ func (statusTUI *StatusTUI) Init() {
 	}
 	statusTUI.summary = newPrimitive("")
 	statusTUI.summary.SetBorder(true).SetTitle("Current selection")
-	statusTUI.viewer = newPrimitive("")
+	statusTUI.viewer = newPrimitive("").SetDynamicColors(true)
 	statusTUI.selection = tview.NewTreeView()
 	statusTUI.selection.SetBorder(true)
 	statusTUI.selection.SetTitle("Selections")
