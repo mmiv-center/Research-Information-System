@@ -666,10 +666,10 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 		//bounds := newImage.Bounds()
 		// width, height := bounds.Max.X, bounds.Max.Y
 		//p := printImage2ASCII(newImage, PhotometricInterpretation, PixelPaddingValue)
-		p := printImage2Runes(newImage, PhotometricInterpretation, PixelPaddingValue)
 
 		//fmt.Printf("%s", string(p))
 		if viewer != nil {
+			p := printImage2Runes(newImage, PhotometricInterpretation, PixelPaddingValue)
 			viewer.Clear()
 			//app.SetFocus(viewer)
 			//footer.Clear()
@@ -685,6 +685,8 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 			//}
 			//app.Draw()
 		} else {
+			p := printImage2ASCII(newImage, PhotometricInterpretation, PixelPaddingValue)
+
 			fmt.Printf("%s", string(p))
 			//langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
 			return orig_width, orig_height
