@@ -163,6 +163,7 @@ type Config struct {
 	LastDataFolder   string
 	Viewer           Viewer
 	Annotate         Annotate
+	Clip             []float32
 }
 
 type TagAndValue struct {
@@ -474,7 +475,7 @@ func pixelToInt(r int, g int, b int, a int) int {
 }
 
 // printImage2ASCII prints the image as ASCII art
-func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPaddingValue int) string {
+func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPaddingValue int, clip []float32) string {
 	//table := []byte(reverse(ASCIISTR))
 	//table := []byte(reverse(ASCIISTR2))
 	//table := reverseRunes(ASCIISTR5)
@@ -544,7 +545,7 @@ func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPa
 	var min2 int64 = minVal
 	s := histogram[0]
 	for i := 1; i < bins; i++ {
-		if float32(s) >= (float32(sum) * 10.0 / 100.0) { // sum / 100 = ? / 2
+		if float32(s) >= (float32(sum) * clip[0] / 100.0) { // sum / 100 = ? / 2
 			min2 = minVal + int64(float32(i)/float32(bins)*float32(maxVal-minVal))
 			break
 		}
@@ -553,7 +554,7 @@ func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPa
 	var max99 int64 = maxVal
 	s = histogram[0]
 	for i := 1; i < bins; i++ {
-		if float32(s) >= (float32(sum) * 95.0 / 100.0) { // sum / 100 = ? / 2
+		if float32(s) >= (float32(sum) * clip[1] / 100.0) { // sum / 100 = ? / 2
 			max99 = minVal + int64(float32(i)/float32(bins)*float32(maxVal-minVal))
 			break
 		}
@@ -721,7 +722,7 @@ func Scale(src image.Image, rect image.Rectangle, scale draw.Scaler) image.Image
 }
 
 // showDataset is a helper function to display the dataset
-func showDataset(dataset dicom.Dataset, counter int, path string, info string, viewer *tview.TextView) (int, int) {
+func showDataset(dataset dicom.Dataset, counter int, path string, info string, viewer *tview.TextView, clip []float32) (int, int) {
 	pixelDataElement, err := dataset.FindElementByTag(tag.PixelData)
 	if err != nil {
 		return 0, 0
@@ -817,7 +818,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 
 		//fmt.Printf("%s", string(p))
 		if viewer != nil {
-			p := printImage2Runes(newImage, PhotometricInterpretation, PixelPaddingValue)
+			p := printImage2Runes(newImage, PhotometricInterpretation, PixelPaddingValue, clip)
 			viewer.Clear()
 			//app.SetFocus(viewer)
 			//footer.Clear()
@@ -848,7 +849,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 
 // copyFiles will copy all DICOM files that fit the string to the dest_path directory.
 // we could display those images as well on the command line - just to impress
-func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string, sort_dicom bool, classifyTypes []string) (int, Description) {
+func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string, sort_dicom bool, classifyTypes []string, clip []float32) (int, Description) {
 
 	destination_path := dest_path + "/input"
 
@@ -909,7 +910,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 						if app == nil {
 							viewer = nil
 						}
-						orig_width, orig_height := showDataset(dataset, counter+1, path, info, viewer)
+						orig_width, orig_height := showDataset(dataset, counter+1, path, info, viewer, clip)
 						if app != nil {
 							fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
 						} else {
@@ -1255,12 +1256,12 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							footer.Clear()
 							structure.Clear()
 							viewer.Clear()
-							orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, viewer)
+							orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, viewer, config.Clip)
 							fmt.Fprintf(structure, langFmt.Sprintf("%s", dataset_info))
 							fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
 							app.Draw()
 						} else {
-							orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, nil)
+							orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, nil, config.Clip)
 							fmt.Printf(langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
 						}
 					} else {
@@ -2255,6 +2256,11 @@ func main() {
 	var config_suggest bool
 	configCommand.BoolVar(&config_suggest, "suggest", false, "Suggest a selection rule.")
 
+	var config_clip_0 float64
+	configCommand.Float64Var(&config_clip_0, "clip0", 5.0, "Percentage lower display range")
+	var config_clip_1 float64
+	configCommand.Float64Var(&config_clip_1, "clip1", 99.0, "Percentage upper display range")
+
 	var triggerWaitTime string
 	triggerCommand.StringVar(&triggerWaitTime, "delay", "0s", defaultTriggerTime)
 	var trigger_test bool
@@ -2488,6 +2494,7 @@ func main() {
 				ProjectToken:     project_token,
 				LastDataFolder:   "",
 				Annotate:         annotate,
+				Clip:             []float32{5, 99},
 			}
 			if init_type == "bash" {
 				data.CallString = "./stub.sh"
@@ -2740,6 +2747,11 @@ func main() {
 			} else {
 				config.SortDICOM = true
 			}
+			if config.Clip == nil {
+				config.Clip = make([]float32, 2)
+			}
+			config.Clip[0] = float32(config_clip_0)
+			config.Clip[1] = float32(config_clip_1)
 			if project_name_string != "" {
 				project_name_string = strings.Replace(project_name_string, " ", "_", -1)
 				project_name_string = strings.ToLower(project_name_string)
@@ -3133,7 +3145,7 @@ func main() {
 						closestPath = config.Data.Path
 					}
 
-					numFiles, descr := copyFiles(thisSeriesInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes)
+					numFiles, descr := copyFiles(thisSeriesInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Clip)
 					descr.NameFromSelect = selectFromBNames[idx][idx2]
 					// we should merge the different descr together to get description
 					description = append(description, descr)

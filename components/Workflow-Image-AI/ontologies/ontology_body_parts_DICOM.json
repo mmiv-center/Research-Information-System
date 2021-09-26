@@ -1,0 +1,1567 @@
+{
+  "ABDOMEN": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "818981001",
+    "Code.Meaning": "Abdomen"
+  },
+  "ABDOMENPELVIS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "818982008",
+    "Code.Meaning": "Abdomen and Pelvis"
+  },
+  "ABDOMINALAORTA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "7832008",
+    "Code.Meaning": "Abdominal aorta"
+  },
+  "ACJOINT": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "85856004",
+    "Code.Meaning": "Acromioclavicular joint"
+  },
+  "ADRENAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "23451007",
+    "Code.Meaning": "Adrenal gland"
+  },
+  "AMNIOTICFLUID": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "77012006",
+    "Code.Meaning": "Amniotic fluid"
+  },
+  "ANKLE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "70258002",
+    "Code.Meaning": "Ankle joint"
+  },
+  "ANTECUBITALV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "128553008",
+    "Code.Meaning": "Antecubital vein"
+  },
+  "ANTCARDIACV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "194996006",
+    "Code.Meaning": "Anterior cardiac vein"
+  },
+  "ACA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "60176003",
+    "Code.Meaning": "Anterior cerebral artery"
+  },
+  "ANTCOMMA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "8012006",
+    "Code.Meaning": "Anterior communicating artery"
+  },
+  "ANTSPINALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "17388009",
+    "Code.Meaning": "Anterior spinal artery"
+  },
+  "ANTTIBIALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "68053000",
+    "Code.Meaning": "Anterior tibial artery"
+  },
+  "ANUSRECTUMSIGMD": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "110612005",
+    "Code.Meaning": "Anus, rectum and sigmoid colon"
+  },
+  "AORTA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "15825003",
+    "Code.Meaning": "Aorta"
+  },
+  "AORTICARCH": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "57034009",
+    "Code.Meaning": "Aortic arch"
+  },
+  "APPENDIX": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "66754008",
+    "Code.Meaning": "Appendix"
+  },
+  "ARTERY": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "51114001",
+    "Code.Meaning": "Artery"
+  },
+  "ASCAORTA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "54247002",
+    "Code.Meaning": "Ascending aorta"
+  },
+  "ASCENDINGCOLON": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "9040008",
+    "Code.Meaning": "Ascending colon"
+  },
+  "AXILLA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "91470000",
+    "Code.Meaning": "Axilla"
+  },
+  "AXILLARYA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "67937003",
+    "Code.Meaning": "Axillary Artery"
+  },
+  "AXILLARYV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "68705008",
+    "Code.Meaning": "Axillary vein"
+  },
+  "AZYGOSVEIN": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "72107004",
+    "Code.Meaning": "Azygos vein"
+  },
+  "BACK": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "77568009",
+    "Code.Meaning": "Back"
+  },
+  "BASILARA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "59011009",
+    "Code.Meaning": "Basilar artery"
+  },
+  "BILEDUCT": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "28273000",
+    "Code.Meaning": "Bile duct"
+  },
+  "BILIARYTRACT": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "34707002",
+    "Code.Meaning": "Biliary tract"
+  },
+  "BLADDER": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "89837001",
+    "Code.Meaning": "Bladder"
+  },
+  "BLADDERURETHRA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "110837003",
+    "Code.Meaning": "Bladder and urethra"
+  },
+  "BRACHIALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "17137000",
+    "Code.Meaning": "Brachial artery"
+  },
+  "BRACHIALV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "20115005",
+    "Code.Meaning": "Brachial vein"
+  },
+  "BRAIN": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "12738006",
+    "Code.Meaning": "Brain"
+  },
+  "BREAST": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "76752008",
+    "Code.Meaning": "Breast"
+  },
+  "BRONCHUS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "955009",
+    "Code.Meaning": "Bronchus"
+  },
+  "BUTTOCK": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "46862004",
+    "Code.Meaning": "Buttock"
+  },
+  "CALCANEUS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "80144004",
+    "Code.Meaning": "Calcaneus"
+  },
+  "CALF": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "53840002",
+    "Code.Meaning": "Calf of leg"
+  },
+  "CAROTID": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "69105007",
+    "Code.Meaning": "Carotid Artery"
+  },
+  "BULB": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "21479005",
+    "Code.Meaning": "Carotid bulb"
+  },
+  "CELIACA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "57850000",
+    "Code.Meaning": "Celiac artery"
+  },
+  "CEPHALICV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "20699002",
+    "Code.Meaning": "Cephalic vein"
+  },
+  "CEREBELLUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "113305005",
+    "Code.Meaning": "Cerebellum"
+  },
+  "CEREBRALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "88556005",
+    "Code.Meaning": "Cerebral artery"
+  },
+  "CEREBHEMISPHERE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "372073000",
+    "Code.Meaning": "Cerebral hemisphere"
+  },
+  "CSPINE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "122494005",
+    "Code.Meaning": "Cervical spine"
+  },
+  "CTSPINE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "297171002",
+    "Code.Meaning": "Cervico-thoracic spine"
+  },
+  "CERVIX": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "71252005",
+    "Code.Meaning": "Cervix"
+  },
+  "CHEEK": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "60819002",
+    "Code.Meaning": "Cheek"
+  },
+  "CHEST": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "43799004",
+    "Code.Meaning": "Chest"
+  },
+  "CHESTABDPELVIS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "416775004",
+    "Code.Meaning": "Chest, Abdomen and Pelvis"
+  },
+  "CHESTABDOMEN": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "416550000",
+    "Code.Meaning": "Chest and Abdomen"
+  },
+  "CHOROIDPLEXUS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "80621003",
+    "Code.Meaning": "Choroid plexus"
+  },
+  "CIRCLEOFWILLIS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "11279006",
+    "Code.Meaning": "Circle of Willis"
+  },
+  "CLAVICLE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "51299004",
+    "Code.Meaning": "Clavicle"
+  },
+  "COCCYX": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "64688005",
+    "Code.Meaning": "Coccyx"
+  },
+  "COLON": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "71854001",
+    "Code.Meaning": "Colon"
+  },
+  "COMMONBILEDUCT": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "79741001",
+    "Code.Meaning": "Common bile duct"
+  },
+  "CCA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "32062004",
+    "Code.Meaning": "Common carotid artery"
+  },
+  "CFA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "181347005",
+    "Code.Meaning": "Common femoral artery"
+  },
+  "CFV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "397363009",
+    "Code.Meaning": "Common femoral vein"
+  },
+  "COMILIACA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "73634005",
+    "Code.Meaning": "Common iliac artery"
+  },
+  "COMILIACV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "46027005",
+    "Code.Meaning": "Common iliac vein"
+  },
+  "CORNEA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "28726007",
+    "Code.Meaning": "Cornea"
+  },
+  "CORONARYARTERY": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "41801008",
+    "Code.Meaning": "Coronary artery"
+  },
+  "CORONARYSINUS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "90219004",
+    "Code.Meaning": "Coronary sinus"
+  },
+  "DESCAORTA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "32672002",
+    "Code.Meaning": "Descending aorta"
+  },
+  "DESCENDINGCOLON": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "32622004",
+    "Code.Meaning": "Descending colon"
+  },
+  "DUODENUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "38848004",
+    "Code.Meaning": "Duodenum"
+  },
+  "EAR": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "117590005",
+    "Code.Meaning": "Ear"
+  },
+  "ELBOW": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "16953009",
+    "Code.Meaning": "Elbow joint"
+  },
+  "ENDOARTERIAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "51114001",
+    "Code.Meaning": "Endo-arterial"
+  },
+  "ENDOCARDIAC": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "80891009",
+    "Code.Meaning": "Endo-cardiac"
+  },
+  "ENDOESOPHAGEAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "32849002",
+    "Code.Meaning": "Endo-esophageal"
+  },
+  "ENDOMETRIUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "2739003",
+    "Code.Meaning": "Endometrium"
+  },
+  "ENDONASAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "53342003",
+    "Code.Meaning": "Endo-nasal"
+  },
+  "ENDONASOPHARYNYX": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "18962004",
+    "Code.Meaning": "Endo-nasopharyngeal"
+  },
+  "ENDORECTAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "34402009",
+    "Code.Meaning": "Endo-rectal"
+  },
+  "ENDORENAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "64033007",
+    "Code.Meaning": "Endo-renal"
+  },
+  "ENDOURETERIC": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "87953007",
+    "Code.Meaning": "Endo-ureteric"
+  },
+  "ENDOURETHRAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "13648007",
+    "Code.Meaning": "Endo-urethral"
+  },
+  "ENDOVAGINAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "76784001",
+    "Code.Meaning": "Endo-vaginal"
+  },
+  "ENDOVASCULAR": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "59820001",
+    "Code.Meaning": "Endo-vascular"
+  },
+  "ENDOVENOUS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "29092000",
+    "Code.Meaning": "Endo-venous"
+  },
+  "ENDOVESICAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "48367006",
+    "Code.Meaning": "Endo-vesical"
+  },
+  "WHOLEBODY": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "38266002",
+    "Code.Meaning": "Entire body"
+  },
+  "EPIDIDYMIS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "87644002",
+    "Code.Meaning": "Epididymis"
+  },
+  "EPIGASTRIC": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "27947004",
+    "Code.Meaning": "Epigastric region"
+  },
+  "ESOPHAGUS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "32849002",
+    "Code.Meaning": "Esophagus"
+  },
+  "EAC": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "84301002",
+    "Code.Meaning": "External auditory canal"
+  },
+  "ECA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "22286001",
+    "Code.Meaning": "External carotid artery"
+  },
+  "EXTILIACA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "113269004",
+    "Code.Meaning": "External iliac artery"
+  },
+  "EXTILIACV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "63507001",
+    "Code.Meaning": "External iliac vein"
+  },
+  "EXTJUGV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "71585003",
+    "Code.Meaning": "External jugular vein"
+  },
+  "EXTREMITY": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "66019005",
+    "Code.Meaning": "Extremity"
+  },
+  "EYE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "81745001",
+    "Code.Meaning": "Eye"
+  },
+  "EYELID": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "80243003",
+    "Code.Meaning": "Eyelid"
+  },
+  "FACE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "89545001",
+    "Code.Meaning": "Face"
+  },
+  "FACIALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "23074001",
+    "Code.Meaning": "Facial artery"
+  },
+  "FEMORALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "7657000",
+    "Code.Meaning": "Femoral artery"
+  },
+  "FEMORALV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "83419000",
+    "Code.Meaning": "Femoral vein"
+  },
+  "FEMUR": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "71341001",
+    "Code.Meaning": "Femur"
+  },
+  "FETALARM": {
+    "Coding.Scheme.Designator": "",
+    "Code.Value": "NA",
+    "Code.Meaning": "Fetal arm"
+  },
+  "FETALDIGIT": {
+    "Coding.Scheme.Designator": "",
+    "Code.Value": "NA",
+    "Code.Meaning": "Fetal digit"
+  },
+  "FETALHEART": {
+    "Coding.Scheme.Designator": "",
+    "Code.Value": "NA",
+    "Code.Meaning": "Fetal heart"
+  },
+  "FETALLEG": {
+    "Coding.Scheme.Designator": "",
+    "Code.Value": "NA",
+    "Code.Meaning": "Fetal leg"
+  },
+  "FETALPOLE": {
+    "Coding.Scheme.Designator": "",
+    "Code.Value": "NA",
+    "Code.Meaning": "Fetal pole"
+  },
+  "FIBULA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "87342007",
+    "Code.Meaning": "Fibula"
+  },
+  "FINGER": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "7569003",
+    "Code.Meaning": "Finger"
+  },
+  "FLANK": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "58602004",
+    "Code.Meaning": "Flank"
+  },
+  "FONTANEL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "79361005",
+    "Code.Meaning": "Fontanel of skull"
+  },
+  "FOOT": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "56459004",
+    "Code.Meaning": "Foot"
+  },
+  "FOREARM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "14975008",
+    "Code.Meaning": "Forearm"
+  },
+  "4THVENTRICLE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "35918002",
+    "Code.Meaning": "Fourth ventricle"
+  },
+  "GALLBLADDER": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "28231008",
+    "Code.Meaning": "Gallbladder"
+  },
+  "GASTRICV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "110568007",
+    "Code.Meaning": "Gastric vein"
+  },
+  "GENICULARA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "128559007",
+    "Code.Meaning": "Genicular artery"
+  },
+  "GESTSAC": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "300571009",
+    "Code.Meaning": "Gestational sac"
+  },
+  "GLUTEAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "46862004",
+    "Code.Meaning": "Gluteal region"
+  },
+  "GSV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "60734001",
+    "Code.Meaning": "Great saphenous vein"
+  },
+  "HAND": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "85562004",
+    "Code.Meaning": "Hand"
+  },
+  "HEAD": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "69536005",
+    "Code.Meaning": "Head"
+  },
+  "HEADNECK": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "774007",
+    "Code.Meaning": "Head and Neck"
+  },
+  "HEART": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "80891009",
+    "Code.Meaning": "Heart"
+  },
+  "HEPATICA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "76015000",
+    "Code.Meaning": "Hepatic artery"
+  },
+  "HEPATICV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "8993003",
+    "Code.Meaning": "Hepatic vein"
+  },
+  "HIP": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "24136001",
+    "Code.Meaning": "Hip joint"
+  },
+  "HUMERUS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "85050009",
+    "Code.Meaning": "Humerus"
+  },
+  "HYPOGASTRIC": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "11708003",
+    "Code.Meaning": "Hypogastric region"
+  },
+  "HYPOPHARYNX": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "81502006",
+    "Code.Meaning": "Hypopharynx"
+  },
+  "ILEUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "34516001",
+    "Code.Meaning": "Ileum"
+  },
+  "ILIACA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "10293006",
+    "Code.Meaning": "Iliac artery"
+  },
+  "ILIACV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "244411005",
+    "Code.Meaning": "Iliac vein"
+  },
+  "ILIUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "22356005",
+    "Code.Meaning": "Ilium"
+  },
+  "INFMESA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "33795007",
+    "Code.Meaning": "Inferior mesenteric artery"
+  },
+  "INFVENACAVA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "64131007",
+    "Code.Meaning": "Inferior vena cava"
+  },
+  "INGUINAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "26893007",
+    "Code.Meaning": "Inguinal region"
+  },
+  "INNOMINATEA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "12691009",
+    "Code.Meaning": "Innominate artery"
+  },
+  "INNOMINATEV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "8887007",
+    "Code.Meaning": "Innominate vein"
+  },
+  "IAC": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "361078006",
+    "Code.Meaning": "Internal Auditory Canal"
+  },
+  "ICA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "86117002",
+    "Code.Meaning": "Internal carotid artery"
+  },
+  "INTILIACA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "90024005",
+    "Code.Meaning": "Internal iliac artery"
+  },
+  "INTJUGULARV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "12123001",
+    "Code.Meaning": "Internal jugular vein"
+  },
+  "INTMAMMARYA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "69327007",
+    "Code.Meaning": "Internal mammary artery"
+  },
+  "INTRACRANIAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "1101003",
+    "Code.Meaning": "Intracranial"
+  },
+  "JAW": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "91609006",
+    "Code.Meaning": "Mandible"
+  },
+  "JEJUNUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "21306003",
+    "Code.Meaning": "Jejunum"
+  },
+  "JOINT": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "39352004",
+    "Code.Meaning": "Joint"
+  },
+  "KIDNEY": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "64033007",
+    "Code.Meaning": "Kidney"
+  },
+  "KNEE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "72696002",
+    "Code.Meaning": "Knee"
+  },
+  "LACRIMALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "59749000",
+    "Code.Meaning": "Lacrimal artery"
+  },
+  "LARGEINTESTINE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "14742008",
+    "Code.Meaning": "Large intestine"
+  },
+  "LARYNX": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "4596009",
+    "Code.Meaning": "Larynx"
+  },
+  "LATVENTRICLE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "66720007",
+    "Code.Meaning": "Lateral Ventricle"
+  },
+  "LATRIUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "82471001",
+    "Code.Meaning": "Left atrium"
+  },
+  "LFEMORALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "113270003",
+    "Code.Meaning": "Left femoral artery"
+  },
+  "LHEPATICV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "273202007",
+    "Code.Meaning": "Left hepatic vein"
+  },
+  "LHYPOCHONDRIAC": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "133945003",
+    "Code.Meaning": "Left hypochondriac region"
+  },
+  "LINGUINAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "85119005",
+    "Code.Meaning": "Left inguinal region"
+  },
+  "LLQ": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "68505006",
+    "Code.Meaning": "Left lower quadrant of abdomen"
+  },
+  "LLUMBAR": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "133943005",
+    "Code.Meaning": "Left lumbar region"
+  },
+  "LPORTALV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "70253006",
+    "Code.Meaning": "Left portal vein"
+  },
+  "LPULMONARYA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "50408007",
+    "Code.Meaning": "Left pulmonary artery"
+  },
+  "LUQ": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "86367003",
+    "Code.Meaning": "Left upper quadrant of abdomen"
+  },
+  "LVENTRICLE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "87878005",
+    "Code.Meaning": "Left ventricle"
+  },
+  "LINGUALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "113264009",
+    "Code.Meaning": "Lingual artery"
+  },
+  "LIVER": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "10200004",
+    "Code.Meaning": "Liver"
+  },
+  "LEG": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "30021000",
+    "Code.Meaning": "Lower leg"
+  },
+  "LUMBARA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "34635009",
+    "Code.Meaning": "Lumbar artery"
+  },
+  "LUMBAR": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "52612000",
+    "Code.Meaning": "Lumbar region"
+  },
+  "LSPINE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "122496007",
+    "Code.Meaning": "Lumbar spine"
+  },
+  "LSSPINE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "297173004",
+    "Code.Meaning": "Lumbo-sacral spine"
+  },
+  "LUMEN": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "91747007",
+    "Code.Meaning": "Lumen of blood vessel"
+  },
+  "LUNG": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "39607008",
+    "Code.Meaning": "Lung"
+  },
+  "MASTOID": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "59066005",
+    "Code.Meaning": "Mastoid bone"
+  },
+  "MAXILLA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "70925003",
+    "Code.Meaning": "Maxilla"
+  },
+  "MEDIASTINUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "72410000",
+    "Code.Meaning": "Mediastinum"
+  },
+  "MESENTRICA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "86570000",
+    "Code.Meaning": "Mesenteric artery"
+  },
+  "MESENTRICV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "128583004",
+    "Code.Meaning": "Mesenteric vein"
+  },
+  "MCA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "17232002",
+    "Code.Meaning": "Middle cerebral artery"
+  },
+  "MIDHEPATICV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "273099000",
+    "Code.Meaning": "Middle hepatic vein"
+  },
+  "MORISONSPOUCH": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "243977002",
+    "Code.Meaning": "Morisons pouch"
+  },
+  "MOUTH": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "123851003",
+    "Code.Meaning": "Mouth"
+  },
+  "NASOPHARYNX": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "360955006",
+    "Code.Meaning": "Nasopharynx"
+  },
+  "NECK": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "45048000",
+    "Code.Meaning": "Neck"
+  },
+  "NECKCHESTABDPELV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "416319003",
+    "Code.Meaning": "Neck, Chest, Abdomen and Pelvis"
+  },
+  "NECKCHESTABDOMEN": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "416152001",
+    "Code.Meaning": "Neck, Chest and Abdomen"
+  },
+  "NECKCHEST": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "417437006",
+    "Code.Meaning": "Neck and Chest"
+  },
+  "NOSE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "45206002",
+    "Code.Meaning": "Nose"
+  },
+  "OCCPITALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "31145008",
+    "Code.Meaning": "Occipital artery"
+  },
+  "OCCIPTALV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "32114007",
+    "Code.Meaning": "Occipital vein"
+  },
+  "OPHTHALMICA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "53549008",
+    "Code.Meaning": "Ophthalmic artery"
+  },
+  "OPTICCANAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "55024004",
+    "Code.Meaning": "Optic canal"
+  },
+  "ORBIT": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "363654007",
+    "Code.Meaning": "Orbital structure"
+  },
+  "OVARY": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "15497006",
+    "Code.Meaning": "Ovary"
+  },
+  "PANCREAS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "15776009",
+    "Code.Meaning": "Pancreas"
+  },
+  "PANCREATICDUCT": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "69930009",
+    "Code.Meaning": "Pancreatic duct"
+  },
+  "PANCBILEDUCT": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "110621006",
+    "Code.Meaning": "Pancreatic duct and bile duct systems"
+  },
+  "PARASTERNAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "91691001",
+    "Code.Meaning": "Parasternal"
+  },
+  "PARATHYROID": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "111002",
+    "Code.Meaning": "Parathyroid"
+  },
+  "PAROTID": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "45289007",
+    "Code.Meaning": "Parotid gland"
+  },
+  "PATELLA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "64234005",
+    "Code.Meaning": "Patella"
+  },
+  "PELVIS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "816092008",
+    "Code.Meaning": "Pelvis"
+  },
+  "PENILEA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "282044005",
+    "Code.Meaning": "Penile artery"
+  },
+  "PENIS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "18911002",
+    "Code.Meaning": "Penis"
+  },
+  "PERINEUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "38864007",
+    "Code.Meaning": "Perineum"
+  },
+  "PERONEALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "8821006",
+    "Code.Meaning": "Peroneal artery"
+  },
+  "PHARYNX": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "54066008",
+    "Code.Meaning": "Pharynx"
+  },
+  "PHARYNXLARYNX": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "312535008",
+    "Code.Meaning": "Pharynx and larynx"
+  },
+  "PLACENTA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "78067005",
+    "Code.Meaning": "Placenta"
+  },
+  "POPLITEALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "43899006",
+    "Code.Meaning": "Popliteal artery"
+  },
+  "POPLITEALFOSSA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "32361000",
+    "Code.Meaning": "Popliteal fossa"
+  },
+  "POPLITEALV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "56849005",
+    "Code.Meaning": "Popliteal vein"
+  },
+  "PORTALV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "32764006",
+    "Code.Meaning": "Portal vein"
+  },
+  "PCA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "70382005",
+    "Code.Meaning": "Posterior cerebral artery"
+  },
+  "POSCOMMA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "43119007",
+    "Code.Meaning": "Posterior communicating artery"
+  },
+  "POSTIBIALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "13363002",
+    "Code.Meaning": "Posterior tibial artery"
+  },
+  "PROFFEMA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "31677005",
+    "Code.Meaning": "Profunda femoris artery"
+  },
+  "PROFFEMV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "23438002",
+    "Code.Meaning": "Profunda femoris vein"
+  },
+  "PROSTATE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "41216001",
+    "Code.Meaning": "Prostate"
+  },
+  "PULMONARYA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "81040000",
+    "Code.Meaning": "Pulmonary artery"
+  },
+  "PULMONARYV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "122972007",
+    "Code.Meaning": "Pulmonary vein"
+  },
+  "RADIALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "45631007",
+    "Code.Meaning": "Radial artery"
+  },
+  "RADIUS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "62413002",
+    "Code.Meaning": "Radius"
+  },
+  "RADIUSULNA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "110535000",
+    "Code.Meaning": "Radius and ulna"
+  },
+  "CULDESAC": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "53843000",
+    "Code.Meaning": "Rectouterine pouch"
+  },
+  "RECTUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "34402009",
+    "Code.Meaning": "Rectum"
+  },
+  "RENALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "2841007",
+    "Code.Meaning": "Renal artery"
+  },
+  "RENALV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "56400007",
+    "Code.Meaning": "Renal vein"
+  },
+  "RETROPERITONEUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "82849001",
+    "Code.Meaning": "Retroperitoneum"
+  },
+  "RIB": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "113197003",
+    "Code.Meaning": "Rib"
+  },
+  "RATRIUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "73829009",
+    "Code.Meaning": "Right atrium"
+  },
+  "RFEMORALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "69833005",
+    "Code.Meaning": "Right femoral artery"
+  },
+  "RHEPATICV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "272998002",
+    "Code.Meaning": "Right hepatic vein"
+  },
+  "RHYPOCHONDRIAC": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "133946002",
+    "Code.Meaning": "Right hypochondriac region"
+  },
+  "RINGUINAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "37117007",
+    "Code.Meaning": "Right inguinal region"
+  },
+  "RLQ": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "48544008",
+    "Code.Meaning": "Right lower quadrant of abdomen"
+  },
+  "RLUMBAR": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "133944004",
+    "Code.Meaning": "Right lumbar region"
+  },
+  "RPORTALV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "73931004",
+    "Code.Meaning": "Right portal vein"
+  },
+  "RPULMONARYA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "78480002",
+    "Code.Meaning": "Right pulmonary artery"
+  },
+  "RUQ": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "50519007",
+    "Code.Meaning": "Right upper quadrant of abdomen"
+  },
+  "RVENTRICLE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "53085002",
+    "Code.Meaning": "Right ventricle"
+  },
+  "SIJOINT": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "39723000",
+    "Code.Meaning": "Sacroiliac joint"
+  },
+  "SSPINE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "54735007",
+    "Code.Meaning": "Sacrum"
+  },
+  "SFJ": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "128587003",
+    "Code.Meaning": "Saphenofemoral junction"
+  },
+  "SAPHENOUSV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "362072009",
+    "Code.Meaning": "Saphenous vein"
+  },
+  "SCALP": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "41695006",
+    "Code.Meaning": "Scalp"
+  },
+  "SCAPULA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "79601000",
+    "Code.Meaning": "Scapula"
+  },
+  "SCLERA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "18619003",
+    "Code.Meaning": "Sclera"
+  },
+  "SCROTUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "20233005",
+    "Code.Meaning": "Scrotum"
+  },
+  "SELLA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "42575006",
+    "Code.Meaning": "Sella turcica"
+  },
+  "SEMVESICLE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "64739004",
+    "Code.Meaning": "Seminal vesicle"
+  },
+  "SESAMOID": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "58742003",
+    "Code.Meaning": "Sesamoid bones of foot"
+  },
+  "SHOULDER": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "16982005",
+    "Code.Meaning": "Shoulder"
+  },
+  "SIGMOID": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "60184004",
+    "Code.Meaning": "Sigmoid colon"
+  },
+  "SKULL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "89546000",
+    "Code.Meaning": "Skull"
+  },
+  "SMALLINTESTINE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "30315005",
+    "Code.Meaning": "Small intestine"
+  },
+  "SPINALCORD": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "2748008",
+    "Code.Meaning": "Spinal cord"
+  },
+  "SPINE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "421060004",
+    "Code.Meaning": "Spine"
+  },
+  "SPLEEN": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "78961009",
+    "Code.Meaning": "Spleen"
+  },
+  "SPLENICA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "22083002",
+    "Code.Meaning": "Splenic artery"
+  },
+  "SPLENICV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "35819009",
+    "Code.Meaning": "Splenic vein"
+  },
+  "SCJOINT": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "7844006",
+    "Code.Meaning": "Sternoclavicular joint"
+  },
+  "STERNUM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "56873002",
+    "Code.Meaning": "Sternum"
+  },
+  "STOMACH": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "69695003",
+    "Code.Meaning": "Stomach"
+  },
+  "SUBCLAVIANA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "36765005",
+    "Code.Meaning": "Subclavian artery"
+  },
+  "SUBCLAVIANV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "9454009",
+    "Code.Meaning": "Subclavian vein"
+  },
+  "SUBCOSTAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "19695001",
+    "Code.Meaning": "Subcostal"
+  },
+  "SUBMANDIBULAR": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "54019009",
+    "Code.Meaning": "Submandibular gland"
+  },
+  "SFA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "181349008",
+    "Code.Meaning": "Superficial femoral artery"
+  },
+  "SFV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "397364003",
+    "Code.Meaning": "Superficial femoral vein"
+  },
+  "LSUPPULMONARYV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "43863001",
+    "Code.Meaning": "Superior left pulmonary vein"
+  },
+  "SMA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "42258001",
+    "Code.Meaning": "Superior mesenteric artery"
+  },
+  "RSUPPULMONARYV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "8629005",
+    "Code.Meaning": "Superior right pulmonary vein"
+  },
+  "SUPTHYROIDA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "72021004",
+    "Code.Meaning": "Superior thyroid artery"
+  },
+  "SVC": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "48345005",
+    "Code.Meaning": "Superior vena cava"
+  },
+  "SUPRACLAVICULAR": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "77621008",
+    "Code.Meaning": "Supraclavicular region of neck"
+  },
+  "SUPRAPUBIC": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "11708003",
+    "Code.Meaning": "Suprapubic region"
+  },
+  "TMJ": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "53620006",
+    "Code.Meaning": "Temporomandibular joint"
+  },
+  "TESTIS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "40689003",
+    "Code.Meaning": "Testis"
+  },
+  "THALAMUS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "42695009",
+    "Code.Meaning": "Thalamus"
+  },
+  "THIGH": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "68367000",
+    "Code.Meaning": "Thigh"
+  },
+  "3RDVENTRICLE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "49841001",
+    "Code.Meaning": "Third ventricle"
+  },
+  "THORACICAORTA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "113262008",
+    "Code.Meaning": "Thoracic aorta"
+  },
+  "TSPINE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "122495006",
+    "Code.Meaning": "Thoracic spine"
+  },
+  "TLSPINE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "297172009",
+    "Code.Meaning": "Thoraco-lumbar spine"
+  },
+  "THORAX": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "43799004",
+    "Code.Meaning": "Thorax"
+  },
+  "THUMB": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "76505004",
+    "Code.Meaning": "Thumb"
+  },
+  "THYMUS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "9875009",
+    "Code.Meaning": "Thymus"
+  },
+  "THYROID": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "69748006",
+    "Code.Meaning": "Thyroid"
+  },
+  "TIBIA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "12611008",
+    "Code.Meaning": "Tibia"
+  },
+  "TIBIAFIBULA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "110536004",
+    "Code.Meaning": "Tibia and fibula"
+  },
+  "TOE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "29707007",
+    "Code.Meaning": "Toe"
+  },
+  "TONGUE": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "21974007",
+    "Code.Meaning": "Tongue"
+  },
+  "TRACHEA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "44567001",
+    "Code.Meaning": "Trachea"
+  },
+  "TRACHEABRONCHUS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "110726009",
+    "Code.Meaning": "Trachea and bronchus"
+  },
+  "TRANSVERSECOLON": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "485005",
+    "Code.Meaning": "Transverse colon"
+  },
+  "ULNA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "23416004",
+    "Code.Meaning": "Ulna"
+  },
+  "ULNARA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "44984001",
+    "Code.Meaning": "Ulnar artery"
+  },
+  "UMBILICALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "50536004",
+    "Code.Meaning": "Umbilical artery"
+  },
+  "UMBILICAL": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "90290004",
+    "Code.Meaning": "Umbilical region"
+  },
+  "UMBILICALV": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "284639000",
+    "Code.Meaning": "Umbilical vein"
+  },
+  "ARM": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "40983000",
+    "Code.Meaning": "Upper arm"
+  },
+  "UPRURINARYTRACT": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "431491007",
+    "Code.Meaning": "Upper urinary tract"
+  },
+  "URETER": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "87953007",
+    "Code.Meaning": "Ureter"
+  },
+  "URETHRA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "13648007",
+    "Code.Meaning": "Urethra"
+  },
+  "UTERUS": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "35039007",
+    "Code.Meaning": "Uterus"
+  },
+  "VAGINA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "76784001",
+    "Code.Meaning": "Vagina"
+  },
+  "VEIN": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "29092000",
+    "Code.Meaning": "Vein"
+  },
+  "VERTEBRALA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "85234005",
+    "Code.Meaning": "Vertebral artery"
+  },
+  "VULVA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "45292006",
+    "Code.Meaning": "Vulva"
+  },
+  "WRIST": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "74670003",
+    "Code.Meaning": "Wrist joint"
+  },
+  "ZYGOMA": {
+    "Coding.Scheme.Designator": "SCT",
+    "Code.Value": "13881006",
+    "Code.Meaning": "Zygoma"
+  }
+}

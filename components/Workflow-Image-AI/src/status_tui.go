@@ -24,6 +24,7 @@ type StatusTUI struct {
 	selectedDatasets          []dicom.Dataset
 	currentImage              int
 	selectedSeriesInformation SeriesInfo
+	config                    Config
 }
 
 func findSeriesInfo(dataSets map[string]map[string]SeriesInfo, SeriesInstanceUID string) (SeriesInfo, error) {
@@ -69,6 +70,7 @@ func (statusTUI *StatusTUI) Init() {
 			statusTUI.viewer.SetTextColor(col)
 		}
 	}
+	statusTUI.config = conf
 
 	statusTUI.flex = tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
@@ -200,7 +202,7 @@ func nextImage(statusTUI *StatusTUI, t time.Time) {
 		idx = 0
 	}
 	statusTUI.currentImage = idx
-	showDataset(statusTUI.selectedDatasets[idx], 1, "path", "", statusTUI.viewer)
+	showDataset(statusTUI.selectedDatasets[idx], 1, "path", "", statusTUI.viewer, statusTUI.config.Clip)
 	if statusTUI.app != nil {
 		statusTUI.app.Draw()
 	}
