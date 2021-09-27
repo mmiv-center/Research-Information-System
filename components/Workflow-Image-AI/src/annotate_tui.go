@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -15,7 +16,7 @@ import (
 type AnnotateTUI struct {
 	dataSets                  map[string]map[string]SeriesInfo
 	viewer                    *tview.TextView
-	summary                   *tview.TextView
+	summary                   *tview.TreeView
 	selection                 *tview.TreeView
 	example1                  *tview.TextView
 	example2                  *tview.TextView
@@ -57,8 +58,8 @@ func (annotateTUI *AnnotateTUI) Init() {
 			SetTextAlign(tview.AlignLeft).
 			SetText(text)
 	}
-	annotateTUI.summary = newPrimitive("")
-	annotateTUI.summary.SetBorder(true).SetTitle("Current selection")
+	annotateTUI.summary = tview.NewTreeView()
+	annotateTUI.summary.SetBorder(true).SetTitle("Ontology")
 	annotateTUI.viewer = newPrimitive("").SetDynamicColors(true)
 	annotateTUI.selection = tview.NewTreeView()
 	annotateTUI.selection.SetBorder(true)
@@ -194,29 +195,44 @@ func (annotateTUI *AnnotateTUI) Init() {
 	var annotations []string
 	if annotateTUI.ontology != nil {
 		annotations = getAnnotations(annotateTUI, annotateTUI.ontology)
-		printAnnotations(annotations, annotateTUI.summary)
+		printAnnotations(annotations, annotateTUI, annotateTUI.summary)
 	}
 
 	annotateTUI.Run(annotations)
 }
 
-func printAnnotations(annotations []string, viewer *tview.TextView) {
-	var an map[string]string = make(map[string]string)
-	var counter int = 0
+func printAnnotations(annotations []string, annotateTUI *AnnotateTUI, viewer *tview.TreeView) {
+	var an []string
 	for _, annotation := range annotations {
-		counter = counter + 1
-		an[fmt.Sprintf("%d", counter)] = annotation
+		an = append(an, annotation)
 	}
-	fmt.Fprintf(viewer, "Ontology\n")
-	for key, value := range an {
-		fmt.Fprintf(viewer, "%s: %s\n", key, value)
+	sort.Strings(an)
+	// fmt.Fprintf(viewer, "Ontology\n")
+
+	root := tview.NewTreeNode("Ontology").SetReference("")
+	annotateTUI.summary.SetRoot(root)
+
+	for key := 1; key < len(an); key++ {
+		//fmt.Fprintf(viewer, "%d: %s\n", key, an[key])
+
+		node := tview.NewTreeNode(fmt.Sprintf("%d: %s", key, an[key])).
+			SetReference(an[key]).
+			SetSelectable(true)
+		root.AddChild(node)
 	}
+
+	annotateTUI.summary.SetSelectedFunc(func(node *tview.TreeNode) {
+		marker := node.GetReference().(string)
+		if annotateTUI.selectedSeriesInstanceUID != "" {
+			annotateTUI.markImage(annotateTUI.selectedSeriesInformation, annotateTUI.selectedSeriesInstanceUID, marker)
+		}
+	})
 }
 
 func getAnnotations(annotateTUI *AnnotateTUI, ontology interface{}) []string {
 	var annotations []string
-	for key, entry := range ontology.(map[string]interface{}) {
-		fmt.Fprintf(annotateTUI.example1, "found a key %s and value %s\n", key, entry)
+	for key, _ := range ontology.(map[string]interface{}) {
+		//fmt.Fprintf(annotateTUI.example1, "found a key %s and value %s\n", key, entry)
 		annotations = append(annotations, key)
 	}
 	return annotations
@@ -279,7 +295,7 @@ func (annotateTUI *AnnotateTUI) Run(annotations []string) {
 			for k, a := range annotations {
 				if ch == rune(fmt.Sprintf("%d", k+1)[0]) {
 					// we received this button click
-					fmt.Fprintf(annotateTUI.summary, "clicked on %s\n", a)
+					//fmt.Fprintf(annotateTUI.summary, "clicked on %s\n", a)
 					annotateTUI.markImage(annotateTUI.selectedSeriesInformation, annotateTUI.selectedSeriesInstanceUID, a)
 					return nil
 				}
