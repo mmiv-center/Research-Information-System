@@ -202,7 +202,7 @@ func nextImage(statusTUI *StatusTUI, t time.Time) {
 		idx = 0
 	}
 	statusTUI.currentImage = idx
-	showDataset(statusTUI.selectedDatasets[idx], 1, "path", "", statusTUI.viewer, statusTUI.config.Clip)
+	showDataset(statusTUI.selectedDatasets[idx], 1, "path", "", statusTUI.viewer, statusTUI.config.Viewer.Clip)
 	if statusTUI.app != nil {
 		statusTUI.app.Draw()
 	}

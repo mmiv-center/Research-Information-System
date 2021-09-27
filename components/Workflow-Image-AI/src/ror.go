@@ -142,6 +142,7 @@ type DataInfo struct {
 
 type Viewer struct {
 	TextColor string
+	Clip      []float32
 }
 
 type Annotate struct {
@@ -163,7 +164,6 @@ type Config struct {
 	LastDataFolder   string
 	Viewer           Viewer
 	Annotate         Annotate
-	Clip             []float32
 }
 
 type TagAndValue struct {
@@ -1256,12 +1256,12 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 							footer.Clear()
 							structure.Clear()
 							viewer.Clear()
-							orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, viewer, config.Clip)
+							orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, viewer, config.Viewer.Clip)
 							fmt.Fprintf(structure, langFmt.Sprintf("%s", dataset_info))
 							fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
 							app.Draw()
 						} else {
-							orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, nil, config.Clip)
+							orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, nil, config.Viewer.Clip)
 							fmt.Printf(langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
 						}
 					} else {
@@ -2494,7 +2494,10 @@ func main() {
 				ProjectToken:     project_token,
 				LastDataFolder:   "",
 				Annotate:         annotate,
-				Clip:             []float32{5, 99},
+			}
+			data.Viewer = Viewer{
+				TextColor: "#000000",
+				Clip:      []float32{5, 99},
 			}
 			if init_type == "bash" {
 				data.CallString = "./stub.sh"
@@ -2747,11 +2750,11 @@ func main() {
 			} else {
 				config.SortDICOM = true
 			}
-			if config.Clip == nil {
-				config.Clip = make([]float32, 2)
+			if config.Viewer.Clip == nil {
+				config.Viewer.Clip = make([]float32, 2)
 			}
-			config.Clip[0] = float32(config_clip_0)
-			config.Clip[1] = float32(config_clip_1)
+			config.Viewer.Clip[0] = float32(config_clip_0)
+			config.Viewer.Clip[1] = float32(config_clip_1)
 			if project_name_string != "" {
 				project_name_string = strings.Replace(project_name_string, " ", "_", -1)
 				project_name_string = strings.ToLower(project_name_string)
@@ -3145,7 +3148,7 @@ func main() {
 						closestPath = config.Data.Path
 					}
 
-					numFiles, descr := copyFiles(thisSeriesInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Clip)
+					numFiles, descr := copyFiles(thisSeriesInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Viewer.Clip)
 					descr.NameFromSelect = selectFromBNames[idx][idx2]
 					// we should merge the different descr together to get description
 					description = append(description, descr)

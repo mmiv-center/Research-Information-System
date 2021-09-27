@@ -26,8 +26,10 @@ type AnnotateTUI struct {
 	selectedDatasets          []dicom.Dataset
 	currentImage              int
 	selectedSeriesInformation SeriesInfo
+	selectedSeriesInstanceUID string
 	ontology                  interface{}
 	annotations               map[string][]string
+	config                    Config
 }
 
 /*func findSeriesInfo(dataSets map[string]map[string]SeriesInfo, SeriesInstanceUID string) (SeriesInfo, error) {
@@ -57,7 +59,7 @@ func (annotateTUI *AnnotateTUI) Init() {
 	}
 	annotateTUI.summary = newPrimitive("")
 	annotateTUI.summary.SetBorder(true).SetTitle("Current selection")
-	annotateTUI.viewer = newPrimitive("")
+	annotateTUI.viewer = newPrimitive("").SetDynamicColors(true)
 	annotateTUI.selection = tview.NewTreeView()
 	annotateTUI.selection.SetBorder(true)
 	annotateTUI.selection.SetTitle("Selections")
@@ -69,6 +71,8 @@ func (annotateTUI *AnnotateTUI) Init() {
 	annotateTUI.example3 = newPrimitive("example 3")
 	annotateTUI.example3.SetBorder(true).SetTitle("DICOM")
 
+	annotateTUI.annotations = make(map[string][]string)
+
 	path_config := input_dir + "/.ror/config"
 	conf, err := readConfig(path_config)
 	if err == nil {
@@ -79,6 +83,7 @@ func (annotateTUI *AnnotateTUI) Init() {
 			annotateTUI.viewer.SetTextColor(col)
 		}
 	}
+	annotateTUI.config = conf
 
 	annotateTUI.flex = tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
@@ -134,7 +139,7 @@ func (annotateTUI *AnnotateTUI) Init() {
 			fmt.Println("warning: this search path could not be found.. we give up here")
 			return
 		}
-		SelectedSeriesInstanceUID := SeriesInstanceUID
+		annotateTUI.selectedSeriesInstanceUID = SeriesInstanceUID
 		annotateTUI.selectedDatasets = nil
 		annotateTUI.currentImage = 0
 		filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
@@ -150,7 +155,7 @@ func (annotateTUI *AnnotateTUI) Init() {
 				SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
 				if err == nil {
 					var SeriesInstanceUID string = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
-					if SeriesInstanceUID != SelectedSeriesInstanceUID {
+					if SeriesInstanceUID != annotateTUI.selectedSeriesInstanceUID {
 						return nil // ignore that file
 					}
 					_, err := dataset.FindElementByTag(tag.PixelData)
@@ -238,7 +243,7 @@ func nextImageAnnotate(annotateTUI *AnnotateTUI, t time.Time) {
 		idx = 0
 	}
 	annotateTUI.currentImage = idx
-	showDataset(annotateTUI.selectedDatasets[idx], 1, "path", "", annotateTUI.viewer)
+	showDataset(annotateTUI.selectedDatasets[idx], 1, "path", "", annotateTUI.viewer, annotateTUI.config.Viewer.Clip)
 	if annotateTUI.app != nil {
 		annotateTUI.app.Draw()
 	}
@@ -254,8 +259,9 @@ func nextImageAnnotate(annotateTUI *AnnotateTUI, t time.Time) {
 	annotateTUI.summary.ScrollToBeginning() */
 }
 
-func (annotateTUI *AnnotateTUI) markImage(data string, a string) {
-
+// markImage keeps track of all series that are marked by a given tag a
+func (annotateTUI *AnnotateTUI) markImage(data SeriesInfo, selectedSeriesInstanceUID string, a string) {
+	annotateTUI.annotations[a] = append(annotateTUI.annotations[a], selectedSeriesInstanceUID)
 }
 
 func (annotateTUI *AnnotateTUI) Run(annotations []string) {
@@ -271,10 +277,10 @@ func (annotateTUI *AnnotateTUI) Run(annotations []string) {
 		if k == tcell.KeyRune {
 			ch = event.Rune()
 			for k, a := range annotations {
-				if ch == rune(fmt.Sprintf("%d", k)[0]) {
+				if ch == rune(fmt.Sprintf("%d", k+1)[0]) {
 					// we received this button click
 					fmt.Fprintf(annotateTUI.summary, "clicked on %s\n", a)
-					annotateTUI.markImage("SeriesInstanceUID", a)
+					annotateTUI.markImage(annotateTUI.selectedSeriesInformation, annotateTUI.selectedSeriesInstanceUID, a)
 					return nil
 				}
 			}
