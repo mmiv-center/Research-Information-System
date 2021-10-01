@@ -542,6 +542,11 @@ func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPa
 	for i := 2; i < bins-1; i++ {
 		sum += histogram[i]
 	}
+	if len(clip) != 2 {
+		clip = []float32{5, 99}
+	} 
+	//fmt.Println("clip: ", clip)
+
 	var min2 int64 = minVal
 	s := histogram[0]
 	for i := 1; i < bins; i++ {
