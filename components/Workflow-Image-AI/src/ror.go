@@ -1088,8 +1088,15 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 // It returns the detected studies and series as collections of paths.
 func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[string]map[string]SeriesInfo, error) {
 	var datasets = make(map[string]map[string]SeriesInfo)
+	var initial_list_of_seriesinstanceuids = []string{}
+
 	if previous != nil {
 		datasets = previous
+		for _, study := range datasets {
+			for seriesInstanceUID, _ := range study {
+				initial_list_of_seriesinstanceuids = append(initial_list_of_seriesinstanceuids, seriesInstanceUID)
+			}
+		}
 	}
 	if config.Data.Path == "" {
 		return datasets, fmt.Errorf("no data path for example data has been specified. Use\n\tror config --data \"path-to-data\" to set such a directory of DICOM data")
@@ -1177,19 +1184,17 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 					var PatientID string
 					var PatientName string
 
+					StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
 					SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
 					if err == nil {
 						SeriesInstanceUID = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
 					}
-					if val, ok := datasets[StudyInstanceUID]; ok {
-						if _, ok2 := val[SeriesInstanceUID]; ok2 {
-							// we have that series in our datasets already, skip this entry
-							// todo: We mess up counting all the images here, but we only save
-							// the datasets once every 1000 entries so the likelihood that we 
-							// have more images in an already captured datasets entry is low
+					for _, entry := range initial_list_of_seriesinstanceuids {
+						if entry == SeriesInstanceUID {
 							return nil
 						}
 					}
+					//fmt.Printf("NEW series display! \"%s\" \"%s\"", StudyInstanceUID, SeriesInstanceUID)
 
 					removeElement := func(s []*dicom.Element, i int) []*dicom.Element {
 						s[i] = s[len(s)-1]
@@ -1291,7 +1296,6 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 					}
 
 					counter = counter + 1
-					StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
 					if StudyInstanceUID == "" {
 						// no study instance uid found, skip this series because we cannot reference it later
 						fmt.Printf("We could not find a StudyInstanceUID here: %v\n", StudyInstanceUIDVal)
