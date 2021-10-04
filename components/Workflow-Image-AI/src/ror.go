@@ -199,7 +199,7 @@ func readConfig(path_string string) (Config, error) {
 	// produce a warning if it does not!
 	if fileInfo, err := os.Stat(path_string); err == nil {
 		mode := fileInfo.Mode()
-		mode_str := fmt.Sprintf("%s", mode)
+		mode_str := mode.String()
 		if mode_str != "-rw-------" && runtime.GOOS != "windows" {
 			fmt.Println("Warning: Your config file is not secure. Change the permissions by 'chmod 0600 .ror/config'. Now: ", mode)
 		}
@@ -544,7 +544,7 @@ func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPa
 	}
 	if len(clip) != 2 {
 		clip = []float32{5, 99}
-	} 
+	}
 	//fmt.Println("clip: ", clip)
 
 	var min2 int64 = minVal
@@ -3303,7 +3303,7 @@ func main() {
 				annotateTui.dataSets = config.Data.DataInfo
 				annotateTui.ontology = config.Annotate.Ontology
 				if config.SeriesFilterType != "select" {
-					exitGracefully(errors.New("Need a Select filter, use 'ror config --suggest' to create one."))
+					exitGracefully(errors.New("need a Select filter, use 'ror config --suggest' to create one"))
 				}
 				InitParser()
 				line := []byte(config.SeriesFilter)

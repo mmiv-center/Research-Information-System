@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -115,7 +116,7 @@ func (annotateTUI *AnnotateTUI) Init() {
 			if firstSeries.NumImages == 1 {
 				s = ""
 			}
-			node2 := tview.NewTreeNode(fmt.Sprintf("%s series %d %s %d image%s", names[idx][idx2], firstSeries.SeriesNumber, entry2, firstSeries.NumImages, s)).
+			node2 := tview.NewTreeNode(fmt.Sprintf("%s %s series %d %s %d image%s", names[idx][idx2], firstSeries.Modality, firstSeries.SeriesNumber, entry2, firstSeries.NumImages, s)).
 				SetReference(entry2).
 				SetSelectable(true)
 			node.AddChild(node2)
@@ -143,6 +144,7 @@ func (annotateTUI *AnnotateTUI) Init() {
 		annotateTUI.selectedSeriesInstanceUID = SeriesInstanceUID
 		annotateTUI.selectedDatasets = nil
 		annotateTUI.currentImage = 0
+		updateMarkers(annotateTUI)
 		filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
 			if info.IsDir() {
 				return nil
@@ -203,9 +205,7 @@ func (annotateTUI *AnnotateTUI) Init() {
 
 func printAnnotations(annotations []string, annotateTUI *AnnotateTUI, viewer *tview.TreeView) {
 	var an []string
-	for _, annotation := range annotations {
-		an = append(an, annotation)
-	}
+	an = append(an, annotations...)
 	sort.Strings(an)
 	// fmt.Fprintf(viewer, "Ontology\n")
 
@@ -214,8 +214,9 @@ func printAnnotations(annotations []string, annotateTUI *AnnotateTUI, viewer *tv
 
 	for key := 1; key < len(an); key++ {
 		//fmt.Fprintf(viewer, "%d: %s\n", key, an[key])
+		// TODO: we should check if the annotation contains a mark for this node already
 
-		node := tview.NewTreeNode(fmt.Sprintf("%d: %s", key, an[key])).
+		node := tview.NewTreeNode(fmt.Sprintf("[ ] %s", an[key])).
 			SetReference(an[key]).
 			SetSelectable(true)
 		root.AddChild(node)
@@ -225,13 +226,35 @@ func printAnnotations(annotations []string, annotateTUI *AnnotateTUI, viewer *tv
 		marker := node.GetReference().(string)
 		if annotateTUI.selectedSeriesInstanceUID != "" {
 			annotateTUI.markImage(annotateTUI.selectedSeriesInformation, annotateTUI.selectedSeriesInstanceUID, marker)
+			// update the markers to indicate the new state
+			updateMarkers(annotateTUI)
 		}
 	})
 }
 
+func updateMarkers(annotateTUI *AnnotateTUI) {
+	//  disable all markers first
+	for _, node := range annotateTUI.summary.GetRoot().GetChildren() {
+		node.SetText(fmt.Sprintf("[ [] %s", node.GetReference()))
+	}
+
+	for marker, seriesInstanceUIDs := range annotateTUI.annotations {
+		for _, seriesInstanceUID := range seriesInstanceUIDs {
+			if seriesInstanceUID == annotateTUI.selectedSeriesInstanceUID {
+				// for this marker and the current series there should be an [x]
+				for _, node := range annotateTUI.summary.GetRoot().GetChildren() {
+					if node.GetReference() == marker {
+						node.SetText(fmt.Sprintf("[x[] %s", marker))
+					}
+				}
+			}
+		}
+	}
+}
+
 func getAnnotations(annotateTUI *AnnotateTUI, ontology interface{}) []string {
 	var annotations []string
-	for key, _ := range ontology.(map[string]interface{}) {
+	for key := range ontology.(map[string]interface{}) {
 		//fmt.Fprintf(annotateTUI.example1, "found a key %s and value %s\n", key, entry)
 		annotations = append(annotations, key)
 	}
@@ -277,6 +300,17 @@ func nextImageAnnotate(annotateTUI *AnnotateTUI, t time.Time) {
 
 // markImage keeps track of all series that are marked by a given tag a
 func (annotateTUI *AnnotateTUI) markImage(data SeriesInfo, selectedSeriesInstanceUID string, a string) {
+	//fmt.Printf("marking this image series with %s", a)
+	//annotateTUI.summary.SetTitle(a)
+	// does that entry exist already
+	for s, n := range annotateTUI.annotations[a] {
+		if selectedSeriesInstanceUID == n {
+			// remove the entry instead of adding it (toggle the mark)
+			annotateTUI.annotations[a] = append(annotateTUI.annotations[a][:s], annotateTUI.annotations[a][s+1:]...)
+			return
+		}
+	}
+
 	annotateTUI.annotations[a] = append(annotateTUI.annotations[a], selectedSeriesInstanceUID)
 }
 
@@ -287,19 +321,29 @@ func (annotateTUI *AnnotateTUI) Run(annotations []string) {
 	annotateTUI.app = tview.NewApplication()
 
 	// add a handler for the keyboard events to assign
+	// we like to limit the list of ontological terms to the once that start with the printed character
 	annotateTUI.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		k := event.Key()
 		ch := rune(0)
 		if k == tcell.KeyRune {
 			ch = event.Rune()
-			for k, a := range annotations {
-				if ch == rune(fmt.Sprintf("%d", k+1)[0]) {
-					// we received this button click
-					//fmt.Fprintf(annotateTUI.summary, "clicked on %s\n", a)
-					annotateTUI.markImage(annotateTUI.selectedSeriesInformation, annotateTUI.selectedSeriesInstanceUID, a)
+			root := annotateTUI.summary.GetRoot()
+			for _, c := range root.GetChildren() {
+				aa := strings.ToLower(c.GetReference().(string))
+				if rune(aa[0]) == ch {
+					annotateTUI.summary.SetCurrentNode(c)
 					return nil
 				}
 			}
+			/*
+				for k, a := range annotations {
+					if ch == rune(fmt.Sprintf("%d", k+1)[0]) {
+						// we received this button click
+						//fmt.Fprintf(annotateTUI.summary, "clicked on %s\n", a)
+						annotateTUI.markImage(annotateTUI.selectedSeriesInformation, annotateTUI.selectedSeriesInstanceUID, a)
+						return nil4321`
+					}
+				} */
 		}
 		return event
 	})
