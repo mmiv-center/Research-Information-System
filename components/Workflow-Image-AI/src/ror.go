@@ -1086,8 +1086,11 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 
 // dataSets parses the config.Data path for DICOM files.
 // It returns the detected studies and series as collections of paths.
-func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
+func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[string]map[string]SeriesInfo, error) {
 	var datasets = make(map[string]map[string]SeriesInfo)
+	if previous != nil {
+		datasets = previous
+	}
 	if config.Data.Path == "" {
 		return datasets, fmt.Errorf("no data path for example data has been specified. Use\n\tror config --data \"path-to-data\" to set such a directory of DICOM data")
 	}
@@ -1173,6 +1176,20 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 					var ManufacturerModelName string
 					var PatientID string
 					var PatientName string
+
+					SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
+					if err == nil {
+						SeriesInstanceUID = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
+					}
+					if val, ok := datasets[StudyInstanceUID]; ok {
+						if _, ok2 := val[SeriesInstanceUID]; ok2 {
+							// we have that series in our datasets already, skip this entry
+							// todo: We mess up counting all the images here, but we only save
+							// the datasets once every 1000 entries so the likelihood that we 
+							// have more images in an already captured datasets entry is low
+							return nil
+						}
+					}
 
 					removeElement := func(s []*dicom.Element, i int) []*dicom.Element {
 						s[i] = s[len(s)-1]
@@ -1290,10 +1307,6 @@ func dataSets(config Config) (map[string]map[string]SeriesInfo, error) {
 						PatientName = dicom.MustGetStrings(PatientNameVal.Value)[0]
 					}
 
-					SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
-					if err == nil {
-						SeriesInstanceUID = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
-					}
 					if SeriesInstanceUID == "" {
 						// no series instance uid skip this file
 						fmt.Printf("We could not find a SeriesInstanceUID here: %v\n", SeriesInstanceUIDVal)
@@ -2016,8 +2029,28 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 	// we should also allow the sorting of the results
 	// maybe easiest for now if we sort by number of image series?
 	// for each patient we would like to sort by date as well
+	// keep a list of all the images per series instance uid and index in argsort instead of recalculating this all the time
+	var cache []int = make([]int, len(selectFromB))
+	for idx, set := range selectFromB {
+		l := 0
+		for i := 0; i < len(set); i++ {
+		    a := set[i] // for _, a := range selectFromB[i] {
+			//  ok, a is a series instance uid, I need to get the info from that series
+		L3:
+			for _, b := range dataInfo {
+				for SeriesInstanceUID, c := range b {
+					if SeriesInstanceUID == a {
+						l += c.NumImages
+						break L3
+					}
+				}
+			}
+		}
+		cache[idx] = l
+	}
+	
 	order := argsort.SortSlice(selectFromB, func(i, j int) bool {
-		l1 := 0
+	/*	l1 := 0
 		for _, a := range selectFromB[i] {
 			//  ok, a is a series instance uid, I need to get the info from that series
 		L1:
@@ -2041,8 +2074,8 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 					}
 				}
 			}
-		}
-		return l1 > l2
+		} */
+		return cache[i] > cache[j]
 	})
 	// fmt.Println("%v", order)
 	// we should apply the order now
@@ -2673,7 +2706,7 @@ func main() {
 				fmt.Println("")
 
 				config.Data.Path = data_path
-				studies, err = dataSets(config)
+				studies, err = dataSets(config, config.Data.DataInfo)
 				check(err)
 				app.Stop()
 				if len(studies) == 0 {
@@ -2783,6 +2816,18 @@ func main() {
 				InitParser()
 				line := []byte("Select series from series where series has ClassifyType containing CT")
 				yyParse(&exprLex{line: line})
+
+				/* 
+				// 
+				// profiling to find out why something is slow
+				//
+				cpuprofile := "/tmp/profile"
+				f, err := os.Create(cpuprofile)
+				if err != nil {
+					log.Fatal(err)
+				}
+				pprof.StartCPUProfile(f)
+				defer pprof.StopCPUProfile() */
 
 				ast, _ := ast.improveAST(config.Data.DataInfo)
 
