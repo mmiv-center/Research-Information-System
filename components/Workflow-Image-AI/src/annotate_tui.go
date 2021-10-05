@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sort"
@@ -66,11 +68,11 @@ func (annotateTUI *AnnotateTUI) Init() {
 	annotateTUI.selection.SetBorder(true)
 	annotateTUI.selection.SetTitle("Selections")
 	annotateTUI.viewer.SetBorder(true).SetTitle("DICOM")
-	annotateTUI.example1 = newPrimitive("example 1")
+	annotateTUI.example1 = newPrimitive("example 1").SetDynamicColors(true)
 	annotateTUI.example1.SetBorder(true).SetTitle("DICOM")
-	annotateTUI.example2 = newPrimitive("example 2")
+	annotateTUI.example2 = newPrimitive("example 2").SetDynamicColors(true)
 	annotateTUI.example2.SetBorder(true).SetTitle("DICOM")
-	annotateTUI.example3 = newPrimitive("example 3")
+	annotateTUI.example3 = newPrimitive("example 3").SetDynamicColors(true)
 	annotateTUI.example3.SetBorder(true).SetTitle("DICOM")
 
 	annotateTUI.annotations = make(map[string][]string)
@@ -310,8 +312,58 @@ func (annotateTUI *AnnotateTUI) markImage(data SeriesInfo, selectedSeriesInstanc
 			return
 		}
 	}
-
+	if len(annotateTUI.annotations[a]) > 0 {
+		var example1 string = annotateTUI.annotations[a][ rand.Intn((len(annotateTUI.annotations[a]) - 0) + 0) ]
+		annotateTUI.displayOneImage(example1, annotateTUI.example1)
+		var example2 string = annotateTUI.annotations[a][ rand.Intn((len(annotateTUI.annotations[a]) - 0) + 0) ]
+		annotateTUI.displayOneImage(example2, annotateTUI.example2)
+		var example3 string = annotateTUI.annotations[a][ rand.Intn((len(annotateTUI.annotations[a]) - 0) + 0) ]
+		annotateTUI.displayOneImage(example3, annotateTUI.example3)
+	}
 	annotateTUI.annotations[a] = append(annotateTUI.annotations[a], selectedSeriesInstanceUID)
+	// if we have added a marker we can also show other images with the same marker
+}
+
+func (annotateTUI *AnnotateTUI) displayOneImage(SeriesInstanceUID string, viewer *tview.TextView) {
+	// find that image, load as DICOM and display
+	series, err := findSeriesInfo(annotateTUI.dataSets, SeriesInstanceUID)
+	if err != nil {
+		fmt.Println("we got an error", err)
+		return
+	}
+	searchPath := series.Path
+	if _, err := os.Stat(searchPath); os.IsNotExist(err) {
+		fmt.Println("warning: search path could not be found. Maybe a drive was disconnected?")
+		return
+	}
+	var SelectedSeriesInstanceUID string = SeriesInstanceUID
+	filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		dataset, err := dicom.ParseFile(path, nil) // See also: dicom.Parse which has a generic io.Reader API.
+		if err == nil {
+			SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
+			if err == nil {
+				var SeriesInstanceUID string = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
+				if SeriesInstanceUID != SelectedSeriesInstanceUID {
+					return nil // ignore that file
+				}
+				_, err := dataset.FindElementByTag(tag.PixelData)
+				if err != nil {
+					return nil // ignore files that have no images
+				}
+				// now display that image and stop doing more
+				showDataset(dataset, 1, "path", "", viewer, annotateTUI.config.Viewer.Clip)
+				return errors.New("stop")
+			}
+		}
+		return nil
+	})
 }
 
 func (annotateTUI *AnnotateTUI) Run(annotations []string) {
