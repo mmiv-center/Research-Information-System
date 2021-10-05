@@ -3133,7 +3133,7 @@ func main() {
 					//	exitGracefully(fmt.Errorf("we only support \"Select <series>\" and \"Select <study>\" for now as the output level"))
 					//}
 					selectFromB, selectFromBNames = findMatchingSets(ast, config.Data.DataInfo)
-					fmt.Printf("NAMES ARE: %v\n", selectFromBNames)
+					//fmt.Printf("NAMES ARE: %v\n", selectFromBNames)
 				}
 				//s, _ = json.MarshalIndent(ast, "", "  ")
 				//fmt.Printf("ast is: %s\n", string(s))
