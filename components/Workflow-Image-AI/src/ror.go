@@ -27,6 +27,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -1572,6 +1573,14 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 
 		// compute the match with the data
 		a, _ := findMatchingSets(ast, datasets)
+
+		var numSeriesByStudy = make(map[string]int32)
+		for _, vv := range datasets {
+			for siuid := range vv {
+				numSeriesByStudy[siuid] += int32(len(vv))
+			}
+		}
+
 		//  we like to have all a's equally big (studyinstanceuid with same #seriesinstanceuid)
 		var sumX float64
 		for _, v := range a {
@@ -1581,7 +1590,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			//numSeries := len(a[k])
 			// number of series for this study
 			SeriesInstanceUID := v[0]
-			var numSeriesByStudy float64 = 0.0
+/*			var numSeriesByStudy float64 = 0.0
 		L:
 			for _, vv := range datasets {
 				for siuid := range vv {
@@ -1590,9 +1599,9 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 						break L
 					}
 				}
-			}
+			} */
 
-			numSelected := float64(len(v)) / numSeriesByStudy
+			numSelected := float64(len(v)) / float64(numSeriesByStudy[SeriesInstanceUID])
 			sumX += float64(numSelected)
 		}
 		if len(a) > 0 {
@@ -2034,21 +2043,19 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 	// maybe easiest for now if we sort by number of image series?
 	// for each patient we would like to sort by date as well
 	// keep a list of all the images per series instance uid and index in argsort instead of recalculating this all the time
-	var cache []int = make([]int, len(selectFromB))
+	var numImagesBySeriesInstanceUID = make(map[string]int32)
+	for _, b := range dataInfo {
+		for SeriesInstanceUID, c := range b {
+			numImagesBySeriesInstanceUID[SeriesInstanceUID] += int32(c.NumImages)
+		}
+	}
+
+	var cache []int32 = make([]int32, len(selectFromB))
 	for idx, set := range selectFromB {
-		l := 0
+		l := int32(0)
 		for i := 0; i < len(set); i++ {
 		    a := set[i] // for _, a := range selectFromB[i] {
-			//  ok, a is a series instance uid, I need to get the info from that series
-		L3:
-			for _, b := range dataInfo {
-				for SeriesInstanceUID, c := range b {
-					if SeriesInstanceUID == a {
-						l += c.NumImages
-						break L3
-					}
-				}
-			}
+			l += numImagesBySeriesInstanceUID[a]
 		}
 		cache[idx] = l
 	}
@@ -2821,17 +2828,17 @@ func main() {
 				line := []byte("Select series from series where series has ClassifyType containing CT")
 				yyParse(&exprLex{line: line})
 
-				/* 
+				 
 				// 
 				// profiling to find out why something is slow
-				//
+				// - test with: go tool pprof /usr/local/bin/ror /tmp/profile   
 				cpuprofile := "/tmp/profile"
 				f, err := os.Create(cpuprofile)
 				if err != nil {
 					log.Fatal(err)
 				}
 				pprof.StartCPUProfile(f)
-				defer pprof.StopCPUProfile() */
+				defer pprof.StopCPUProfile()
 
 				ast, _ := ast.improveAST(config.Data.DataInfo)
 
