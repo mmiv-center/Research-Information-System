@@ -27,7 +27,6 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
-	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -48,7 +47,7 @@ import (
 	"github.com/rivo/tview"
 )
 
-const version string = "0.0.3"
+const version string = "0.0.4"
 
 // The string below will be replaced during build time using
 // -ldflags "-X main.compileDate=`date -u +.%Y%m%d.%H%M%S"`"
@@ -2832,13 +2831,13 @@ func main() {
 				// 
 				// profiling to find out why something is slow
 				// - test with: go tool pprof /usr/local/bin/ror /tmp/profile   
-				cpuprofile := "/tmp/profile"
+				/*cpuprofile := "/tmp/profile"
 				f, err := os.Create(cpuprofile)
 				if err != nil {
 					log.Fatal(err)
 				}
 				pprof.StartCPUProfile(f)
-				defer pprof.StopCPUProfile()
+				defer pprof.StopCPUProfile() */
 
 				ast, _ := ast.improveAST(config.Data.DataInfo)
 
