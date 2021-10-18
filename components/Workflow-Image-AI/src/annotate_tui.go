@@ -24,6 +24,7 @@ type AnnotateTUI struct {
 	example1                  *tview.TextView
 	example2                  *tview.TextView
 	example3                  *tview.TextView
+	example4                  *tview.TextView
 	app                       *tview.Application
 	flex                      *tview.Flex
 	ast                       AST
@@ -74,6 +75,8 @@ func (annotateTUI *AnnotateTUI) Init() {
 	annotateTUI.example2.SetBorder(true).SetTitle("DICOM")
 	annotateTUI.example3 = newPrimitive("example 3").SetDynamicColors(true)
 	annotateTUI.example3.SetBorder(true).SetTitle("DICOM")
+	annotateTUI.example4 = newPrimitive("example 4").SetDynamicColors(true)
+	annotateTUI.example4.SetBorder(true).SetTitle("DICOM")
 
 	annotateTUI.annotations = make(map[string][]string)
 
@@ -96,7 +99,8 @@ func (annotateTUI *AnnotateTUI) Init() {
 			AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 				AddItem(annotateTUI.example1, 0, 30, false).
 				AddItem(annotateTUI.example2, 0, 30, false).
-				AddItem(annotateTUI.example3, 0, 30, false), 30, 1, false), 0, 1, false).
+				AddItem(annotateTUI.example3, 0, 30, false).
+				AddItem(annotateTUI.example4, 0, 30, false), 30, 1, false), 0, 1, false).
 		AddItem(annotateTUI.selection, 12, 1, false)
 
 	// start with setting up the list of selected datasets
@@ -313,12 +317,22 @@ func (annotateTUI *AnnotateTUI) markImage(data SeriesInfo, selectedSeriesInstanc
 		}
 	}
 	if len(annotateTUI.annotations[a]) > 0 {
-		var example1 string = annotateTUI.annotations[a][ rand.Intn((len(annotateTUI.annotations[a]) - 0) + 0) ]
+		var idx1 = rand.Intn((len(annotateTUI.annotations[a]) - 0) + 0)
+		var idx2 = rand.Intn((len(annotateTUI.annotations[a]) - 0) + 0)
+		var idx3 = rand.Intn((len(annotateTUI.annotations[a]) - 0) + 0)
+		var idx4 = rand.Intn((len(annotateTUI.annotations[a]) - 0) + 0)
+		var example1 string = annotateTUI.annotations[a][ idx1 ]
 		annotateTUI.displayOneImage(example1, annotateTUI.example1)
-		var example2 string = annotateTUI.annotations[a][ rand.Intn((len(annotateTUI.annotations[a]) - 0) + 0) ]
+		var example2 string = annotateTUI.annotations[a][ idx2 ]
 		annotateTUI.displayOneImage(example2, annotateTUI.example2)
-		var example3 string = annotateTUI.annotations[a][ rand.Intn((len(annotateTUI.annotations[a]) - 0) + 0) ]
+		var example3 string = annotateTUI.annotations[a][ idx3 ]
 		annotateTUI.displayOneImage(example3, annotateTUI.example3)
+		var example4 string = annotateTUI.annotations[a][ idx4 ]
+		annotateTUI.displayOneImage(example4, annotateTUI.example4)
+		//annotateTUI.example1.SetTitle(fmt.Sprintf("%d/%d", idx1, len(annotateTUI.annotations[a])))
+		//annotateTUI.example2.SetTitle(fmt.Sprintf("%d", idx2))
+		//annotateTUI.example3.SetTitle(fmt.Sprintf("%d", idx3))
+		//annotateTUI.example4.SetTitle(fmt.Sprintf("%d", idx4))
 	}
 	annotateTUI.annotations[a] = append(annotateTUI.annotations[a], selectedSeriesInstanceUID)
 	// if we have added a marker we can also show other images with the same marker
