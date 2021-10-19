@@ -2332,6 +2332,8 @@ func main() {
 	statusCommand.BoolVar(&status_help, "help", false, "Show help for status.")
 	var status_tui bool
 	statusCommand.BoolVar(&status_tui, "tui", false, "Show the datasets.")
+	var status_jobs bool
+	statusCommand.BoolVar(&status_jobs, "jobs", false, "Show the jobs as a json.")
 
 	var build_help bool
 	buildCommand.BoolVar(&build_help, "help", false, "Show help for build.")
@@ -2894,6 +2896,57 @@ func main() {
 				yyParse(&exprLex{line: line})
 				statusTui.ast = ast
 				statusTui.Init()
+			}
+
+			if status_jobs {
+				comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
+				series_filter_no_comments := comments.ReplaceAllString(config.SeriesFilter, " ")
+
+				// now parse the input string
+				InitParser()
+				line := []byte(series_filter_no_comments)
+				yyParse(&exprLex{line: line})
+				if !errorOnParse {
+					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
+					// a more informative output would include more information for each job
+					// so we look into config.Data.DataInfo to find the image series and copy those values over
+					// should we add all info or just the most important - like remove the All to make this shorter?
+					type JobInfo struct {
+						SeriesInstanceUID string
+						StudyInstanceUID string
+						Info SeriesInfo
+					}
+
+					jobs := make([][]JobInfo, len(matches))
+					for i, match := range matches { // for each job
+						jobs[i] = make([]JobInfo, 0)
+						for _, jobSeriesInstanceUID := range match { // go through all image series
+							found := false
+							for StudyInstanceUID, study := range config.Data.DataInfo {
+								for SeriesInstanceUID, series := range study {
+									if SeriesInstanceUID == jobSeriesInstanceUID {
+										job := JobInfo{
+											SeriesInstanceUID: SeriesInstanceUID,
+											StudyInstanceUID: StudyInstanceUID,
+											Info: series,
+										}
+
+										jobs[i] = append(jobs[i], job)
+										found = true
+										break
+									}
+								}
+							}
+							if !found {
+								fmt.Println("Error: could not identify series")
+							}
+						}
+					}
+
+					file, _ := json.MarshalIndent(jobs, "", " ")
+					fmt.Println(string(file))
+				}
+				return // we are done here
 			}
 
 			if !status_detailed {
