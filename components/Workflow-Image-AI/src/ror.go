@@ -2898,7 +2898,7 @@ func main() {
 				statusTui.Init()
 			}
 
-			if status_jobs {
+			if status_jobs { // this is slow because of loop inside loops
 				comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
 				series_filter_no_comments := comments.ReplaceAllString(config.SeriesFilter, " ")
 
@@ -2908,24 +2908,24 @@ func main() {
 				yyParse(&exprLex{line: line})
 				if !errorOnParse {
 					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
-					// a more informative output would include more information for each job
+					// a more informative output would include information for each job
 					// so we look into config.Data.DataInfo to find the image series and copy those values over
 					// should we add all info or just the most important - like remove the All to make this shorter?
-					type JobInfo struct {
+					type SeriesForJobInfo struct { // not really JobInfo but SeriesForJobInfo
 						SeriesInstanceUID string
 						StudyInstanceUID string
 						Info SeriesInfo
 					}
 
-					jobs := make([][]JobInfo, len(matches))
+					jobs := make([][]SeriesForJobInfo, len(matches))
 					for i, match := range matches { // for each job
-						jobs[i] = make([]JobInfo, 0)
+						jobs[i] = make([]SeriesForJobInfo, 0)
 						for _, jobSeriesInstanceUID := range match { // go through all image series
 							found := false
 							for StudyInstanceUID, study := range config.Data.DataInfo {
 								for SeriesInstanceUID, series := range study {
 									if SeriesInstanceUID == jobSeriesInstanceUID {
-										job := JobInfo{
+										job := SeriesForJobInfo{
 											SeriesInstanceUID: SeriesInstanceUID,
 											StudyInstanceUID: StudyInstanceUID,
 											Info: series,
