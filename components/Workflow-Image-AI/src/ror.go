@@ -1140,7 +1140,9 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 
 				// write out config again
 				config2.writeConfig()
-				app.Sync()
+				if app != nil {
+					app.Sync()
+				}
 				//file, _ := json.MarshalIndent(config2, "", " ")
 				//_ = ioutil.WriteFile(dir_path, file, 0600)
 			}
@@ -2307,7 +2309,7 @@ func main() {
 	var config_clip_0 float64
 	configCommand.Float64Var(&config_clip_0, "clip0", 5.0, "Percentage lower display range")
 	var config_clip_1 float64
-	configCommand.Float64Var(&config_clip_1, "clip1", 99.0, "Percentage upper display range")
+	configCommand.Float64Var(&config_clip_1, "clip1", 95.0, "Percentage upper display range")
 
 	var triggerWaitTime string
 	triggerCommand.StringVar(&triggerWaitTime, "delay", "0s", defaultTriggerTime)
