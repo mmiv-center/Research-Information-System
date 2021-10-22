@@ -2965,6 +2965,7 @@ func main() {
 					json.Unmarshal(tt, &newConfig)
 					newConfig.Data.DataInfo = nil     // hide the data
 					newConfig.ProjectToken = "hidden" // hide the project token
+					newConfig.Annotate = Annotate{}   // hide the annotation
 					file, _ := json.MarshalIndent(newConfig, "", " ")
 					fmt.Println(string(file))
 				} else {
@@ -3059,7 +3060,7 @@ func main() {
 					fmt.Println("")
 				}
 			} else {
-				fmt.Println("This short status does not contain data information. Use the --all option to obtain all info.")
+				fmt.Fprintf(os.Stderr, "This short status does not contain data information. Use the --all option to obtain all info.")
 			}
 			if status_detailed && config.SeriesFilterType == "select" {
 				comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
