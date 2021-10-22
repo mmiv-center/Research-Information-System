@@ -2920,7 +2920,8 @@ func main() {
 						StudyInstanceUID  string
 						Info              SeriesInfo
 					}
-
+					// we need a way to identify a job
+					// we can just use the [][]SeriesInstanceUIDs for this purpose
 					jobs := make([][]SeriesForJobInfo, len(matches))
 					for i, match := range matches { // for each job
 						jobs[i] = make([]SeriesForJobInfo, 0)
