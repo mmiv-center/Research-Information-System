@@ -1193,6 +1193,9 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 					}
 					for _, entry := range initial_list_of_seriesinstanceuids {
 						if entry == SeriesInstanceUID {
+							if app != nil {
+								fmt.Fprintf(footer, langFmt.Sprintf("SeriesInstanceUID already in cache: %s\n", entry))
+							}
 							return nil
 						}
 					}
@@ -1591,16 +1594,16 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			//numSeries := len(a[k])
 			// number of series for this study
 			SeriesInstanceUID := v[0]
-/*			var numSeriesByStudy float64 = 0.0
-		L:
-			for _, vv := range datasets {
-				for siuid := range vv {
-					if SeriesInstanceUID == siuid {
-						numSeriesByStudy = float64(len(vv))
-						break L
-					}
-				}
-			} */
+			/*			var numSeriesByStudy float64 = 0.0
+						L:
+							for _, vv := range datasets {
+								for siuid := range vv {
+									if SeriesInstanceUID == siuid {
+										numSeriesByStudy = float64(len(vv))
+										break L
+									}
+								}
+							} */
 
 			numSelected := float64(len(v)) / float64(numSeriesByStudy[SeriesInstanceUID])
 			sumX += float64(numSelected)
@@ -2055,38 +2058,38 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 	for idx, set := range selectFromB {
 		l := int32(0)
 		for i := 0; i < len(set); i++ {
-		    a := set[i] // for _, a := range selectFromB[i] {
+			a := set[i] // for _, a := range selectFromB[i] {
 			l += numImagesBySeriesInstanceUID[a]
 		}
 		cache[idx] = l
 	}
-	
+
 	order := argsort.SortSlice(selectFromB, func(i, j int) bool {
-	/*	l1 := 0
-		for _, a := range selectFromB[i] {
-			//  ok, a is a series instance uid, I need to get the info from that series
-		L1:
-			for _, b := range dataInfo {
-				for SeriesInstanceUID, c := range b {
-					if SeriesInstanceUID == a {
-						l1 += c.NumImages
-						break L1
+		/*	l1 := 0
+			for _, a := range selectFromB[i] {
+				//  ok, a is a series instance uid, I need to get the info from that series
+			L1:
+				for _, b := range dataInfo {
+					for SeriesInstanceUID, c := range b {
+						if SeriesInstanceUID == a {
+							l1 += c.NumImages
+							break L1
+						}
 					}
 				}
 			}
-		}
-		l2 := 0
-		for _, a := range selectFromB[j] {
-		L2:
-			for _, b := range dataInfo {
-				for SeriesInstanceUID, c := range b {
-					if SeriesInstanceUID == a {
-						l2 += c.NumImages
-						break L2
+			l2 := 0
+			for _, a := range selectFromB[j] {
+			L2:
+				for _, b := range dataInfo {
+					for SeriesInstanceUID, c := range b {
+						if SeriesInstanceUID == a {
+							l2 += c.NumImages
+							break L2
+						}
 					}
 				}
-			}
-		} */
+			} */
 		return cache[i] > cache[j]
 	})
 	// fmt.Println("%v", order)
@@ -2722,7 +2725,9 @@ func main() {
 				config.Data.Path = data_path
 				studies, err = dataSets(config, config.Data.DataInfo)
 				check(err)
-				app.Stop()
+				if app != nil {
+					app.Stop()
+				}
 				if len(studies) == 0 {
 					fmt.Println("We did not find any DICOM files in the folder you provided. Please check if the files are available, un-compress any zip files to make the accessible to this tool.")
 				} else {
@@ -2831,10 +2836,9 @@ func main() {
 				line := []byte("Select series from series where series has ClassifyType containing CT")
 				yyParse(&exprLex{line: line})
 
-				 
-				// 
+				//
 				// profiling to find out why something is slow
-				// - test with: go tool pprof /usr/local/bin/ror /tmp/profile   
+				// - test with: go tool pprof /usr/local/bin/ror /tmp/profile
 				/*cpuprofile := "/tmp/profile"
 				f, err := os.Create(cpuprofile)
 				if err != nil {
@@ -2913,8 +2917,8 @@ func main() {
 					// should we add all info or just the most important - like remove the All to make this shorter?
 					type SeriesForJobInfo struct { // not really JobInfo but SeriesForJobInfo
 						SeriesInstanceUID string
-						StudyInstanceUID string
-						Info SeriesInfo
+						StudyInstanceUID  string
+						Info              SeriesInfo
 					}
 
 					jobs := make([][]SeriesForJobInfo, len(matches))
@@ -2927,8 +2931,8 @@ func main() {
 									if SeriesInstanceUID == jobSeriesInstanceUID {
 										job := SeriesForJobInfo{
 											SeriesInstanceUID: SeriesInstanceUID,
-											StudyInstanceUID: StudyInstanceUID,
-											Info: series,
+											StudyInstanceUID:  StudyInstanceUID,
+											Info:              series,
 										}
 
 										jobs[i] = append(jobs[i], job)

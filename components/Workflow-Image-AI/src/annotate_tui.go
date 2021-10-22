@@ -321,13 +321,13 @@ func (annotateTUI *AnnotateTUI) markImage(data SeriesInfo, selectedSeriesInstanc
 		var idx2 = rand.Intn((len(annotateTUI.annotations[a]) - 0) + 0)
 		var idx3 = rand.Intn((len(annotateTUI.annotations[a]) - 0) + 0)
 		var idx4 = rand.Intn((len(annotateTUI.annotations[a]) - 0) + 0)
-		var example1 string = annotateTUI.annotations[a][ idx1 ]
+		var example1 string = annotateTUI.annotations[a][idx1]
 		annotateTUI.displayOneImage(example1, annotateTUI.example1)
-		var example2 string = annotateTUI.annotations[a][ idx2 ]
+		var example2 string = annotateTUI.annotations[a][idx2]
 		annotateTUI.displayOneImage(example2, annotateTUI.example2)
-		var example3 string = annotateTUI.annotations[a][ idx3 ]
+		var example3 string = annotateTUI.annotations[a][idx3]
 		annotateTUI.displayOneImage(example3, annotateTUI.example3)
-		var example4 string = annotateTUI.annotations[a][ idx4 ]
+		var example4 string = annotateTUI.annotations[a][idx4]
 		annotateTUI.displayOneImage(example4, annotateTUI.example4)
 		//annotateTUI.example1.SetTitle(fmt.Sprintf("%d/%d", idx1, len(annotateTUI.annotations[a])))
 		//annotateTUI.example2.SetTitle(fmt.Sprintf("%d", idx2))
