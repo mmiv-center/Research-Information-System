@@ -636,7 +636,7 @@ func (x *exprLex) num(c rune, yylval *yySymType) int {
 	L: for {
 		c = x.next()
 		switch c {
-		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', 'e', 'E':
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', 'e', 'E', '+':
 			add(&b, c)
             charpos = charpos + 1
 		default:

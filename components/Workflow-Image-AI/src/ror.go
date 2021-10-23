@@ -2155,7 +2155,7 @@ func ast2Select(ast AST) string {
 				opstr = "regexp"
 			}
 			if len(rule.Tag) == 2 {
-				s = fmt.Sprintf("%s%s (%s,%s) %s %v", s, a, rule.Tag[0], rule.Tag[1], opstr, rule.Value)
+				s = fmt.Sprintf("%s%s (\"%s\",\"%s\") %s %v", s, a, rule.Tag[0], rule.Tag[1], opstr, rule.Value)
 			} else {
 				s = fmt.Sprintf("%s%s %s %s %v", s, a, rule.Tag[0], opstr, rule.Value)
 			}
@@ -3074,7 +3074,7 @@ func main() {
 				if !errorOnParse {
 					s, _ := json.MarshalIndent(ast, "", "  ")
 					ss := humanizeFilter(ast)
-					fmt.Printf("Parsing series filter successful\n%s\n%s\n", string(s), ss)
+					fmt.Printf("Parsing series filter\n%s\n%s\n", string(s), ss)
 					config.SeriesFilterType = "select"
 					// check if we have any matches - cheap for us here
 					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
