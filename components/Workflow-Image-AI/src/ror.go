@@ -114,6 +114,9 @@ var webapp_css_bootstrap string
 //go:embed templates/webapp/Dockerfile_webapp
 var webapp_dockerfile string
 
+//go:embed templates/ontologies/ontology_body_parts_DICOM.json
+var ontology_body_parts_dicom string
+
 var structure *tview.TextView
 var viewer *tview.TextView
 var footer *tview.TextView
@@ -2636,6 +2639,14 @@ func main() {
 			classify_dicom_path2 := input_dir + "/.ror/classifyDICOM.json"
 			createStub(classify_dicom_path2, classifyRules)
 
+			// example ontology
+			ontology_path := input_dir + "/.ror/ontologies"
+			if err := os.Mkdir(ontology_path, 0755); os.IsExist(err) {
+				exitGracefully(errors.New("directory exist already"))
+			}
+			ontology_path = input_dir + "/.ror/ontologies/body_parts_DICOM.json"
+			createStub(ontology_path, ontology_body_parts_dicom)
+
 			if data.ProjectType == "python" || data.ProjectType == "notebook" {
 				requirements_path2 := filepath.Join(virt_path, "requirements.txt")
 				createStub(requirements_path2, requirements)
@@ -2835,7 +2846,7 @@ func main() {
 			}
 			if config_suggest {
 				if config.Data.DataInfo == nil {
-					exitGracefully(errors.New("to suggest a selection we need some data first. Use config --data <path to DICOMs>"))
+					exitGracefully(errors.New(fmt.Sprintf("to suggest a selection we need some data first. Use\n\t%s config --data <path to DICOMs>", own_name)))
 				}
 
 				// get dataset and ast from config
@@ -2902,7 +2913,7 @@ func main() {
 				var statusTui StatusTUI
 				statusTui.dataSets = config.Data.DataInfo
 				if config.SeriesFilterType != "select" {
-					exitGracefully(errors.New("we can only work with Select filters"))
+					exitGracefully(errors.New(fmt.Sprintf("we can only work with select filters. No filter defined.\n\t%s config --suggest\n", own_name)))
 				}
 				InitParser()
 				line := []byte(config.SeriesFilter)
@@ -3427,8 +3438,11 @@ func main() {
 				var annotateTui AnnotateTUI
 				annotateTui.dataSets = config.Data.DataInfo
 				annotateTui.ontology = config.Annotate.Ontology
+				if config.Annotate.Ontology == nil {
+					exitGracefully(errors.New(fmt.Sprintf("need an ontology, use\n\t%s annotate --ontology <json filename>\nto create one", own_name)))
+				}
 				if config.SeriesFilterType != "select" {
-					exitGracefully(errors.New("need a Select filter, use 'ror config --suggest' to create one"))
+					exitGracefully(errors.New(fmt.Sprintf("need a Select filter, use\n\t%s config --suggest\nto create one", own_name)))
 				}
 				InitParser()
 				line := []byte(config.SeriesFilter)
