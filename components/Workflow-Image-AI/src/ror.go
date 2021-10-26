@@ -475,7 +475,7 @@ func pixelToInt(r int, g int, b int, a int) int {
 }
 
 // printImage2ASCII prints the image as ASCII art
-func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPaddingValue int, clip []float32) string {
+func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPaddingValue int, clip []float32, offset []int) string {
 	//table := []byte(reverse(ASCIISTR))
 	//table := []byte(reverse(ASCIISTR2))
 	//table := reverseRunes(ASCIISTR5)
@@ -490,7 +490,7 @@ func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPa
 	firstSet := false
 	var minVal int64
 	var maxVal int64
-	for i := 0; i < h; i++ {
+	for i := 0 + offset[0]; i < h-offset[1]; i++ {
 		for j := 0; j < w; j++ {
 			// this might be wrong if we have 8bit data - we interpret them as 16bit here which shifts them up
 			g := color.Gray16Model.Convert(img.At(j, i))
@@ -517,7 +517,7 @@ func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPa
 	var histogram [1024]int64
 	bins := len(histogram)
 
-	for i := 0; i < h; i++ {
+	for i := 0 + offset[0]; i < h-offset[1]; i++ {
 		for j := 0; j < w; j++ {
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
@@ -574,7 +574,7 @@ func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPa
 	if denom == 0 {
 		denom = 1
 	}
-	for i := 0; i < h; i++ {
+	for i := 0 + offset[0]; i < h-offset[1]; i++ {
 		for j := 0; j < w; j++ {
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
@@ -823,7 +823,16 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 
 		//fmt.Printf("%s", string(p))
 		if viewer != nil {
-			p := printImage2Runes(newImage, PhotometricInterpretation, PixelPaddingValue, clip)
+			// remove some lines from the top and bottom of the image (fit image into limited height space)
+			offset := []int{0, 0}
+			_, _, _, printableHeight := viewer.Box.GetInnerRect()
+			if printableHeight < theight {
+				offset[0] = (theight - printableHeight) / 2
+				offset[1] = (theight - printableHeight - offset[0])
+			}
+			// fmt.Printf("Printable Height %d, theight: %d, offset[0]: %d, offset[1]: %d", printableHeight, theight, offset[0], offset[1])
+
+			p := printImage2Runes(newImage, PhotometricInterpretation, PixelPaddingValue, clip, offset)
 			viewer.Clear()
 			//app.SetFocus(viewer)
 			//footer.Clear()
@@ -2552,7 +2561,7 @@ func main() {
 			}
 			data.Viewer = Viewer{
 				TextColor: "#000000",
-				Clip:      []float32{5, 99},
+				Clip:      []float32{5, 95},
 			}
 			if init_type == "bash" {
 				data.CallString = "./stub.sh"
@@ -2702,9 +2711,9 @@ func main() {
 
 					flex := tview.NewFlex().SetDirection(tview.FlexRow).
 						AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
-							AddItem(structure, 20, 1, false).
+							AddItem(structure, 22, 1, false).
 							AddItem(viewer, 0, 1, true), 0, 1, false).
-						AddItem(footer, 3, 1, false)
+						AddItem(footer, 1, 1, false)
 
 					tviewrun := func() {
 						app = tview.NewApplication()
