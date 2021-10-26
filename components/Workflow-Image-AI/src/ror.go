@@ -2696,13 +2696,13 @@ func main() {
 					structure.SetBorder(true).SetTitle("Database")
 					viewer = newPrimitive("").SetDynamicColors(true)
 					footer = newPrimitive(fmt.Sprintf("Start looking for files in %s", data_path))
-					footer.SetBorder(true)
+					footer.SetBorder(false)
 					footer.SetTitle("File")
 					viewer.SetBorder(true).SetTitle("DICOM")
 
 					flex := tview.NewFlex().SetDirection(tview.FlexRow).
 						AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
-							AddItem(structure, 30, 1, false).
+							AddItem(structure, 20, 1, false).
 							AddItem(viewer, 0, 1, true), 0, 1, false).
 						AddItem(footer, 3, 1, false)
 
