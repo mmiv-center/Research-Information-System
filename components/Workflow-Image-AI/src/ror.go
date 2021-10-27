@@ -1105,7 +1105,7 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 	if previous != nil {
 		datasets = previous
 		for _, study := range datasets {
-			for seriesInstanceUID, _ := range study {
+			for seriesInstanceUID := range study {
 				initial_list_of_seriesinstanceuids = append(initial_list_of_seriesinstanceuids, seriesInstanceUID)
 			}
 		}
