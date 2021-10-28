@@ -2668,14 +2668,12 @@ func main() {
 
 			fmt.Printf("\nInit new project folder \"%s\" done.\n", input_dir)
 			fmt.Printf("You might want to add a data folder with DICOM files to get started\n\n\tcd \"%s\"\n\t%s config --data <data folder>\n\n", input_dir, own_name)
-			fmt.Println("Careful with using a data folder with too many files. Each time you trigger a\n" +
-				"computation ror needs to look at each of the files. This might take\n" +
-				"a long time. Test with a few hundred DICOM files first.\n\n" +
-				"If you don't have any readily available DICOM data you might want to download some by\n" +
-				" mkdir data; cd data;\n" +
-				" git clone https://github.com/ImagingInformatics/hackathon-dataset.git\n" +
-				" cd hackathon-dataset\n" +
-				" git submodule update --init --recursive")
+			fmt.Println(
+				"For testing you may download publicly available DICOM data by\n" +
+					" mkdir data; cd data;\n" +
+					" git clone https://github.com/ImagingInformatics/hackathon-dataset.git\n" +
+					" cd hackathon-dataset\n" +
+					" git submodule update --init --recursive")
 		}
 	case "config":
 		if len(os.Args[2:]) == 0 {

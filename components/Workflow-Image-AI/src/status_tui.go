@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ type StatusTUI struct {
 	currentImage              int
 	selectedSeriesInformation SeriesInfo
 	config                    Config
+	stopAnimation             bool
 }
 
 func findSeriesInfo(dataSets map[string]map[string]SeriesInfo, SeriesInstanceUID string) (SeriesInfo, error) {
@@ -189,6 +191,9 @@ func doEvery(d time.Duration, statusTUI *StatusTUI, f func(*StatusTUI, time.Time
 
 //nextImage displays one image from the currently selected image series in the viewer
 func nextImage(statusTUI *StatusTUI, t time.Time) {
+	if statusTUI.stopAnimation {
+		return
+	}
 	//fmt.Printf("do something %p\n", &statusTUI.selectedDatasets)
 	if len(statusTUI.selectedDatasets) == 0 {
 		return
@@ -207,22 +212,37 @@ func nextImage(statusTUI *StatusTUI, t time.Time) {
 		statusTUI.app.Draw()
 	}
 	var sAllInfo string
+	removeBraces := regexp.MustCompile("(^{)|(}$)")
 	for _, a := range statusTUI.selectedSeriesInformation.All {
-		sAllInfo += fmt.Sprintf(" %v\n", a)
+		sAllInfo += " " + removeBraces.ReplaceAllString(fmt.Sprintf("%v", a), "") + "\n"
 	}
 
 	statusTUI.summary.Clear()
 	fmt.Fprintf(statusTUI.summary, "image %d/%d\n%s\n%s\n\n%s", statusTUI.currentImage+1, len(statusTUI.selectedDatasets),
 		statusTUI.selectedSeriesInformation.SeriesDescription, strings.Join(statusTUI.selectedSeriesInformation.ClassifyTypes, ","),
 		sAllInfo)
-	statusTUI.summary.ScrollToBeginning()
+	//statusTUI.summary.ScrollToBeginning()
 }
 
 func (statusTUI *StatusTUI) Run() {
+	statusTUI.stopAnimation = false
 	// start a timer to display an image, should be like very 500msec
 	go doEvery(200*time.Millisecond, statusTUI, nextImage)
 
 	statusTUI.app = tview.NewApplication()
+
+	statusTUI.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		k := event.Key()
+		ch := rune(0)
+		if k == tcell.KeyRune {
+			ch = event.Rune()
+			if ch == rune('c') {
+				statusTUI.stopAnimation = !statusTUI.stopAnimation
+			}
+		}
+		return event
+	})
+
 	if err := statusTUI.app.SetRoot(statusTUI.flex, true).SetFocus(statusTUI.selection).EnableMouse(true).Run(); err != nil {
 		fmt.Println("Error: The --tui mode is only available in a propper terminal.")
 		panic(err)
