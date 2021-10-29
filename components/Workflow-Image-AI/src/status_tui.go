@@ -39,6 +39,23 @@ func findSeriesInfo(dataSets map[string]map[string]SeriesInfo, SeriesInstanceUID
 }
 
 func addDataset(statusTUI *StatusTUI, dataset dicom.Dataset) {
+	if len((*statusTUI).selectedDatasets) == 0 {
+		// this is the first time we add a dataset, show the
+		// meta-data if we have an app
+		if (*statusTUI).app != nil {
+			var sAllInfo string
+			removeBraces := regexp.MustCompile("(^{)|(}$)")
+			for _, a := range (*statusTUI).selectedSeriesInformation.All {
+				sAllInfo += " " + removeBraces.ReplaceAllString(fmt.Sprintf("%v", a), "") + "\n"
+			}
+			//fmt.Printf("IN FIRST DATASET! %s", sAllInfo)
+
+			(*statusTUI).summary.Clear()
+			fmt.Fprintf((*statusTUI).summary, "%s\n%s\n\n%s", (*statusTUI).selectedSeriesInformation.SeriesDescription, strings.Join((*statusTUI).selectedSeriesInformation.ClassifyTypes, ","),
+				sAllInfo)
+		}
+	}
+
 	(*statusTUI).selectedDatasets = append((*statusTUI).selectedDatasets, dataset)
 }
 
@@ -131,6 +148,7 @@ func (statusTUI *StatusTUI) Init() {
 		SelectedSeriesInstanceUID := SeriesInstanceUID
 		statusTUI.selectedDatasets = nil
 		statusTUI.currentImage = 0
+		statusTUI.stopAnimation = false
 		filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
 			if info.IsDir() {
 				return nil
@@ -152,18 +170,6 @@ func (statusTUI *StatusTUI) Init() {
 						return nil // ignore files that have no images
 					}
 					addDataset(statusTUI, dataset)
-					//fmt.Printf("add dataset to address: %p\n", statusTUI.selectedDatasets)
-					//statusTUI.selectedDatasets = append(statusTUI.selectedDatasets, dataset)
-
-					/* showDataset(dataset, 1, path, "", statusTUI.viewer)
-					if statusTUI.app != nil {
-						statusTUI.app.Draw()
-					} */
-					statusTUI.summary.Clear()
-					fmt.Fprintf(statusTUI.summary, "images found: %d\n", len(statusTUI.selectedDatasets))
-					// return errors.New("found an image, stop the walk")
-					// we have at least one image, so we can display the next one now
-
 				}
 			}
 			return nil
@@ -189,17 +195,7 @@ func doEvery(d time.Duration, statusTUI *StatusTUI, f func(*StatusTUI, time.Time
 	}
 }
 
-//nextImage displays one image from the currently selected image series in the viewer
-func nextImage(statusTUI *StatusTUI, t time.Time) {
-	if statusTUI.stopAnimation {
-		return
-	}
-	//fmt.Printf("do something %p\n", &statusTUI.selectedDatasets)
-	if len(statusTUI.selectedDatasets) == 0 {
-		return
-	}
-
-	idx := (statusTUI.currentImage + 1) % len(statusTUI.selectedDatasets)
+func showImage(statusTUI *StatusTUI, idx int) {
 	if idx >= len(statusTUI.selectedDatasets) {
 		idx = len(statusTUI.selectedDatasets) - 1
 	}
@@ -210,18 +206,23 @@ func nextImage(statusTUI *StatusTUI, t time.Time) {
 	showDataset(statusTUI.selectedDatasets[idx], 1, "path", "", statusTUI.viewer, statusTUI.config.Viewer.Clip)
 	if statusTUI.app != nil {
 		statusTUI.app.Draw()
-	}
-	var sAllInfo string
-	removeBraces := regexp.MustCompile("(^{)|(}$)")
-	for _, a := range statusTUI.selectedSeriesInformation.All {
-		sAllInfo += " " + removeBraces.ReplaceAllString(fmt.Sprintf("%v", a), "") + "\n"
+		statusTUI.viewer.SetTitle(fmt.Sprintf("DICOM image %d/%d", statusTUI.currentImage+1, len(statusTUI.selectedDatasets)))
 	}
 
-	statusTUI.summary.Clear()
-	fmt.Fprintf(statusTUI.summary, "image %d/%d\n%s\n%s\n\n%s", statusTUI.currentImage+1, len(statusTUI.selectedDatasets),
-		statusTUI.selectedSeriesInformation.SeriesDescription, strings.Join(statusTUI.selectedSeriesInformation.ClassifyTypes, ","),
-		sAllInfo)
-	//statusTUI.summary.ScrollToBeginning()
+}
+
+//nextImage displays one image from the currently selected image series in the viewer
+func nextImage(statusTUI *StatusTUI, t time.Time) {
+	if statusTUI.stopAnimation {
+		return
+	}
+	//fmt.Printf("do something %p\n", &statusTUI.selectedDatasets)
+	if len(statusTUI.selectedDatasets) == 0 {
+		return
+	}
+
+	idx := ((statusTUI.currentImage) + 1) % len(statusTUI.selectedDatasets)
+	showImage(statusTUI, idx)
 }
 
 func (statusTUI *StatusTUI) Run() {
@@ -233,7 +234,24 @@ func (statusTUI *StatusTUI) Run() {
 
 	statusTUI.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		k := event.Key()
+		prim := statusTUI.app.GetFocus()
 		ch := rune(0)
+		//if statusTUI.app.GetFocus() == statusTUI.viewer {
+		if statusTUI.stopAnimation && prim == statusTUI.viewer {
+			if k == tcell.KeyDown {
+				// what window is active?
+				//fmt.Println("Down KEY")
+				statusTUI.currentImage++
+				// this seems to crash the program
+				//showImage(statusTUI, statusTUI.currentImage)
+
+			} else if k == tcell.KeyUp {
+				//fmt.Println("Up KEY")
+				statusTUI.currentImage--
+				//showImage(statusTUI, statusTUI.currentImage)
+			}
+		}
+		//}
 		if k == tcell.KeyRune {
 			ch = event.Rune()
 			if ch == rune('c') {
