@@ -150,6 +150,12 @@ func (annotateTUI *AnnotateTUI) Init() {
 		annotateTUI.selectedSeriesInstanceUID = SeriesInstanceUID
 		annotateTUI.selectedDatasets = nil
 		annotateTUI.currentImage = 0
+		if annotateTUI.app != nil {
+			annotateTUI.example1.SetText("")
+			annotateTUI.example2.SetText("")
+			annotateTUI.example3.SetText("")
+			annotateTUI.example4.SetText("")
+		}
 		updateMarkers(annotateTUI)
 		filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
 			if info.IsDir() {
