@@ -129,6 +129,7 @@ func (annotateTUI *AnnotateTUI) Init() {
 		}
 	}
 
+	// work with the selected dataset (show images)
 	annotateTUI.selection.SetSelectedFunc(func(node *tview.TreeNode) {
 		SeriesInstanceUID := node.GetReference().(string)
 		if len(SeriesInstanceUID) == 0 {
@@ -148,7 +149,7 @@ func (annotateTUI *AnnotateTUI) Init() {
 			return
 		}
 		annotateTUI.selectedSeriesInstanceUID = SeriesInstanceUID
-		annotateTUI.selectedDatasets = nil
+		annotateTUI.selectedDatasets = nil // we have no images yet here, add those in the loop below
 		annotateTUI.currentImage = 0
 		if annotateTUI.app != nil {
 			annotateTUI.example1.SetText("")
@@ -156,7 +157,9 @@ func (annotateTUI *AnnotateTUI) Init() {
 			annotateTUI.example3.SetText("")
 			annotateTUI.example4.SetText("")
 		}
+		// update the marks in the annotation list for this new image series
 		updateMarkers(annotateTUI)
+		// look for all the images that might be part of this new series
 		filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
 			if info.IsDir() {
 				return nil
@@ -215,6 +218,7 @@ func (annotateTUI *AnnotateTUI) Init() {
 	annotateTUI.Run(annotations)
 }
 
+// add the list of annotation to the summary viewport
 func printAnnotations(annotations []string, annotateTUI *AnnotateTUI, viewer *tview.TreeView) {
 	var an []string
 	an = append(an, annotations...)
@@ -234,9 +238,11 @@ func printAnnotations(annotations []string, annotateTUI *AnnotateTUI, viewer *tv
 		root.AddChild(node)
 	}
 
+	// every time an annotation is selected we mark that image and show the new checkbox
 	annotateTUI.summary.SetSelectedFunc(func(node *tview.TreeNode) {
 		marker := node.GetReference().(string)
 		if annotateTUI.selectedSeriesInstanceUID != "" {
+			// remember the marker for this image
 			annotateTUI.markImage(annotateTUI.selectedSeriesInformation, annotateTUI.selectedSeriesInstanceUID, marker)
 			// update the markers to indicate the new state
 			updateMarkers(annotateTUI)
@@ -244,6 +250,7 @@ func printAnnotations(annotations []string, annotateTUI *AnnotateTUI, viewer *tv
 	})
 }
 
+// visually update the list of marked summary lines
 func updateMarkers(annotateTUI *AnnotateTUI) {
 	//  disable all markers first
 	for _, node := range annotateTUI.summary.GetRoot().GetChildren() {
@@ -310,7 +317,7 @@ func nextImageAnnotate(annotateTUI *AnnotateTUI, t time.Time) {
 	annotateTUI.summary.ScrollToBeginning() */
 }
 
-// markImage keeps track of all series that are marked by a given tag a
+// markImage marks the series that are marked by a given tag a
 func (annotateTUI *AnnotateTUI) markImage(data SeriesInfo, selectedSeriesInstanceUID string, a string) {
 	//fmt.Printf("marking this image series with %s", a)
 	//annotateTUI.summary.SetTitle(a)
@@ -335,13 +342,42 @@ func (annotateTUI *AnnotateTUI) markImage(data SeriesInfo, selectedSeriesInstanc
 		annotateTUI.displayOneImage(example3, annotateTUI.example3)
 		var example4 string = annotateTUI.annotations[a][idx4]
 		annotateTUI.displayOneImage(example4, annotateTUI.example4)
-		//annotateTUI.example1.SetTitle(fmt.Sprintf("%d/%d", idx1, len(annotateTUI.annotations[a])))
-		//annotateTUI.example2.SetTitle(fmt.Sprintf("%d", idx2))
-		//annotateTUI.example3.SetTitle(fmt.Sprintf("%d", idx3))
-		//annotateTUI.example4.SetTitle(fmt.Sprintf("%d", idx4))
 	}
 	annotateTUI.annotations[a] = append(annotateTUI.annotations[a], selectedSeriesInstanceUID)
-	// if we have added a marker we can also show other images with the same marker
+	// If we have added a marker we can also show other images with the same marker.
+
+	// We need to copy the markers over to the meta-data of the SeriesInfo.
+	// The annotations are part of the database going into the config file?
+	syncAnnotationsWithConfig(annotateTUI)
+}
+
+// Problem is that we could run in several iterations with different ontologies.
+// We would have ontology items that we don't know should be added to the config.
+// We need to store the ontology name in each annotation in config. Next time we
+// see an annotation in config we need to update only the once that match our ontology
+// currently loaded.
+func syncAnnotationsWithConfig(annotateTUI *AnnotateTUI) {
+	// we should clear out all annotations in the config that belong to our current CodingSchemeDesignator
+
+	// add add them back (only the once in the annotations, so we need to add all from there during loading as well!)
+	for marker, seriesInstanceUIDs := range annotateTUI.annotations {
+		for _, seriesInstanceUID := range seriesInstanceUIDs {
+			// search for that series in the config file
+			for _, study := range annotateTUI.config.Data.DataInfo {
+				for thisSeriesInstanceUID, series := range study {
+					// find the right series
+					if thisSeriesInstanceUID == seriesInstanceUID {
+						// now go through that series Annotations and sync with what we have as a marker
+						for annot := range series.Annotations {
+							print(marker, annot)
+						}
+
+					}
+				}
+			}
+
+		}
+	}
 }
 
 func (annotateTUI *AnnotateTUI) displayOneImage(SeriesInstanceUID string, viewer *tview.TextView) {

@@ -174,6 +174,13 @@ type TagAndValue struct {
 	Value []string `json:"value"`
 }
 
+type Annotation struct {
+	Name                 string
+	CodeSchemeDesignator string
+	CodeValue            string
+	CodeMeaning          string
+}
+
 type SeriesInfo struct {
 	SeriesDescription     string
 	NumImages             int
@@ -188,6 +195,7 @@ type SeriesInfo struct {
 	PatientName           string
 	ClassifyTypes         []string
 	All                   []TagAndValue
+	Annotations           []Annotation
 }
 
 // readConfig parses a provided config file as JSON.
