@@ -122,8 +122,15 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 			// values should be read by hexadecimal number
 			var group_str = t[0]
 			var tag_str = t[1]
+			// it is not sufficient to find the entry and set foundValue to true.
+			// if we cannot find the entry we shhould use an empty string but that might
+			// match later, so best if we can cancel here - or we explicitly have to set the
+			// following test false
 			foundValue, dataData = data.getData(group_str, tag_str)
-
+			if !foundValue { // nothing can make this correct again
+				matches = false
+			}
+			foundValue = false // set this to false again so we can do a test of the value as well
 		} else { // we have a single entry (really?) and treat it as the name of a variable
 			if t[0] == "ClassifyType" {
 				dataData = data.ClassifyTypes
