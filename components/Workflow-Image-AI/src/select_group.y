@@ -221,6 +221,16 @@ rule:
         currentRules = append(currentRules, r)
         $$ = fmt.Sprintf("Variable %s = %s", $1, $3)
     }
+|   tag_string EQUALS NUM
+    {
+        r := Rule{
+            Tag: lastGroupTag,
+            Operator: "==",
+            Value: $3,
+        }
+        currentRules = append(currentRules, r)
+        $$ = fmt.Sprintf("Variable %s = %s", $1, $3)
+    }
 |   tag_string CONTAINING STRING
     {
         r := Rule{
@@ -241,7 +251,7 @@ rule:
         }
         currentRules = append(currentRules, r)
 
-        $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
+        $$ = fmt.Sprintf("Variable %s < %f", $1, $3)
     }
 |   tag_string LARGER NUM
     {
@@ -252,7 +262,7 @@ rule:
         }
         currentRules = append(currentRules, r)
 
-        $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
+        $$ = fmt.Sprintf("Variable %s > %f", $1, $3)
     }
 |   tag_string SMALLEREQUAL NUM
     {
@@ -263,7 +273,7 @@ rule:
         }
         currentRules = append(currentRules, r)
 
-        $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
+        $$ = fmt.Sprintf("Variable %s <= %f", $1, $3)
     }
 |   tag_string LARGEREQUAL NUM
     {
@@ -274,7 +284,7 @@ rule:
         }
         currentRules = append(currentRules, r)
 
-        $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
+        $$ = fmt.Sprintf("Variable %s >= %f", $1, $3)
     }
 |   tag_string REGEXP STRING
     {

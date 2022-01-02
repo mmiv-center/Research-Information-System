@@ -281,11 +281,36 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 			}
 		} else if o == "==" {
 			allTrue := true
+			//fmt.Println("We are testing now ==")
 			for _, vv := range dataData {
-				if vv != v {
+				if vv == "" { // no value matches nothing
+					allTrue = false
+					continue
+				}
+				numValue, err := strconv.ParseFloat(vv, 32)
+				if err != nil {
+					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
+					exitGracefully(err)
+				}
+				tmp_str := fmt.Sprintf("%v", v)
+				if tmp_str == "" { // no value matches nothing
+					allTrue = false
+					continue
+				}
+				numValue2, err := strconv.ParseFloat(tmp_str, 32)
+				if err != nil {
+					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", v, val)
+					exitGracefully(err)
+				}
+				if numValue != numValue2 {
 					allTrue = false
 				}
 			}
+			/*for _, vv := range dataData {
+				if vv != v {
+					allTrue = false
+				}
+			}*/
 			foundValue = allTrue
 		} else {
 			fmt.Printf("Error: unknown operator: %s\n", o)
