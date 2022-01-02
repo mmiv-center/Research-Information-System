@@ -254,6 +254,28 @@ rule:
 
         $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
     }
+|   tag_string SMALLEREQUAL NUM
+    {
+        r := Rule{
+            Tag: lastGroupTag,
+            Operator: "<=",
+            Value: $3,
+        }
+        currentRules = append(currentRules, r)
+
+        $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
+    }
+|   tag_string LARGEREQUAL NUM
+    {
+        r := Rule{
+            Tag: lastGroupTag,
+            Operator: ">=",
+            Value: $3,
+        }
+        currentRules = append(currentRules, r)
+
+        $$ = fmt.Sprintf("Variable %s contains %f", $1, $3)
+    }
 |   tag_string REGEXP STRING
     {
         r := Rule{
@@ -489,7 +511,8 @@ func (x *exprLex) Lex(yylval *yySymType) int {
             return x.word(c, yylval, rune(0))
         case '<':
             // how about <= ?
-            if x.peek == '=' {
+            peek := x.nextButKeep()
+            if peek == '=' {
                 _ = x.next()
                 charpos = charpos + 2
                 return SMALLEREQUAL
@@ -498,7 +521,8 @@ func (x *exprLex) Lex(yylval *yySymType) int {
             return SMALLER
         case '>':
             // how about >= ?
-            if x.peek == '=' {
+            peek := x.nextButKeep()
+            if peek == '=' {
                 _ = x.next()
                 charpos = charpos + 2
                 return LARGEREQUAL
@@ -507,7 +531,8 @@ func (x *exprLex) Lex(yylval *yySymType) int {
             return LARGER
         case '=':
             // how about == ?
-            if x.peek == '=' {
+            peek := x.nextButKeep()
+            if peek == '=' {
                 _ = x.next()
                 charpos = charpos + 2
                 return EQUALS
@@ -734,6 +759,31 @@ func (x *exprLex) next() rune {
 	}
 	return c
 }
+
+// Return the next rune but don't advance the lexer.
+func (x *exprLex) nextButKeep() rune {
+    if program == "" {
+        program = string(x.line[0:])
+        //fmt.Println("SETTING OF program to ", program)
+    }
+	if x.peek != eof {
+		r := x.peek
+		x.peek = eof
+		return r
+	}
+	if len(x.line) == 0 {
+		return eof
+	}
+	c, size := utf8.DecodeRune(x.line)
+	//x.line = x.line[size:]
+	if c == utf8.RuneError && size == 1 {
+		log.Print("invalid utf8")
+        fmt.Printf("invalid utf8 found %c", utf8.RuneError)
+		return x.nextButKeep()
+	}
+	return c
+}
+
 
 // The parser calls this method on a parse error.
 func (x *exprLex) Error(s string) {

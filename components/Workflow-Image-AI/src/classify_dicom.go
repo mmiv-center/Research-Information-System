@@ -466,7 +466,7 @@ func applyOperator(r Rule, tagValue string) bool {
 			thisCheck = false
 		}
 	} else if operator == "==" {
-		if tagValue != r.Value {
+		if tagValue != value_string {
 			//fmt.Println("== sign operator false for", tagValue, r.Value)
 			thisCheck = false
 		}
@@ -482,6 +482,7 @@ func applyOperator(r Rule, tagValue string) bool {
 	} else if operator == "<" {
 		var1, err1 := strconv.ParseFloat(tagValue, 32)
 		var2, err2 := strconv.ParseFloat(value_string, 32)
+		//fmt.Println("WE are checking < for", var1, var2)
 		if err1 != nil && err2 != nil && var1 < var2 {
 			//fmt.Println("== sign operator false for", tagValue, r.Value)
 			thisCheck = false
