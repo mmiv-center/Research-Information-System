@@ -603,6 +603,8 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
         return AND
     } else if strings.ToLower(b.String()) == "containing" {
         return CONTAINING
+    } else if strings.ToLower(b.String()) == "contains" {
+        return CONTAINING
     } else if strings.ToLower(b.String()) == "where" {
         return WHERE
     } else if strings.ToLower(b.String()) == "also" {
