@@ -506,6 +506,12 @@ func (x *exprLex) Lex(yylval *yySymType) int {
             charpos = charpos + 1
             return LARGER
         case '=':
+            // how about == ?
+            if x.peek == '=' {
+                _ = x.next()
+                charpos = charpos + 2
+                return EQUALS
+            }
             charpos = charpos + 1
             return EQUALS
         case '(':
