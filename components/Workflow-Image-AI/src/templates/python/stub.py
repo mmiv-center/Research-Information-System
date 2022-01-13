@@ -91,6 +91,14 @@ if not(os.path.exists(output)):
 ####################################################
 
 sd = img3d.std()
+# To import values into the database we need to specify where the data should be stored.
+description['signal-to-noise'] = {
+    'record_id':  description['PatientID'],
+    'event_name': description['ReferringPhysician'],
+    'field_name': 'signal-to-noise',
+    'value':      np.where(sd == 0, 0, img3d.mean()/sd).item(),
+}
+# Some other values that we don't want to import into the database
 description['signal-to-noise'] = np.where(sd == 0, 0, img3d.mean()/sd).item()
 description['shape_x'] = img3d.shape[0]
 description['shape_y'] = img3d.shape[1]

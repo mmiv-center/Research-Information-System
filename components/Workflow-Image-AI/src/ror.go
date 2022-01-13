@@ -292,6 +292,7 @@ type Description struct {
 	StudyTime         string
 	SeriesTime        string
 	SeriesNumber      string
+	ReferringPhysician string // for the research PACS this stores the event name
 	ProcessDataPath   string
 	ClassifyTypes     []string
 }
@@ -886,6 +887,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 	}
 	var description Description
 	description.SeriesInstanceUID = SelectedSeriesInstanceUID
+	description.ReferringPhysician = ""
 	description.ProcessDataPath = dest_path
 	description.ClassifyTypes = classifyTypes
 	counter := 0
@@ -1033,6 +1035,14 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 						Modality = dicom.MustGetStrings(ModalityVal.Value)[0]
 						if Modality != "" {
 							description.Modality = Modality
+						}
+					}
+					var ReferringPhysician string
+					ReferringPhysicianVal, err := dataset.FindElementByTag(tag.ReferringPhysicianName)
+					if err == nil {
+						ReferringPhysician = dicom.MustGetStrings(ReferringPhysicianVal.Value)[0]
+						if ReferringPhysician != "" {
+							description.ReferringPhysician = ReferringPhysician
 						}
 					}
 
@@ -2348,6 +2358,10 @@ func main() {
 	triggerCommand.BoolVar(&trigger_help, "help", false, "Show help for trigger")
 	var trigger_last bool
 	triggerCommand.BoolVar(&trigger_last, "last", false, "Trigger the last created workflow.")
+	var trigger_job string
+	triggerCommand.StringVar(&trigger_job, "job", "", "Trigger a specific job. Specify a number based on the order of jobs returned by --jobs.")
+	var trigger_job_folder string
+	triggerCommand.StringVar(&trigger_job_folder, "folder", "", "Specify the directory name where the data folder should be placed. The folder will still be placed into the specified temp directory.")
 
 	var status_detailed bool
 	statusCommand.BoolVar(&status_detailed, "all", false, "Display all information.")
@@ -2919,7 +2933,7 @@ func main() {
 				var statusTui StatusTUI
 				statusTui.dataSets = config.Data.DataInfo
 				if config.SeriesFilterType != "select" {
-					exitGracefully(errors.New(fmt.Sprintf("we can only work with select filters. No filter defined.\n\t%s config --suggest\n", own_name)))
+					exitGracefully(errors.New(fmt.Sprintf("we can only work with select filters. No filter defined.\n\t%s config --suggest\nor fix your current selection filter.\n", own_name)))
 				}
 				InitParser()
 				line := []byte(config.SeriesFilter)
@@ -2976,6 +2990,8 @@ func main() {
 
 					file, _ := json.MarshalIndent(jobs, "", " ")
 					fmt.Println(string(file))
+				} else {
+					fmt.Printf("Error: could not parse the selection filter. If you have not created a select filter yet try to generate one with:\n\t %s config --suggest\n", own_name)
 				}
 				return // we are done here
 			}
@@ -3234,7 +3250,22 @@ func main() {
 			// if trigger_each we want to run this for all of them, not just a single one
 			var runIdx []int
 			// if we are on the series level we export a single series here, but we can also be on the study or patient level and export more
-			if !trigger_each {
+			if trigger_job != "" {
+				if trigger_each {
+					exitGracefully(fmt.Errorf("Error: option --each cannot be used together with --job"))
+				}
+
+				// we have a specific job to run
+				if jobID, error := strconv.Atoi(trigger_job); error == nil {
+					if jobID < 0 || jobID >= len(selectFromB) {
+						exitGracefully(fmt.Errorf("Error: the specified job \"%s\" does not exist (0..%d).", trigger_job, len(selectFromB)-1))
+					}
+					runIdx = []int{jobID}
+				} else {
+					fmt.Errorf("Error: trigger_job is not a number")
+					exitGracefully(error)
+				}
+			} else if !trigger_each {
 				runIdx = []int{rand.Intn((len(selectFromB) - 0) + 0)}
 			} else {
 				runIdx = []int{0}
@@ -3246,7 +3277,11 @@ func main() {
 			for _, idx := range runIdx {
 				fmt.Printf("found %d matching series sets. Picked index %d, trigger series: %s\n", len(selectFromB), idx, strings.Join(selectFromB[idx], ", "))
 
-				dir, err := ioutil.TempDir(config.TempDirectory, fmt.Sprintf("ror_trigger_run_%s_*", time.Now().Weekday()))
+				folder_name := fmt.Sprintf("ror_trigger_run_%s_*", time.Now().Weekday())
+				if trigger_job_folder != "" {
+					folder_name = trigger_job_folder
+				}
+				dir, err := ioutil.TempDir(config.TempDirectory, folder_name)
 				if err != nil {
 					fmt.Printf("%s", err)
 					exitGracefully(errors.New("could not create the temporary directory for the trigger"))
