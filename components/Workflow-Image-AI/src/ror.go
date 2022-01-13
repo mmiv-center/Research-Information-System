@@ -3280,6 +3280,10 @@ func main() {
 				folder_name := fmt.Sprintf("ror_trigger_run_%s_*", time.Now().Weekday())
 				if trigger_job_folder != "" {
 					folder_name = trigger_job_folder
+					// we should sanitize the folder name to prevent breaking out of the temp_folder
+					folder_name = strings.Replace(folder_name, "..", "_", -1)
+					folder_name = strings.Replace(folder_name, "/", "_", -1)
+					folder_name = strings.Replace(folder_name, ":", "_", -1)
 				}
 				dir, err := ioutil.TempDir(config.TempDirectory, folder_name)
 				if err != nil {
