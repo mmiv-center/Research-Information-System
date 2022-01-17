@@ -2241,11 +2241,11 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	var cmd *exec.Cmd
 	var cmd_string []string
 	if trigger_container != "" {
-		cmd_string = []string{"docker", "run", "--rm", "-v",
+		arr = []string{"docker", "run", "--rm", "-v",
 			fmt.Sprintf("%s:/data", strings.Replace(dir, " ", "\\ ", -1)), trigger_container, "/bin/bash", "-c",
 			fmt.Sprintf("cd /app; %s /data/", cmd_str)}
-		fmt.Println(strings.Join(cmd_string, " "))
-		cmd = exec.Command(cmd_string[0], cmd_string[1:]...)
+		fmt.Println(strings.Join(arr, " "))
+		cmd = exec.Command(arr[0], arr[1:]...)
 	} else {
 		fmt.Println(arr)
 		cmd_string = arr
