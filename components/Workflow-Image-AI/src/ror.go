@@ -2224,7 +2224,7 @@ func ast2Select(ast AST) string {
 
 func callProgram(config Config, triggerWaitTime string, trigger_container string, dir string) {
 	if config.CallString == "" {
-		exitGracefully(fmt.Errorf("could not run trigger command, no CallString defined\n\n\t%s config --call \"python ./stub.py\"", own_name))
+		exitGracefully(fmt.Errorf("could not run trigger command, no CallString defined\n\n\t%s config --call \"python3 ./stub.py\"", own_name))
 	}
 
 	// wait for some seconds, why do we support this?
@@ -2574,7 +2574,7 @@ func main() {
 					Name:  author_name,
 					Email: author_email,
 				},
-				CallString:       "python ./stub.py",
+				CallString:       "python3 ./stub.py",
 				SeriesFilter:     ".*",
 				SeriesFilterType: "glob",
 				ProjectType:      init_type,
@@ -3273,7 +3273,7 @@ func main() {
 					runIdx = append(runIdx, i)
 				}
 			}
-			output_json_array := []string{}
+			output_json_array := []string{} 
 			for _, idx := range runIdx {
 				fmt.Printf("found %d matching series sets. Picked index %d, trigger series: %s\n", len(selectFromB), idx, strings.Join(selectFromB[idx], ", "))
 
