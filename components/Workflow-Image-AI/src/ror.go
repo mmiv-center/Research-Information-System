@@ -2242,7 +2242,7 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	var cmd_string []string
 	if trigger_container != "" {
 		// we would run this potentially as a different user (www-data), we need to specify the full path /usr/bin/docker(?)
-		arr = []string{"docker", "run", "--rm", "-v",
+		arr = []string{"/usr/bin/docker", "run", "--rm", "-v",
 			fmt.Sprintf("%s:/data", strings.Replace(dir, " ", "\\ ", -1)), trigger_container, "/bin/bash", "-c",
 			fmt.Sprintf("cd /app; %s /data/", cmd_str)}
 		fmt.Println(strings.Join(arr, " "))
