@@ -26,7 +26,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -208,12 +207,12 @@ func readConfig(path_string string) (Config, error) {
 	}
 	// we need to check if the config file has the correct permissions,
 	// produce a warning if it does not!
-	if fileInfo, err := os.Stat(path_string); err == nil {
-		mode := fileInfo.Mode()
-		mode_str := mode.String()
-		if mode_str != "-rw-------" && runtime.GOOS != "windows" {
-			fmt.Println("Warning: Your config file is not secure. Change the permissions by 'chmod 0600 .ror/config'. Now: ", mode)
-		}
+	if /* fileInfo */ _, err := os.Stat(path_string); err == nil {
+		//mode := fileInfo.Mode()
+		//mode_str := mode.String()
+		//if mode_str != "-rw-------" && runtime.GOOS != "windows" {
+		//	fmt.Println("Warning: Your config file is not secure. Change the permissions by 'chmod 0600 .ror/config'. Now: ", mode)
+		//}
 	} else {
 		fmt.Println(err)
 	}
