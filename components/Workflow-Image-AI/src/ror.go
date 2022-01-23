@@ -2371,7 +2371,7 @@ func main() {
 	var status_tui bool
 	statusCommand.BoolVar(&status_tui, "tui", false, "Show the datasets that select identified. You can press the 'c' button to stop the animation of the slices per series.")
 	var status_jobs bool
-	statusCommand.BoolVar(&status_jobs, "jobs", false, "Show the list of jobs as a json.")
+	statusCommand.BoolVar(&status_jobs, "jobs", false, "Show the list of jobs in json format.")
 
 	var build_help bool
 	buildCommand.BoolVar(&build_help, "help", false, "Show help for build.")
