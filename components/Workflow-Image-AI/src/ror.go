@@ -2328,7 +2328,7 @@ func main() {
 	var data_path string
 	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files. If you want to specify a subset of folders\nuse double quotes for the path and the glob syntax. For example all folders that\nstart with numbers 008 and 009 would be read with --data \"path/to/data/0[8-9]*\"")
 	var call_string string
-	configCommand.StringVar(&call_string, "call", "", "The command line to call the workflow. A path-name with the data will be appended\nto this string.")
+	configCommand.StringVar(&call_string, "call", "", "The command line to call the workflow. A path-name with the data path is inserted\ninto this string ('{}'). Further options are '{input}' - replaced with the path to the input folder, \n'{output}' - same for output folder  (might not exist yet), '{desc}' - replace with path to description file, \nand '{output_json}' - replaced with the path to output json file (might not exist).\n\tExample 1: --call \"/bin/bash -c \\\"/app/work.sh {}\\\"\"\n\tExample 2: --call \"/app/work.sh {}\"\n\tExample 3: --call \"/app/work.sh {input} {output}\"")
 	var project_name_string string
 	configCommand.StringVar(&project_name_string, "project_name", "", "The name of the project. This string will be used in the container name.")
 	var no_sort_dicom bool
@@ -2341,9 +2341,9 @@ func main() {
 	configCommand.BoolVar(&config_suggest, "suggest", false, "Suggest a selection rule.")
 
 	var config_clip_0 float64
-	configCommand.Float64Var(&config_clip_0, "clip0", 5.0, "Percentage lower display range")
+	configCommand.Float64Var(&config_clip_0, "clip0", 5.0, "DICOM image data is displayed with a computed data range based on two percentages.\nThe lower percentage display range removes dark regions - usually background.")
 	var config_clip_1 float64
-	configCommand.Float64Var(&config_clip_1, "clip1", 95.0, "Percentage upper display range")
+	configCommand.Float64Var(&config_clip_1, "clip1", 95.0, "The upper percentage for the display range. Removes small regions of very bright pixel.")
 
 	var triggerWaitTime string
 	triggerCommand.StringVar(&triggerWaitTime, "delay", "0s", defaultTriggerTime)
@@ -2369,7 +2369,7 @@ func main() {
 	var status_help bool
 	statusCommand.BoolVar(&status_help, "help", false, "Show help for status.")
 	var status_tui bool
-	statusCommand.BoolVar(&status_tui, "tui", false, "Show the datasets that select indentified. You can press the 'c' button to stop the animation of the slices per series.")
+	statusCommand.BoolVar(&status_tui, "tui", false, "Show the datasets that select identified. You can press the 'c' button to stop the animation of the slices per series.")
 	var status_jobs bool
 	statusCommand.BoolVar(&status_jobs, "jobs", false, "Show the list of jobs as a json.")
 
@@ -2385,9 +2385,9 @@ func main() {
 			"with --select \"SeriesDescription: T1.*_2mm\". The default value matches any\nseries.\n"+
 			"Also, it is now possible to specify more complex selections using a variant of the\n"+
 			"standard query language. Here an example:\n"+
-			"\t\"select study from study where series has ClassifyTypes containing T1\n"+
+			"\tSelect study from study where series has ClassifyTypes containing T1\n"+
 			"\tand SeriesDescription regexp \"^B\" also where series has ClassifyType\n"+
-			"\tcontaining DIFFUSION also where series has ClassifyTypes containing RESTING\"\n"+
+			"\tcontaining DIFFUSION also where series has ClassifyTypes containing RESTING\n"+
 			"This filter should export all studies of a patient that have matching\n"+
 			"series classified as T1, as Diffusion or as resting state scans. A slightly shorter\n"+
 			"and valid version of the above filter would be:\n\t"+
@@ -2575,7 +2575,7 @@ func main() {
 					Name:  author_name,
 					Email: author_email,
 				},
-				CallString:       "python3 ./stub.py",
+				CallString:       "python3 ./stub.py {}",
 				SeriesFilter:     ".*",
 				SeriesFilterType: "glob",
 				ProjectType:      init_type,
@@ -2590,9 +2590,9 @@ func main() {
 				Clip:      []float32{5, 95},
 			}
 			if init_type == "bash" {
-				data.CallString = "./stub.sh"
+				data.CallString = "./stub.sh {}"
 			} else if init_type == "webapp" {
-				data.CallString = "open http://127.0.0.1:8000"
+				data.CallString = "open http://127.0.0.1:8000?_={}"
 			}
 			if !data.writeConfig() {
 				exitGracefully(errors.New("could not write config file"))
@@ -3435,11 +3435,20 @@ func main() {
 				// first folder found in temp_directory
 				folder = folders[0]
 			}
+			// We want to provide more control over the call string. So we allow users to fully control the call
+			// but not the mounts. They could either 'bash -c "...."' or just '/app/work.sh /data'.
+			// The name of the internal folder for the data can be placed using '{}' in the CallString.
+			// TODO: some more options might be useful, for example a path to input and a path to output folders
+			result_call_string := strings.Replace(config.CallString, "{}", "/data/", -1)
+			result_call_string = strings.Replace(result_call_string, "{input}", "/data/input", -1)
+			result_call_string = strings.Replace(result_call_string, "{output}", "/data/output", -1)
+			result_call_string = strings.Replace(result_call_string, "{descr}", "/data/descr.json", -1)
+			result_call_string = strings.Replace(result_call_string, "{output_json}", "/data/output.json", -1)
 
 			fmt.Println("\n\tdocker run --rm -it \\\n\t",
 				"-v", fmt.Sprintf("\"%s/%s\":/data", abs_temp_path, filepath.Base(folder)), "\\\n\t",
 				fmt.Sprintf("workflow_%s", projectName),
-				"/bin/bash -c", fmt.Sprintf("\"cd /app; %s /data/\"", config.CallString),
+				fmt.Sprintf("%s", result_call_string),
 			)
 			fmt.Println("")
 			fmt.Println("If the above call was sufficient to run your workflow, we can now submit.")
