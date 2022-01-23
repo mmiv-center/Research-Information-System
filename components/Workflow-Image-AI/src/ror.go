@@ -2233,6 +2233,12 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	}
 
 	cmd_str := config.CallString
+	cmd_str = strings.Replace(cmd_str, "{}", "/data/", -1)
+	cmd_str = strings.Replace(cmd_str, "{input}", "/data/input", -1)
+	cmd_str = strings.Replace(cmd_str, "{output}", "/data/output", -1)
+	cmd_str = strings.Replace(cmd_str, "{descr}", "/data/descr.json", -1)
+	cmd_str = strings.Replace(cmd_str, "{output_json}", "/data/output.json", -1)
+
 	r := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`)
 	arr := r.FindAllString(cmd_str, -1)
 	arr = append(arr, string(dir))
@@ -2242,8 +2248,8 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	if trigger_container != "" {
 		// we would run this potentially as a different user (www-data), we need to specify the full path /usr/bin/docker(?)
 		arr = []string{"/usr/bin/docker", "run", "--rm", "-v",
-			fmt.Sprintf("%s:/data", strings.Replace(dir, " ", "\\ ", -1)), trigger_container, "/usr/bin/bash", "-c",
-			fmt.Sprintf("cd /app; %s /data/", cmd_str)}
+			fmt.Sprintf("%s:/data", strings.Replace(dir, " ", "\\ ", -1)), trigger_container,
+			cmd_str}
 		fmt.Println(strings.Join(arr, " "))
 		cmd = exec.Command(arr[0], arr[1:]...)
 	} else {
