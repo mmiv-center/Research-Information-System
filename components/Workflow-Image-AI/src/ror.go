@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	_ "embed"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -2238,20 +2239,28 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	cmd_str = strings.Replace(cmd_str, "{output}", "/data/output", -1)
 	cmd_str = strings.Replace(cmd_str, "{descr}", "/data/descr.json", -1)
 	cmd_str = strings.Replace(cmd_str, "{output_json}", "/data/output.json", -1)
+	// now we should split the string to an array
+	r := csv.NewReader(strings.NewReader(cmd_str))
+    r.Comma = ' ' // space
+    arr, err := r.Read()
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
 
-	r := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`)
-	arr := r.FindAllString(cmd_str, -1)
-	arr = append(arr, string(dir))
+	// r := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`)
+	// arr := r.FindAllString(cmd_str, -1)
+	// arr = append(arr, string(dir))
 	// cmd := exec.Command("python", "stub.py", dir)
 	var cmd *exec.Cmd
 	var cmd_string []string
 	if trigger_container != "" {
 		// we would run this potentially as a different user (www-data), we need to specify the full path /usr/bin/docker(?)
-		arr = []string{"/usr/bin/docker", "run", "--rm", "-v",
-			fmt.Sprintf("%s:/data", strings.Replace(dir, " ", "\\ ", -1)), trigger_container,
-			cmd_str}
-		fmt.Println(strings.Join(arr, " "))
-		cmd = exec.Command(arr[0], arr[1:]...)
+		arr2 := []string{"/usr/bin/docker", "run", "--rm", "-v",
+			fmt.Sprintf("%s:/data", strings.Replace(dir, " ", "\\ ", -1)), trigger_container}
+		arr2 = append(arr2, arr...)
+		fmt.Println(strings.Join(arr2, " "))
+		cmd = exec.Command(arr2[0], arr2[1:]...)
 	} else {
 		fmt.Println(arr)
 		cmd_string = arr
