@@ -20,6 +20,8 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/user"
@@ -2303,6 +2305,21 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	}
 }
 
+func isGitHubURL(input string) bool {
+    u, err := url.Parse(input)
+    if err != nil {
+        return false
+    }
+    host := u.Host
+    if strings.Contains(host, ":") { 
+        host, _, err = net.SplitHostPort(host)
+        if err != nil {
+            return false
+        }
+    }
+    return host == "github.com"
+}
+
 var app *tview.Application = nil
 
 func main() {
@@ -2337,7 +2354,7 @@ func main() {
 	configCommand.StringVar(&author_email, "author_email", "", "Author email used to publish your workflow.")
 	initCommand.StringVar(&author_email, "author_email", "", "Author email used to publish your workflow.")
 	var init_type string
-	initCommand.StringVar(&init_type, "type", "", "Type of project. The supported types are \"python\", \"notebook\", \"bash\", \"webapp\". Based on\nthis choice you will get a different initial directory structure.")
+	initCommand.StringVar(&init_type, "type", "", "Type of project. The supported types are \"python\", \"notebook\", \"bash\", \"webapp\", or a github repository. Based on\nthis choice you will get a different initial directory structure.")
 
 	var data_path string
 	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files. If you want to specify a subset of folders\nuse double quotes for the path and the glob syntax. For example all folders that\nstart with numbers 008 and 009 would be read with --data \"path/to/data/0[8-9]*\"")
@@ -2557,17 +2574,23 @@ func main() {
 					}
 				}
 			}
+			repo_url := ""
 			if init_type == "" {
 				reader := bufio.NewReader(os.Stdin)
-				fmt.Printf("Project type (python, notebook, bash, webapp): ")
+				fmt.Printf("Project type (python, notebook, bash, webapp, repo-url): ")
 				init_type, err = reader.ReadString('\n')
 				if err != nil {
 					init_type = "notebook"
 				}
 				init_type = strings.TrimSuffix(init_type, "\n")
-				if init_type != "python" && init_type != "notebook" && init_type != "bash" && init_type != "webapp" {
-					init_type = "notebook"
-					fmt.Println("Warning: That is not a type we know. We will give you a python notebook project to get started.")
+				if isGitHubURL(init_type) {
+					repo_url = init_type // remember the actual url to use
+					init_type = "repo-url"
+				} else {
+					if init_type != "python" && init_type != "notebook" && init_type != "bash" && init_type != "webapp" {
+						init_type = "notebook"
+						fmt.Println("Warning: That is not a type we know. We will give you a python notebook project to get started.")
+					}
 				}
 			}
 			// now we can create the folder - not earlier
@@ -2578,9 +2601,16 @@ func main() {
 				}
 			}
 
+			// we need to clone a github repo here before we can add the .ror folder
+			if init_type == "repo-url" {
+				exec.Command("git", "clone", repo_url, input_dir).Run()
+			}
+			
+			// now add the .ror folder
 			if err := os.Mkdir(dir_path, 0700); os.IsExist(err) {
 				exitGracefully(errors.New("directory already exists"))
 			}
+
 			var annotate Annotate
 			annotate.Ontology = nil // by default we don't have an ontology available
 			data := Config{
@@ -2607,6 +2637,8 @@ func main() {
 				data.CallString = "./stub.sh {}"
 			} else if init_type == "webapp" {
 				data.CallString = "open http://127.0.0.1:8000?_={}"
+			} else if init_type == "repo-url" {
+				data.CallString = "open http://127.0.0.1:8000?_={}"
 			}
 			if !data.writeConfig() {
 				exitGracefully(errors.New("could not write config file"))
@@ -2614,8 +2646,10 @@ func main() {
 			//file, _ := json.MarshalIndent(data, "", " ")
 			//_ = ioutil.WriteFile(dir_path+"/config", file, 0600)
 
-			readme_path := filepath.Join(input_dir, "README.md")
-			createStub(readme_path, readme)
+			if init_type != "repo-url" {
+				readme_path := filepath.Join(input_dir, "README.md")
+				createStub(readme_path, readme)
+			}
 
 			if data.ProjectType == "python" || data.ProjectType == "notebook" { // plain python
 				stub_path := filepath.Join(input_dir, "stub.py")
