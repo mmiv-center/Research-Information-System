@@ -279,7 +279,7 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 					foundValue = true
 				}
 			}
-		} else if o == "==" {
+		} else if o == "==" { // this is a non-numeric operator for us we need to be able to work with strings
 			allTrue := true
 			//fmt.Println("We are testing now ==")
 			for _, vv := range dataData {
@@ -287,30 +287,11 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 					allTrue = false
 					continue
 				}
-				numValue, err := strconv.ParseFloat(vv, 32)
-				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
-					exitGracefully(err)
-				}
-				tmp_str := fmt.Sprintf("%v", v)
-				if tmp_str == "" { // no value matches nothing
-					allTrue = false
-					continue
-				}
-				numValue2, err := strconv.ParseFloat(tmp_str, 32)
-				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", v, val)
-					exitGracefully(err)
-				}
-				if numValue != numValue2 {
-					allTrue = false
+				// if we are non-numeric we should just compare the strings
+				if vv != fmt.Sprintf("%v", v) {
+					allTrue = false // no further tests are needed
 				}
 			}
-			/*for _, vv := range dataData {
-				if vv != v {
-					allTrue = false
-				}
-			}*/
 			foundValue = allTrue
 		} else {
 			fmt.Printf("Error: unknown operator: %s\n", o)
