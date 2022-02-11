@@ -431,12 +431,12 @@ Once you workflow seems ok test with another random dataset using `ror trigger -
 
 The output folder and output.json file are parsed by the Research Information System after the run on the data in input. Research studies can have thousands of data objects that all can be processed in parallel. In order to provide a unifying view of the resulting individual result data objects, the Research Information System supports the storage of such information into a centralized database like REDCap. The only requirement for such storage is that individual results are annotated in a structured way. For example, we compute a signal-to-noise value for a given input folder. In order to store this single value we need to collect the following information:
 
-```json
-description['signal-to-noise'] = {
-    'record_id':  description['PatientID'],
-    'event_name': description['ReferringPhysician'],
-    'field_name': 'signal-to-noise',
-    'value':      np.where(sd == 0, 0, img3d.mean()/sd).item(),
+```python
+description["signal-to-noise"] = {
+    "record_id":  description["PatientID"],
+    "event_name": description["ReferringPhysician"],
+    "field_name": "signal-to-noise",
+    "value":      np.where(sd == 0, 0, img3d.mean()/sd).item(),
 }
 ```
 
