@@ -348,6 +348,27 @@ func complement2(x uint16) int16 {
 	return int16(^x) + 1
 }
 
+
+func isTerminal() bool {
+	isTerminalVal := true
+	if fileInfo, _ := os.Stdout.Stat(); (fileInfo.Mode() & os.ModeCharDevice) != 0 {
+		isTerminalVal = true
+	} else {
+		isTerminalVal = false
+	}
+	if fileInfo, _ := os.Stdin.Stat(); (fileInfo.Mode() & os.ModeCharDevice) != 0 {
+		isTerminalVal = isTerminalVal && true
+	} else {
+		isTerminalVal = false
+	}
+	if fileInfo, _ := os.Stderr.Stat(); (fileInfo.Mode() & os.ModeCharDevice) != 0 {
+		isTerminalVal = isTerminalVal && true
+	} else {
+		isTerminalVal = false
+	}
+	return isTerminalVal
+}
+
 // printImage2ASCII prints the image as ASCII art
 func printImage2SingleRune(img image.Image, PhotometricInterpretation string, PixelPaddingValue int) string {
 	//if PhotometricInterpretation == "MONOCHROME1" { // only valid if samples per pixel is 1
@@ -2775,7 +2796,7 @@ func main() {
 					}
 				}
 				// try to play with a tui interface here
-				if true {
+				if isTerminal() {
 					newPrimitive := func(text string) *tview.TextView {
 						return tview.NewTextView().
 							SetTextAlign(tview.AlignLeft).
