@@ -281,22 +281,22 @@ func (config Config) writeConfig() bool {
 }
 
 type Description struct {
-	NameFromSelect    string
-	SeriesInstanceUID string
-	SeriesDescription string
-	StudyInstanceUID  string
-	NumFiles          int
-	Modality          string
-	PatientID         string
-	PatientName       string
-	SequenceName      string
-	StudyDate         string
-	StudyTime         string
-	SeriesTime        string
-	SeriesNumber      string
+	NameFromSelect     string
+	SeriesInstanceUID  string
+	SeriesDescription  string
+	StudyInstanceUID   string
+	NumFiles           int
+	Modality           string
+	PatientID          string
+	PatientName        string
+	SequenceName       string
+	StudyDate          string
+	StudyTime          string
+	SeriesTime         string
+	SeriesNumber       string
 	ReferringPhysician string // for the research PACS this stores the event name
-	ProcessDataPath   string
-	ClassifyTypes     []string
+	ProcessDataPath    string
+	ClassifyTypes      []string
 }
 
 // img.At(x, y).RGBA() returns four uint32 values; we want a Pixel
@@ -2339,6 +2339,100 @@ func isGitHubURL(input string) bool {
         }
     }
     return host == "github.com"
+func plural(num int) string {
+	if num == 1 {
+		return ""
+	}
+	return "s"
+}
+
+// validate the output after a processing run and create a report that should
+// inform the user about how to change the workflow to create the best possible
+// output - output that can be added to REDCap and to PACS.
+func checkOutput(config Config, trigger_container string, dir string) string {
+	var ret = ""
+
+	// check the output.json first
+	path_string := dir + "/output/output.json"
+	if _, err := os.Stat(path_string); err != nil && !os.IsNotExist(err) {
+		ret += fmt.Sprintf("\n\nWarning: output.json file (%s) not found\n", path_string)
+	}
+	jsonFile, err := os.Open(path_string)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer jsonFile.Close()
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	var result map[string]interface{}
+	json.Unmarshal([]byte(byteValue), &result)
+	// each valid structure would be a key with a { 'field_name', 'value', 'redcap_event_name', 'record_id' }
+	for _, val := range result { // we expect a dict with string keys (variable names)
+		var field_name_found bool = false
+		var record_id_found bool = false
+		var value_found bool = false
+		var event_name_found bool = false
+		var field_name string
+		var record_id string
+		var value string
+		var event_name string
+
+		switch c := val.(type) {
+		case map[string]interface{}: // we expect a dict with string keys (value, record_id, etc.)
+			// now we have a dict for this key
+			for key2, value2 := range c {
+				if key2 == "field_name" {
+					field_name_found = true
+					field_name = fmt.Sprintf("%v", value2)
+				}
+				if key2 == "record_id" {
+					record_id_found = true
+					record_id = fmt.Sprintf("%v", value2)
+				}
+				if key2 == "event_name" {
+					event_name_found = true
+					event_name = fmt.Sprintf("%v", value2)
+				}
+				if key2 == "value" {
+					value_found = true
+					value = fmt.Sprintf("%v", value2)
+				}
+			}
+		default:
+			// ignore this key, we don't have a structure
+			// fmt.Printf("ignore key: %s\n", key)
+		}
+		if !(field_name_found && record_id_found && value_found && event_name_found) {
+			// ignore them if we don't have all of the keys we need
+		} else {
+			//fmt.Printf("we found a variable we like!: %s (all the keys are present)\n", key)
+			ret += fmt.Sprintf("\n\nInfo: output variable \"%s\" found for event \"%s\" with value: %s for participant: %s\n", field_name, event_name, value, record_id)
+		}
+	}
+	// we want to check the files in the output folder as well - check for DICOM and list the correspondence to the
+	// input variables (StudyInstanceUID, SeriesInstanceUID, SOPInstanceUID)
+	numOutputFiles := 0
+	numDICOMFiles := 0
+	err = filepath.Walk(dir+"/output", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			numOutputFiles++
+			_, err = dicom.ParseFile(path, nil)
+			if err != nil {
+				fmt.Println("a DICOM file:", path)
+				numDICOMFiles++
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		ret += "Error: could not count files in output folder\n"
+	} else {
+		ret += fmt.Sprintf("Info: %d file%s in output (%d DICOM file%s).\n", numOutputFiles, plural(numOutputFiles), numDICOMFiles, plural(numDICOMFiles))
+	}
+
+	return ret
 }
 
 var app *tview.Application = nil
@@ -3416,6 +3510,19 @@ func main() {
 				if !trigger_test {
 					// check if the call string is empty
 					callProgram(config, triggerWaitTime, trigger_container, dir)
+
+					// In case we where running the program we can check the output folder
+					// for data that we can use. That would be structures in output/output.json
+					// that are readable as { record_id, event_name, field_name, and value }.
+					// We can also check the output DICOM series if that is ok. It should
+					// for example not reuse the SOPInstanceUIDs of the original series. But
+					// it should reuse the StudyInstanceUID of any of the input series. Maybe
+					// also not use the SeriesInstanceUID.
+					// WHAT about a fixed SeriesInstanceUID for each select and docker image+tag?
+					report := checkOutput(config, trigger_container, dir)
+					if report != "" {
+						fmt.Println(report)
+					}
 
 					// we can check if we have an output folder now
 					path_string := dir + "/output/output.json"
