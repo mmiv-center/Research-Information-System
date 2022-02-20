@@ -348,7 +348,6 @@ func complement2(x uint16) int16 {
 	return int16(^x) + 1
 }
 
-
 func isTerminal() bool {
 	isTerminalVal := true
 	if fileInfo, _ := os.Stdout.Stat(); (fileInfo.Mode() & os.ModeCharDevice) != 0 {
@@ -2245,7 +2244,7 @@ func ast2Select(ast AST) string {
 	return stm
 }
 
-func callProgram(config Config, triggerWaitTime string, trigger_container string, dir string) {
+func callProgram(config Config, triggerWaitTime string, trigger_container string, dir string, trigger_memory string, trigger_cpus string) {
 	if config.CallString == "" {
 		exitGracefully(fmt.Errorf("could not run trigger command, no CallString defined\n\n\t%s config --call \"python3 ./stub.py\"", own_name))
 	}
@@ -2264,12 +2263,12 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	cmd_str = strings.Replace(cmd_str, "{output_json}", "/data/output.json", -1)
 	// now we should split the string to an array
 	r := csv.NewReader(strings.NewReader(cmd_str))
-    r.Comma = ' ' // space
-    arr, err := r.Read()
-    if err != nil {
-        fmt.Println(err)
-        return
-    }
+	r.Comma = ' ' // space
+	arr, err := r.Read()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	// r := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`)
 	// arr := r.FindAllString(cmd_str, -1)
@@ -2279,8 +2278,15 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	var cmd_string []string
 	if trigger_container != "" {
 		// we would run this potentially as a different user (www-data), we need to specify the full path /usr/bin/docker(?)
-		arr2 := []string{"/usr/bin/docker", "run", "--rm", "-v",
-			fmt.Sprintf("%s:/data", strings.Replace(dir, " ", "\\ ", -1)), trigger_container}
+		arr2 := []string{"/usr/bin/docker", "run", "--rm"}
+		if trigger_memory != "" {
+			arr2 = append(arr2, "-m", trigger_memory)
+		}
+		if trigger_cpus != "" {
+			arr2 = append(arr2, fmt.Sprintf("--cpus=\"%s\"", trigger_cpus))
+		}
+		arr2 = append(arr2, "-v", fmt.Sprintf("%s:/data", strings.Replace(dir, " ", "\\ ", -1)))
+		arr2 = append(arr2, trigger_container)
 		arr2 = append(arr2, arr...)
 		fmt.Println(strings.Join(arr2, " "))
 		cmd = exec.Command(arr2[0], arr2[1:]...)
@@ -2327,18 +2333,20 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 }
 
 func isGitHubURL(input string) bool {
-    u, err := url.Parse(input)
-    if err != nil {
-        return false
-    }
-    host := u.Host
-    if strings.Contains(host, ":") { 
-        host, _, err = net.SplitHostPort(host)
-        if err != nil {
-            return false
-        }
-    }
-    return host == "github.com"
+	u, err := url.Parse(input)
+	if err != nil {
+		return false
+	}
+	host := u.Host
+	if strings.Contains(host, ":") {
+		host, _, err = net.SplitHostPort(host)
+		if err != nil {
+			return false
+		}
+	}
+	return host == "github.com"
+}
+
 func plural(num int) string {
 	if num == 1 {
 		return ""
@@ -2501,6 +2509,13 @@ func main() {
 	triggerCommand.BoolVar(&trigger_each, "each", false, "Trigger for each found series, not just for a single random one.")
 	var trigger_container string
 	triggerCommand.StringVar(&trigger_container, "cont", "", "Trigger using a container instead of a local workflow.")
+	// we should sanitize the trigger_container
+	trigger_container = strings.Replace(trigger_container, " ", "", -1)
+	var trigger_memory string
+	triggerCommand.StringVar(&trigger_memory, "mem", "", "Trigger using a container but limit memory (2g).")
+	var trigger_cpus string
+	triggerCommand.StringVar(&trigger_cpus, "cpus", "", "Trigger using a container but limit available cpus (2).")
+
 	var trigger_help bool
 	triggerCommand.BoolVar(&trigger_help, "help", false, "Show help for trigger")
 	var trigger_last bool
@@ -2720,7 +2735,7 @@ func main() {
 			if init_type == "repo-url" {
 				exec.Command("git", "clone", repo_url, input_dir).Run()
 			}
-			
+
 			// now add the .ror folder
 			if err := os.Mkdir(dir_path, 0700); os.IsExist(err) {
 				exitGracefully(errors.New("directory already exists"))
@@ -3337,7 +3352,7 @@ func main() {
 				if _, err := os.Stat(folder); os.IsNotExist(err) {
 					exitGracefully(fmt.Errorf("%s could not be found. Create one with 'ror trigger --keep'", folder))
 				}
-				callProgram(config, triggerWaitTime, trigger_container, folder)
+				callProgram(config, triggerWaitTime, trigger_container, folder, trigger_memory, trigger_cpus)
 			}
 
 			// make sure we have updated classifyRules.json loaded here ... just in case if the user
@@ -3437,7 +3452,7 @@ func main() {
 					runIdx = append(runIdx, i)
 				}
 			}
-			output_json_array := []string{} 
+			output_json_array := []string{}
 			for _, idx := range runIdx {
 				fmt.Printf("found %d matching series sets. Picked index %d, trigger series: %s\n", len(selectFromB), idx, strings.Join(selectFromB[idx], ", "))
 
@@ -3509,7 +3524,7 @@ func main() {
 				_ = ioutil.WriteFile(dir+"/descr.json", file, 0644)
 				if !trigger_test {
 					// check if the call string is empty
-					callProgram(config, triggerWaitTime, trigger_container, dir)
+					callProgram(config, triggerWaitTime, trigger_container, dir, trigger_memory, trigger_cpus)
 
 					// In case we where running the program we can check the output folder
 					// for data that we can use. That would be structures in output/output.json
