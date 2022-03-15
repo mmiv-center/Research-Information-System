@@ -295,8 +295,9 @@ type Description struct {
 	SeriesTime         string
 	SeriesNumber       string
 	ReferringPhysician string // for the research PACS this stores the event name
-	ProcessDataPath    string
-	ClassifyTypes      []string
+	ProcessDataPath   string
+	ClassifyTypes     []string
+	InputViewDICOMSeriesPath string
 }
 
 // img.At(x, y).RGBA() returns four uint32 values; we want a Pixel
@@ -1114,6 +1115,11 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 							if err != nil {
 								exitGracefully(errors.New("could not create symlink data directory"))
 							}
+						}
+						if r, err := filepath.Rel(dest_path, symOrderPatientDateSeriesNumber); err==nil {
+						    description.InputViewDICOMSeriesPath = r
+					    } else {
+							description.InputViewDICOMSeriesPath = symOrderPatientDateSeriesNumber
 						}
 						// now create symbolic link here to our outputPath + counter .dcm == outputPathFileName
 						// this prevents any duplication of space taken up by the images
@@ -2250,7 +2256,7 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	}
 
 	// wait for some seconds, why do we support this?
-	if triggerWaitTime != "" {
+	if triggerWaitTime != "" && triggerWaitTime != "0s" {
 		sec, _ := time.ParseDuration(triggerWaitTime)
 		time.Sleep(sec)
 	}
@@ -2291,6 +2297,21 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 		fmt.Println(strings.Join(arr2, " "))
 		cmd = exec.Command(arr2[0], arr2[1:]...)
 	} else {
+		cmd_str := config.CallString
+		cmd_str = strings.Replace(cmd_str, "{}", dir, -1)
+		cmd_str = strings.Replace(cmd_str, "{input}", filepath.Join(dir, "input"), -1)
+		cmd_str = strings.Replace(cmd_str, "{output}", filepath.Join(dir, "output"), -1)
+		cmd_str = strings.Replace(cmd_str, "{descr}", filepath.Join(dir, "descr.json"), -1)
+		cmd_str = strings.Replace(cmd_str, "{output_json}", filepath.Join(dir, "output.json"), -1)
+		// now we should split the string to an array
+		r := csv.NewReader(strings.NewReader(cmd_str))
+		r.Comma = ' ' // space
+		arr, err := r.Read()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
 		fmt.Println(arr)
 		cmd_string = arr
 		cmd = exec.Command(arr[0], arr[1:]...)
