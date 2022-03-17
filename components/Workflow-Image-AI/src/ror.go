@@ -898,7 +898,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 
 // copyFiles will copy all DICOM files that fit the string to the dest_path directory.
 // we could display those images as well on the command line - just to impress
-func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string, sort_dicom bool, classifyTypes []string, clip []float32) (int, Description) {
+func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string, sort_dicom bool, classifyTypes []string, clip []float32, startCounter int) (int, Description) {
 
 	destination_path := dest_path + "/input"
 
@@ -913,7 +913,7 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 	description.ReferringPhysician = ""
 	description.ProcessDataPath = dest_path
 	description.ClassifyTypes = classifyTypes
-	counter := 0
+	counter := startCounter // we are using this to name DICOM files, not possible here!
 	fmt.Printf("\033[2J\n") // clear the screen
 
 	var input_path_list []string
@@ -1124,7 +1124,13 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 						// now create symbolic link here to our outputPath + counter .dcm == outputPathFileName
 						// this prevents any duplication of space taken up by the images
 						symlink := filepath.Join(symOrderPatientDateSeriesNumber, fmt.Sprintf("%06d.dcm", counter))
-						relativeDataPath := fmt.Sprintf("../../../../input/%06d.dcm", counter)
+						// use outputPathFileName as the source of the symlink and make the symlink relative
+						relativeDataPath := fmt.Sprintf("../%06d.dcm", counter) // WRONG
+						if r, err := filepath.Rel(symOrderPatientDateSeriesNumber, outputPath); err == nil {
+							relativeDataPath = r
+							relativeDataPath = filepath.Join(relativeDataPath, fmt.Sprintf("%06d.dcm", counter))
+						}
+
 						os.Symlink(relativeDataPath, symlink)
 					}
 
@@ -1857,7 +1863,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 			for idx, ruleset := range ast.Rules { // todo: check if this works if a ruleset matches the 2 series
 				if value2.evalRules(ruleset) { // check if this ruleset fits with this series
 					matches = true
-					matchesIdx = idx
+					matchesIdx = idx // this corresponds to the ruleset but only ast.Rules_list_names contains the name for it
 					break
 				}
 			}
@@ -1915,11 +1921,13 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 				// only append our series for this study
 				// append all SeriesInstanceUIDs now
 				var ss []string
+				var snames []string
 				for k := range value {
 					ss = append(ss, k)
+					snames = append(snames, ast.Rule_list_names[value[k][0]])
 				}
 				selectFromB = append(selectFromB, ss)
-				names = append(names, currentNamesByRule)
+				names = append(names, snames)
 			}
 		}
 	} else if ast.Output_level == "patient" {
@@ -1952,11 +1960,13 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 				// only append our series for this study
 				// append all SeriesInstanceUIDs now
 				var ss []string
+				var snames []string
 				for k := range value {
 					ss = append(ss, k)
+					snames = append(snames, ast.Rule_list_names[value[k][0]])
 				}
 				selectFromB = append(selectFromB, ss)
-				names = append(names, currentNamesByRule)
+				names = append(names, snames)
 			}
 		}
 	} else if ast.Output_level == "project" {
@@ -1966,6 +1976,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 		selectFromB = make([][]string, 0)
 		names = make([][]string, 0)
 		var ss []string
+		var snames []string
 		currentNamesByRule := make([]string, 0)
 		for _, value := range seriesByPatient {
 			// which rules need to match?
@@ -1992,11 +2003,12 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 				// append all SeriesInstanceUIDs now
 				for k := range value {
 					ss = append(ss, k)
+					snames = append(snames, ast.Rule_list_names[value[k][0]])
 				}
 			}
 		}
 		selectFromB = append(selectFromB, ss)
-		names = append(names, currentNamesByRule)
+		names = append(names, snames)
 	}
 
 	// we need to check the CheckRules as well - if we have those we might loose some more entries here
@@ -3525,6 +3537,7 @@ func main() {
 
 				// export each series from the current set in selectFromB
 				var description []Description
+				var startCounter int = 0
 				for idx2, thisSeriesInstanceUID := range selectFromB[idx] {
 					var closestPath string = ""
 					var classifyTypes []string
@@ -3540,8 +3553,9 @@ func main() {
 						fmt.Println("ERROR: Could not detect the closest PATH")
 						closestPath = config.Data.Path
 					}
+					numFiles, descr := copyFiles(thisSeriesInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Viewer.Clip, startCounter)
+					startCounter += numFiles
 
-					numFiles, descr := copyFiles(thisSeriesInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Viewer.Clip)
 					descr.NameFromSelect = selectFromBNames[idx][idx2]
 					// we should merge the different descr together to get description
 					description = append(description, descr)
