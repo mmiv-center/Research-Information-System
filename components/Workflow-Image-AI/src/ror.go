@@ -281,22 +281,22 @@ func (config Config) writeConfig() bool {
 }
 
 type Description struct {
-	NameFromSelect     string
-	SeriesInstanceUID  string
-	SeriesDescription  string
-	StudyInstanceUID   string
-	NumFiles           int
-	Modality           string
-	PatientID          string
-	PatientName        string
-	SequenceName       string
-	StudyDate          string
-	StudyTime          string
-	SeriesTime         string
-	SeriesNumber       string
-	ReferringPhysician string // for the research PACS this stores the event name
-	ProcessDataPath   string
-	ClassifyTypes     []string
+	NameFromSelect           string
+	SeriesInstanceUID        string
+	SeriesDescription        string
+	StudyInstanceUID         string
+	NumFiles                 int
+	Modality                 string
+	PatientID                string
+	PatientName              string
+	SequenceName             string
+	StudyDate                string
+	StudyTime                string
+	SeriesTime               string
+	SeriesNumber             string
+	ReferringPhysician       string // for the research PACS this stores the event name
+	ProcessDataPath          string
+	ClassifyTypes            []string
 	InputViewDICOMSeriesPath string
 }
 
@@ -1116,9 +1116,9 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 								exitGracefully(errors.New("could not create symlink data directory"))
 							}
 						}
-						if r, err := filepath.Rel(dest_path, symOrderPatientDateSeriesNumber); err==nil {
-						    description.InputViewDICOMSeriesPath = r
-					    } else {
+						if r, err := filepath.Rel(dest_path, symOrderPatientDateSeriesNumber); err == nil {
+							description.InputViewDICOMSeriesPath = r
+						} else {
 							description.InputViewDICOMSeriesPath = symOrderPatientDateSeriesNumber
 						}
 						// now create symbolic link here to our outputPath + counter .dcm == outputPathFileName
@@ -2502,6 +2502,8 @@ func main() {
 
 	var data_path string
 	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files. If you want to specify a subset of folders\nuse double quotes for the path and the glob syntax. For example all folders that\nstart with numbers 008 and 009 would be read with --data \"path/to/data/0[8-9]*\"")
+	var data_clear bool
+	configCommand.BoolVar(&data_clear, "clear", false, "Clear any prior data first when adding new data.")
 	var call_string string
 	configCommand.StringVar(&call_string, "call", "", "The command line to call the workflow. A path-name with the data path is inserted\ninto this string ('{}'). Further options are '{input}' - replaced with the path to the input folder, \n'{output}' - same for output folder  (might not exist yet), '{desc}' - replace with path to description file, \nand '{output_json}' - replaced with the path to output json file (might not exist).\n\tExample 1: --call \"/bin/bash -c \\\"/app/work.sh {}\\\"\"\n\tExample 2: --call \"/app/work.sh {}\"\n\tExample 3: --call \"/app/work.sh {input} {output}\"")
 	var project_name_string string
@@ -2961,6 +2963,11 @@ func main() {
 				}
 				//defer app.Stop()
 				fmt.Println("")
+
+				if data_clear {
+					// empty out the existing data before adding new data
+					config.Data.DataInfo = make(map[string]map[string]SeriesInfo)
+				}
 
 				config.Data.Path = data_path
 				studies, err = dataSets(config, config.Data.DataInfo)
