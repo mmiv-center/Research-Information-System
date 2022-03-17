@@ -1144,8 +1144,8 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 			fmt.Println("Warning: could not walk this path")
 		}
 	}
-	description.NumFiles = counter
-	return counter, description
+	description.NumFiles = counter - startCounter
+	return description.NumFiles, description
 }
 
 // dataSets parses the config.Data path for DICOM files.
