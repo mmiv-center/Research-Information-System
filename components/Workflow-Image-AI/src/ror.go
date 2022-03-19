@@ -3481,7 +3481,7 @@ func main() {
 					}
 					runIdx = []int{jobID}
 				} else {
-					fmt.Errorf("Error: trigger_job is not a number")
+					fmt.Println(fmt.Errorf("Error: trigger_job is not a number"))
 					exitGracefully(error)
 				}
 			} else if !trigger_each {

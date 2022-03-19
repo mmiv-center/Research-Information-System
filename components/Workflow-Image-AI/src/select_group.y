@@ -229,7 +229,7 @@ rule:
             Value: $3,
         }
         currentRules = append(currentRules, r)
-        $$ = fmt.Sprintf("Variable %s = %s", $1, $3)
+        $$ = fmt.Sprintf("Variable %s = %f", $1, $3)
     }
 |   tag_string CONTAINING STRING
     {
