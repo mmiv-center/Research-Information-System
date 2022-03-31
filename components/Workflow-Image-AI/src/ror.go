@@ -1192,7 +1192,7 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 				return err
 			}
 			// every once in a while we should save the datasets - so we can break reading without lossing work
-			if counter > 0 && counter%1000 == 0 {
+			if counter > 0 && counter%200 == 0 {
 				dir_path := input_dir + "/.ror/config"
 				config2, err := readConfig(dir_path)
 				if err != nil {
@@ -2224,10 +2224,15 @@ func ast2Select(ast AST) string {
 			} else if rule.Operator == "regexp" {
 				opstr = "regexp"
 			}
+			// convert rule.Value so that if we have spaces (string) we use doubble quotes
+			ruleValue := fmt.Sprintf("%v", rule.Value)
+			if strings.Contains(ruleValue, " ") {
+				ruleValue = fmt.Sprintf("\"%v\"", rule.Value)
+			}
 			if len(rule.Tag) == 2 {
-				s = fmt.Sprintf("%s%s (\"%s\",\"%s\") %s %v", s, a, rule.Tag[0], rule.Tag[1], opstr, rule.Value)
+				s = fmt.Sprintf("%s%s (\"%s\",\"%s\") %s %s", s, a, rule.Tag[0], rule.Tag[1], opstr, ruleValue)
 			} else {
-				s = fmt.Sprintf("%s%s %s %s %v", s, a, rule.Tag[0], opstr, rule.Value)
+				s = fmt.Sprintf("%s%s %s %s %s", s, a, rule.Tag[0], opstr, ruleValue)
 			}
 		}
 		if idx2 > 0 {
