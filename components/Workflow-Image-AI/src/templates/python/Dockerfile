@@ -1,48 +1,28 @@
-# For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3.8-slim-buster
-
-# Keeps Python from generating .pyc files in the container
-ENV PYTHONDONTWRITEBYTECODE=1
-
-# Turns off buffering for easier container logging
-ENV PYTHONUNBUFFERED=1
-
-# Install pip requirements
-#COPY .rpp/virt/requirements.txt .
-#RUN python -m pip install -r requirements.txt
-
-
-RUN apt update \
-        && apt install -y curl \
-        && cd /tmp \
-        && curl -O https://repo.anaconda.com/archive/Anaconda3-2020.02-Linux-x86_64.sh \
-        && chmod +x /tmp/Anaconda3-2020.02-Linux-x86_64.sh \
-        && /tmp/Anaconda3-2020.02-Linux-x86_64.sh -b -p /usr/local/conda \
-        && rm /tmp/Anaconda3-2020.02-Linux-x86_64.sh
+FROM continuumio/miniconda3
 
 WORKDIR /app
 COPY . /app
 
-
-# Creates a non-root user with an explicit UID and adds permission to access the /app folder
-# For more info, please refer to https://aka.ms/vscode-docker-python-configure-containers
-RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app
-USER appuser
-
-RUN bash --login -c -i "/usr/local/conda/bin/conda init && echo \"unset SUDO_UID SUDO_GID SUDO_USER\" >> /home/appuser/.bashrc"
+# Create the environment:
+COPY .ror/virt/requirements.yml .
+RUN conda env create -f requirements.yml
 
 # set this value to the name of your conda environment in requirements.yml
 # provide it to docker build as an environment variable
 ARG conda_env=placeholder
 
-# This file comes with ror, if you have your own change the following location.
-COPY .ror/virt/requirements.yml /tmp/
+# Make RUN commands use the new environment:
+RUN echo "conda activate workflow_train" >> ~/.bashrc
+SHELL ["/bin/bash", "--login", "-c"]
 
-#USER appuser
-#RUN bash --login -c -i "conda env update -f=/tmp/requirements.yml"
+# Demonstrate the environment is activated:
+RUN echo "Make sure torch is installed:"
+RUN python -c "import torch"
 
-# for conda we need this
-ENTRYPOINT ["/bin/bash", "--login", "-c", "-i", "conda run -n $conda_env python ./stub.py"]
+#RUN python -m ensurepip --upgrade
+#RUN pip install monai-deploy-app-sdk
 
-# for pip based installations this is sufficient
-# CMD ["python", "./stub.py"]
+# The code to run when container is started:
+COPY entrypoint.sh /app
+RUN ["chmod", "+x", "/app/entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh $conda_env"]
