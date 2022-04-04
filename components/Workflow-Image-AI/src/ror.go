@@ -89,6 +89,9 @@ var dockerfile_bash string
 //go:embed templates/.dockerignore
 var dockerignore string
 
+//go:embed templates/python/entrypoint.sh
+var entrypoint string
+
 //go:embed templates/webapp/index.html
 var webapp_index string
 
@@ -2824,6 +2827,8 @@ func main() {
 			if data.ProjectType == "python" || data.ProjectType == "notebook" { // plain python
 				stub_path := filepath.Join(input_dir, "stub.py")
 				createStub(stub_path, stub_py)
+				entrypoint_path := filepath.Join(input_dir, "entrypoint.sh")
+				createStub(entrypoint_path, entrypoint)
 			}
 			if data.ProjectType == "notebook" {
 				stubipynb_path := filepath.Join(input_dir, "stub.ipynb")

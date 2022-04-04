@@ -7,13 +7,22 @@ import json
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
+datafolder = sys.argv[1]
+
 description = {}
-with open(os.path.join(sys.argv[1], "descr.json")) as f:
+with open(os.path.join(datafolder, "descr.json")) as f:
     description = json.load(f)[0]
+
+output=os.path.join(datafolder,"output")
+if not(os.path.exists(output)):
+    try:
+        os.mkdir(output,0o777)
+    except OSError as error:
+        (error)
     
 files = []
-print('glob: {}/input'.format(sys.argv[1]))
-for fname in glob.glob(sys.argv[1]+"/input/*", recursive=False):
+print('glob: {}/input'.format(datafolder))
+for fname in glob.glob(datafolder+"/input/*", recursive=False):
     #print("loading: {}".format(fname))
     if os.path.isfile(fname):
         files.append(pydicom.dcmread(fname))
@@ -73,14 +82,6 @@ a3.set_aspect(cor_aspect)
 a3.set_yticklabels([])
 
 plt.show()
-
-# store any result DICOM data in sys.argv[1]/output
-output=os.path.join(sys.argv[1],"output")
-if not(os.path.exists(output)):
-    try:
-        os.mkdir(output,0o770)
-    except OSError as error:
-        print(error)
 
 ####################################################
 # This might be a good place to add your work.
