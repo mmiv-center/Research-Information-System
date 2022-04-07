@@ -1076,7 +1076,11 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 					inputFile, _ := os.Open(path)
 					data, _ := ioutil.ReadAll(inputFile)
 					// what is the next unused filename? We can have this case if other series are exported as well
-					outputPathFileName := fmt.Sprintf("%s/%06d.dcm", outputPath, counter)
+					fname := fmt.Sprintf("%06d.dcm", counter)
+					if Modality != "" {
+						fname = fmt.Sprintf("%s_%s", Modality, fname)
+					}
+					outputPathFileName := fmt.Sprintf("%s/%s", outputPath, fname)
 					_, err = os.Stat(outputPathFileName)
 					for !os.IsNotExist(err) {
 						counter = counter + 1
@@ -1126,15 +1130,17 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 						}
 						// now create symbolic link here to our outputPath + counter .dcm == outputPathFileName
 						// this prevents any duplication of space taken up by the images
-						symlink := filepath.Join(symOrderPatientDateSeriesNumber, fmt.Sprintf("%06d.dcm", counter))
+						symlink := filepath.Join(symOrderPatientDateSeriesNumber, fname)
 						// use outputPathFileName as the source of the symlink and make the symlink relative
-						relativeDataPath := fmt.Sprintf("../%06d.dcm", counter) // WRONG
+						relativeDataPath := fmt.Sprintf("../%s", fname) // WRONG
 						if r, err := filepath.Rel(symOrderPatientDateSeriesNumber, outputPath); err == nil {
 							relativeDataPath = r
-							relativeDataPath = filepath.Join(relativeDataPath, fmt.Sprintf("%06d.dcm", counter))
+							relativeDataPath = filepath.Join(relativeDataPath, fname)
 						}
 
-						os.Symlink(relativeDataPath, symlink)
+						if err = os.Symlink(relativeDataPath, symlink); err != nil {
+							fmt.Println("Warning: could not create symlink")
+						}
 					}
 
 					//fmt.Println("path: ", fmt.Sprintf("%s/%06d.dcm", outputPath, counter))
