@@ -2465,6 +2465,48 @@ func checkOutput(config Config, trigger_container string, dir string) string {
 	}
 	// we want to check the files in the output folder as well - check for DICOM and list the correspondence to the
 	// input variables (StudyInstanceUID, SeriesInstanceUID, SOPInstanceUID)
+
+	// extract from input the list of valid StudyInstanceUIDs and SeriesInstanceUIDs and SOPInstanceUIDs
+	validStudyInstanceUIDs := make(map[string]bool)
+	validSeriesInstanceUIDs := make(map[string]bool)
+	validSOPInstanceUIDs := make(map[string]bool)
+	err = filepath.Walk(dir+"/input", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			dataset, err := dicom.ParseFile(path, nil)
+			if err == nil {
+				// fmt.Println("a DICOM file:", path)
+				var StudyInstanceUID string
+				StudyInstanceUIDVal, err := dataset.FindElementByTag(tag.StudyInstanceUID)
+				if err == nil {
+					StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
+					if StudyInstanceUID != "" {
+						validStudyInstanceUIDs[StudyInstanceUID] = true
+					}
+				}
+				var SeriesInstanceUID string
+				SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
+				if err == nil {
+					SeriesInstanceUID = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
+					if SeriesInstanceUID != "" {
+						validSeriesInstanceUIDs[SeriesInstanceUID] = true
+					}
+				}
+				var SOPInstanceUID string
+				SOPInstanceUIDVal, err := dataset.FindElementByTag(tag.SOPInstanceUID)
+				if err == nil {
+					SOPInstanceUID = dicom.MustGetStrings(SOPInstanceUIDVal.Value)[0]
+					if SOPInstanceUID != "" {
+						validSOPInstanceUIDs[SOPInstanceUID] = true
+					}
+				}
+			}
+		}
+		return nil
+	})
+
 	numOutputFiles := 0
 	numDICOMFiles := 0
 	err = filepath.Walk(dir+"/output", func(path string, info os.FileInfo, err error) error {
@@ -2473,10 +2515,38 @@ func checkOutput(config Config, trigger_container string, dir string) string {
 		}
 		if !info.IsDir() {
 			numOutputFiles++
-			_, err = dicom.ParseFile(path, nil)
-			if err != nil {
-				fmt.Println("a DICOM file:", path)
+			dataset, err := dicom.ParseFile(path, nil)
+			if err == nil {
+				//fmt.Println("a DICOM file:", path)
 				numDICOMFiles++
+
+				var StudyInstanceUID string
+				StudyInstanceUIDVal, err := dataset.FindElementByTag(tag.StudyInstanceUID)
+				if err == nil {
+					StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
+				}
+				var SeriesInstanceUID string
+				SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
+				if err == nil {
+					SeriesInstanceUID = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
+				}
+				var SOPInstanceUID string
+				SOPInstanceUIDVal, err := dataset.FindElementByTag(tag.SOPInstanceUID)
+				if err == nil {
+					SOPInstanceUID = dicom.MustGetStrings(SOPInstanceUIDVal.Value)[0]
+				}
+				// check now that we want to have an existing StudyInstanceUID
+				if _, ok := validStudyInstanceUIDs[StudyInstanceUID]; !ok {
+					ret += fmt.Sprintf("\n\nError: output DICOM file \"%s\" has StudyInstanceUID: %s which is not found in the input DICOM files\n", path, StudyInstanceUID)
+				}
+				// check now that we have a new SeriesInstanceUID
+				if _, ok := validSeriesInstanceUIDs[SeriesInstanceUID]; ok {
+					ret += fmt.Sprintf("\n\nError: output DICOM file \"%s\" has SeriesInstanceUID: %s which is already in the input DICOM files\n", path, SeriesInstanceUID)
+				}
+				// check now that we have unique SOPInstanceUID
+				if _, ok := validSOPInstanceUIDs[SOPInstanceUID]; ok {
+					ret += fmt.Sprintf("\n\nError: output DICOM file \"%s\" has SOPInstanceUID: %s which is already in the input DICOM files\n", path, SOPInstanceUID)
+				}
 			}
 		}
 		return nil
@@ -3493,7 +3563,17 @@ func main() {
 				// we have a specific job to run
 				if jobID, error := strconv.Atoi(trigger_job); error == nil {
 					if jobID < 0 || jobID >= len(selectFromB) {
-						exitGracefully(fmt.Errorf("Error: the specified job \"%s\" does not exist (0..%d).", trigger_job, len(selectFromB)-1))
+						validEntries := fmt.Sprintf("0..%d", len(selectFromB)-1)
+						if len(selectFromB) == 1 {
+							validEntries = "0"
+						} else if len(selectFromB) < 5 {
+							validEntries = ""
+							for i := 0; i < len(selectFromB)-1; i++ {
+								validEntries += fmt.Sprintf("%d, ", i)	
+							}
+							validEntries += fmt.Sprintf("%d", len(selectFromB)-1)
+						}
+						exitGracefully(fmt.Errorf("Error: the specified job id \"%s\" does not exist (valid ids are: %s)", trigger_job, validEntries))
 					}
 					runIdx = []int{jobID}
 				} else {
