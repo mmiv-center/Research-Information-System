@@ -2184,27 +2184,27 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 	return outSelect, outNames
 }
 
-func humanizeFilter(ast AST) string {
+func humanizeFilter(ast AST) []string {
 	// create a human readeable string from the AST
-	var ss string
+	var ss []string
 
 	switch ast.Output_level {
 	case "series":
-		ss = fmt.Sprintf("%s\nWe will run processing on any single image series that matches.", ss)
+		ss = append(ss, "We will run processing on any single image series that matches.")
 	case "study":
-		ss = fmt.Sprintf("%s\nWe will run processing on data containing a single study and its matching image series.", ss)
+		ss = append(ss, "We will run processing on data containing a single study and its matching image series.")
 	case "patient":
-		ss = fmt.Sprintf("%s\nWe will run processing on data containing all studies of a patient for which those studies have the correct number of matching image series.", ss)
+		ss = append(ss, "We will run processing on data containing all studies of a patient for which those studies have the correct number of matching image series.")
 	case "project":
-		ss = fmt.Sprintf("%s\nWe will run processing on all data with matching image series.", ss)
+		ss = append(ss, "We will run processing on all data with matching image series.")
 	}
 
 	if len(ast.Rules) == 1 {
-		ss = fmt.Sprintf("%s\nWe will select cases with a single matching image series.\n", ss)
+		ss = append(ss, "We will select cases with a single matching image series.")
 	} else {
-		ss = fmt.Sprintf("%s\nWe will select cases with %d image series.\n", ss, len(ast.Rules))
+		ss = append(ss, fmt.Sprintf("We will select cases with %d image series.\n", len(ast.Rules)))
 	}
-	fmt.Printf("To use this select statement call:\n%s config --select '\n%s\n'\n", own_name, ast2Select(ast))
+	ss = append(ss, fmt.Sprintf("To use this select statement call:\n%s config --select '\n%s\n'\n", own_name, ast2Select(ast)))
 
 	return ss
 }
@@ -3124,21 +3124,32 @@ func main() {
 				line := []byte(series_filter_no_comments)
 				yyParse(&exprLex{line: line})
 				if !errorOnParse {
-					s, _ := json.MarshalIndent(ast, "", "  ")
+					//s, _ := json.MarshalIndent(ast, "", "  ")
 					ss := humanizeFilter(ast)
-					fmt.Printf("Parsing series filter successful\n%s\n%s\n", string(s), ss)
+					type Msg struct {
+						Messages []string `json:"messages"`
+						Ast AST `json:"ast"`
+						Matches int `json:"matches"`
+					}
+					//fmt.Printf("Parsing series filter successful\n%s\n%s\n", string(s), strings.Join(ss[:], "\n"))
 					config.SeriesFilterType = "select"
 					// check if we have any matches - cheap for us here
 					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
-					postfix := "s"
+					/*postfix := "s"
 					if len(matches) == 1 {
 						postfix = ""
+					} */
+					//fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
+					out := Msg{ Messages: ss, Ast: ast, Matches: len(matches) }
+					human_enc, err := json.MarshalIndent(out, "", " ")      
+					if err != nil {
+						fmt.Println(err)
 					}
-					fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
-
+					fmt.Println(string(human_enc))
 				} else {
 					// maybe its a simple glob expression? We should add in any case
-					fmt.Println("We tried to parse the series filter but failed. Maybe you just want to grep?")
+					//fmt.Println("We tried to parse the series filter but failed. Maybe you just want to grep?")
+					exitGracefully(errors.New("We tried to parse the series filter but failed."))
 					config.SeriesFilterType = "glob"
 				}
 				config.SeriesFilter = config_series_filter
@@ -3408,7 +3419,7 @@ func main() {
 					fmt.Println("")
 				}
 			} else {
-				fmt.Fprintf(os.Stderr, "This short status does not contain data information. Use the --all option to obtain all info.")
+				// fmt.Fprintf(os.Stderr, "This short status does not contain data information. Use the --all option to obtain all info.")
 			}
 			if status_detailed && config.SeriesFilterType == "select" {
 				comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
