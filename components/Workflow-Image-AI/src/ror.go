@@ -2652,6 +2652,8 @@ func main() {
 	statusCommand.BoolVar(&status_tui, "tui", false, "Show the datasets that select identified. You can press the 'c' button to stop the animation of the slices per series.")
 	var status_jobs bool
 	statusCommand.BoolVar(&status_jobs, "jobs", false, "Show the list of jobs in json format.")
+	var status_data bool
+	statusCommand.BoolVar(&status_data, "data", false, "Show the list of imported data in json format.")
 
 	var build_help bool
 	buildCommand.BoolVar(&build_help, "help", false, "Show help for build.")
@@ -3256,6 +3258,12 @@ func main() {
 				yyParse(&exprLex{line: line})
 				statusTui.ast = ast
 				statusTui.Init()
+			}
+
+			if status_data {
+				file, _ := json.MarshalIndent(config.Data, "", " ")
+				fmt.Println(string(file))
+				return
 			}
 
 			if status_jobs { // this is slow because of loop inside loops
