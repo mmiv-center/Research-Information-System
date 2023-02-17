@@ -3576,7 +3576,7 @@ func main() {
 			// we export on the study or patient level we have more series. Picking one entry means
 			// exporting all the series in the entry.
 			var selectFromB [][]SeriesInstanceUIDWithName = nil
-			var selectFromBNames [][]string = nil
+			//var selectFromBNames [][]string = nil
 			for StudyInstanceUID, value := range config.Data.DataInfo {
 				for SeriesInstanceUID, value2 := range value {
 					selectFromA[SeriesInstanceUID] = fmt.Sprintf("StudyInstanceUID: %s, SeriesInstanceUID: %s, SeriesDescription: %s, "+
@@ -3605,7 +3605,7 @@ func main() {
 						ssss = append(ssss, sss)
 						selectFromB = append(selectFromB, ssss)
 						// should no longer be needed
-						selectFromBNames = append(selectFromBNames, []string{"no-name"})
+						//selectFromBNames = append(selectFromBNames, []string{"no-name"})
 					}
 				}
 			} else if config.SeriesFilterType == "select" {
@@ -3675,7 +3675,7 @@ func main() {
 				asString := func(s []SeriesInstanceUIDWithName) string {
 					ret := ""
 					for i := 0; i < len(s); i++ {
-						ret = ret + s[i].Name+":"+ s[i].SeriesInstanceUID
+						ret = ret + s[i].Name+":"+ s[i].SeriesInstanceUID + " "
 					}
 					return ret
 				}
@@ -3723,7 +3723,7 @@ func main() {
 				// export each series from the current set in selectFromB
 				var description []Description
 				var startCounter int = 0
-				for idx2, thisSeriesInstanceUID := range selectFromB[idx] {
+				for _, thisSeriesInstanceUID := range selectFromB[idx] {
 					var closestPath string = ""
 					var classifyTypes []string
 					for _, value := range config.Data.DataInfo {
@@ -3741,7 +3741,7 @@ func main() {
 					numFiles, descr := copyFiles(thisSeriesInstanceUID.SeriesInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Viewer.Clip, startCounter)
 					startCounter += numFiles
 
-					descr.NameFromSelect = selectFromBNames[idx][idx2]
+					descr.NameFromSelect = thisSeriesInstanceUID.Name  // selectFromBNames[idx][idx2]
 					// we should merge the different descr together to get description
 					description = append(description, descr)
 					fmt.Println("Found", numFiles, "files.")
