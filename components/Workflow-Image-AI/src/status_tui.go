@@ -98,26 +98,29 @@ func (statusTUI *StatusTUI) Init() {
 		AddItem(statusTUI.selection, 12, 1, false)
 
 	// start with setting up the list of selected datasets
-	selected, names := findMatchingSets(statusTUI.ast, statusTUI.dataSets)
+	selected := findMatchingSets(statusTUI.ast, statusTUI.dataSets)
 	root := tview.NewTreeNode("Selections").SetReference("")
 	statusTUI.selection.SetRoot(root).SetCurrentNode(root)
 
 	for idx, entry := range selected {
-		firstSeries, err := findSeriesInfo(statusTUI.dataSets, entry[0])
+		firstSeries, err := findSeriesInfo(statusTUI.dataSets, entry[0].SeriesInstanceUID)
 		if err != nil {
 			continue
 		}
 		node := tview.NewTreeNode(fmt.Sprintf("%d/%d %s-%s [yellow]%s", idx+1, len(selected), firstSeries.PatientID, firstSeries.PatientName, firstSeries.StudyDescription)).
-			SetReference(entry).
 			SetSelectable(false)
 		root.AddChild(node)
-		for idx2, entry2 := range entry {
-			s := "s"
-			if firstSeries.NumImages == 1 {
-				s = ""
+		s := "s"
+		if firstSeries.NumImages == 1 {
+			s = ""
+		}
+	    for _, entry2 := range entry {
+			firstSeries, err := findSeriesInfo(statusTUI.dataSets, entry2.SeriesInstanceUID)
+			if err != nil {
+				continue
 			}
-			node2 := tview.NewTreeNode(fmt.Sprintf("%s series %d \"%s\" [gray]%s[-] %d image%s", names[idx][idx2], firstSeries.SeriesNumber, firstSeries.SeriesDescription, entry2, firstSeries.NumImages, s)).
-				SetReference(entry2).
+			node2 := tview.NewTreeNode(fmt.Sprintf("%s series %d \"%s\" [gray]%s[-] %d image%s", entry2.Name, firstSeries.SeriesNumber, firstSeries.SeriesDescription, entry2.SeriesInstanceUID, firstSeries.NumImages, s)).
+				SetReference(entry2.SeriesInstanceUID).
 				SetSelectable(true)
 			node.AddChild(node2)
 		}

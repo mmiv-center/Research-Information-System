@@ -104,12 +104,12 @@ func (annotateTUI *AnnotateTUI) Init() {
 		AddItem(annotateTUI.selection, 12, 1, false)
 
 	// start with setting up the list of selected datasets
-	selected, names := findMatchingSets(annotateTUI.ast, annotateTUI.dataSets)
+	selected := findMatchingSets(annotateTUI.ast, annotateTUI.dataSets)
 	root := tview.NewTreeNode("Selections").SetReference("")
 	annotateTUI.selection.SetRoot(root).SetCurrentNode(root)
 
 	for idx, entry := range selected {
-		firstSeries, err := findSeriesInfo(annotateTUI.dataSets, entry[0])
+		firstSeries, err := findSeriesInfo(annotateTUI.dataSets, entry[0].SeriesInstanceUID)
 		if err != nil {
 			continue
 		}
@@ -117,12 +117,12 @@ func (annotateTUI *AnnotateTUI) Init() {
 			SetReference(entry).
 			SetSelectable(false)
 		root.AddChild(node)
-		for idx2, entry2 := range entry {
+		for _, entry2 := range entry {
 			s := "s"
 			if firstSeries.NumImages == 1 {
 				s = ""
 			}
-			node2 := tview.NewTreeNode(fmt.Sprintf("%s %s series %d %s %d image%s", names[idx][idx2], firstSeries.Modality, firstSeries.SeriesNumber, entry2, firstSeries.NumImages, s)).
+			node2 := tview.NewTreeNode(fmt.Sprintf("%s %s series %d %s %d image%s", entry2.Name, firstSeries.Modality, firstSeries.SeriesNumber, entry2.SeriesInstanceUID, firstSeries.NumImages, s)).
 				SetReference(entry2).
 				SetSelectable(true)
 			node.AddChild(node2)

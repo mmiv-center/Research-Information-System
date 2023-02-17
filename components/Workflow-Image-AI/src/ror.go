@@ -1649,7 +1649,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		}
 
 		// compute the match with the data
-		a, _ := findMatchingSets(ast, datasets)
+		a := findMatchingSets(ast, datasets)
 
 		var numSeriesByStudy = make(map[string]int32)
 		for _, vv := range datasets {
@@ -1666,7 +1666,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			}
 			//numSeries := len(a[k])
 			// number of series for this study
-			SeriesInstanceUID := v[0]
+			SeriesInstanceUID := v[0].SeriesInstanceUID
 			/*			var numSeriesByStudy float64 = 0.0
 						L:
 							for _, vv := range datasets {
@@ -1860,12 +1860,19 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 	return bestRulesetEver, likelihood(bestRulesetEver)
 }
 
+type SeriesInstanceUIDWithName struct {
+	SeriesInstanceUID	string
+	Name 				string
+}
+
 // findMatchingSets returns all matching sets for this rule and the provided data
 // It also returns a list of the names given to each rule in select.
-func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]string, [][]string) {
+func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]SeriesInstanceUIDWithName) {
 
-	var selectFromB [][]string
-	var names [][]string = make([][]string, 0)
+	// we need to store the seriesinstanceuid and the name assigned to it by the rule
+	var selectFromB [][]SeriesInstanceUIDWithName
+	// not needed anymore... 
+	//var names [][]string = make([][]string, 0)
 	// can only access the information in config.Data for these matches
 	seriesByStudy := make(map[string]map[string][]int)
 	seriesByPatient := make(map[string]map[string][]int)
@@ -1875,10 +1882,25 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 			// we assume here that we are in the series level...
 			var matches bool = false
 			var matchesIdx int = -1
-			for idx, ruleset := range ast.Rules { // todo: check if this works if a ruleset matches the 2 series
+			for idx := 0; idx < len(ast.Rules); idx++ {
+				ruleset := ast.Rules[idx]
+			    //for idx, ruleset := range ast.Rules { // todo: check if this works if a ruleset matches the 2 series
 				if value2.evalRules(ruleset.Rs) { // check if this ruleset fits with this series
 					matches = true
-					matchesIdx = idx // this corresponds to the ruleset but only ast.Rules_list_names contains the name for it
+					matchesIdx = idx // this corresponds to the ruleset but only ast.Rules_list_names contains the name for it <-  no longer true
+					// we assume here that if one rule works that none of the other rules will work as well
+					// we should check this and warn the user (go throught the rest of the list to make sure)
+					for idx2 := matchesIdx+1; idx2 < len(ast.Rules); idx2++ {
+						if idx2 == matchesIdx {
+							continue
+						}
+						ruleset := ast.Rules[idx2]
+						if value2.evalRules(ruleset.Rs) {
+							// error case
+							fmt.Println("Error: More than one rule matches a series. Series ", SeriesInstanceUID, " could be both \"" + ast.Rules[matchesIdx].Name + "\" and \"" + ast.Rules[idx2].Name + "\". This will result in a random assignment.")
+							exitGracefully(fmt.Errorf("Stop here, fix select statement"))
+						}
+					}
 					break
 				}
 			}
@@ -1901,28 +1923,34 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 					seriesByPatient[PatientName][SeriesInstanceUID] = append(seriesByPatient[PatientName][SeriesInstanceUID], matchesIdx)
 				}
 				// single level append here
-				selectFromB = append(selectFromB, []string{SeriesInstanceUID})
-				names = append(names, []string{ast.Rule_list_names[matchesIdx]})
+				var series_instance_uid_with_name = SeriesInstanceUIDWithName{
+					SeriesInstanceUID: SeriesInstanceUID,
+					Name: ast.Rules[matchesIdx].Name,
+				}
+				selectFromB = append(selectFromB, []SeriesInstanceUIDWithName{series_instance_uid_with_name})
+				// we should not need this anymore...
+				//names = append(names, []string{ast.Rules[matchesIdx].Name})
 			}
 		}
 	}
 	if ast.Output_level == "study" {
 		// If we want to export by study we need to export all studies where all the individual rules
 		// resulted in a match at the series level. But we will export matched series for these studies only.
-		selectFromB = make([][]string, 0)
-		names = make([][]string, 0)
+		selectFromB = make([][]SeriesInstanceUIDWithName, 0)
+		// don't need this anymore
+		//names = make([][]string, 0)
 		for _, value := range seriesByStudy {
 			// which rules need to match?
 			// all rules from 0..len(ast.Rules)
 			allThere := true
-			currentNamesByRule := make([]string, 0)
+			//currentNamesByRule := make([]string, 0)
 			for r := 0; r < len(ast.Rules); r++ {
 				thisThere := false
 				for _, value2 := range value {
 					for _, value3 := range value2 {
 						// each one is an integer, we look for r here
 						if value3 == r {
-							currentNamesByRule = append(currentNamesByRule, ast.Rule_list_names[r])
+							//currentNamesByRule = append(currentNamesByRule, ast.Rules[r].Name)
 							thisThere = true
 						}
 					}
@@ -1935,33 +1963,39 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 			if allThere {
 				// only append our series for this study
 				// append all SeriesInstanceUIDs now
-				var ss []string
-				var snames []string
+				var ss []SeriesInstanceUIDWithName
+				//var snames []string
 				for k := range value {
-					ss = append(ss, k)
-					snames = append(snames, ast.Rule_list_names[value[k][0]])
+					sss := SeriesInstanceUIDWithName{
+						SeriesInstanceUID: k,
+					    Name: ast.Rules[value[k][0]].Name,
+				    }
+					ss = append(ss, sss)
+					//snames = append(snames, ast.Rules[value[k][0]].Name)
 				}
 				selectFromB = append(selectFromB, ss)
-				names = append(names, snames)
+				// should not be needed anymore
+				//names = append(names, snames)
 			}
 		}
 	} else if ast.Output_level == "patient" {
 		// If we want to export by study we need to export all studies where all the individual rules
 		// resulted in a match at the series level. But we will export matched series for these studies only.
-		selectFromB = make([][]string, 0)
-		names = make([][]string, 0)
+		selectFromB = make([][]SeriesInstanceUIDWithName, 0)
+		// should not need this anymore
+		//names = make([][]string, 0)
 		for _, value := range seriesByPatient {
 			// which rules need to match?
 			// all rules from 0..len(ast.Rules)
 			allThere := true
-			currentNamesByRule := make([]string, 0)
+			//currentNamesByRule := make([]string, 0)
 			for r := 0; r < len(ast.Rules); r++ {
 				thisThere := false
 				for _, value2 := range value {
 					for _, value3 := range value2 {
 						// each one is an integer, we look for r here
 						if value3 == r {
-							currentNamesByRule = append(currentNamesByRule, ast.Rule_list_names[r])
+							//currentNamesByRule = append(currentNamesByRule, ast.Rules[r].Name)
 							thisThere = true
 						}
 					}
@@ -1974,25 +2008,31 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 			if allThere {
 				// only append our series for this study
 				// append all SeriesInstanceUIDs now
-				var ss []string
-				var snames []string
+				var ss []SeriesInstanceUIDWithName
+				//var snames []string
 				for k := range value {
-					ss = append(ss, k)
-					snames = append(snames, ast.Rule_list_names[value[k][0]])
+					sss := SeriesInstanceUIDWithName{
+						SeriesInstanceUID: k,
+					    Name: ast.Rules[value[k][0]].Name,
+				    }
+					ss = append(ss, sss)
+					// should not be needed anymore
+					//snames = append(snames, ast.Rules[value[k][0]].Name)
 				}
 				selectFromB = append(selectFromB, ss)
-				names = append(names, snames)
+				//names = append(names, snames)
 			}
 		}
 	} else if ast.Output_level == "project" {
 		// If we want to export all matching patient/studies/series where all individual rules
 		// resulted in a match at the series level. But we will export matched series only.
 		// there will be a single output level with all data in it
-		selectFromB = make([][]string, 0)
-		names = make([][]string, 0)
-		var ss []string
-		var snames []string
-		currentNamesByRule := make([]string, 0)
+		selectFromB = make([][]SeriesInstanceUIDWithName, 0)
+		// should not need this anymore
+		//names = make([][]string, 0)
+		var ss []SeriesInstanceUIDWithName
+		//var snames []string
+		//currentNamesByRule := make([]string, 0)
 		for _, value := range seriesByPatient {
 			// which rules need to match?
 			// all rules from 0..len(ast.Rules)
@@ -2003,7 +2043,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 					for _, value3 := range value2 {
 						// each one is an integer, we look for r here
 						if value3 == r {
-							currentNamesByRule = append(currentNamesByRule, ast.Rule_list_names[r])
+							//currentNamesByRule = append(currentNamesByRule, ast.Rules[r].Name)
 							thisThere = true
 						}
 					}
@@ -2017,20 +2057,27 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 				// only append our series for this study
 				// append all SeriesInstanceUIDs now
 				for k := range value {
-					ss = append(ss, k)
-					snames = append(snames, ast.Rule_list_names[value[k][0]])
+					sss := SeriesInstanceUIDWithName{
+						SeriesInstanceUID: k,
+					    Name: ast.Rules[value[k][0]].Name,
+				    }
+					ss = append(ss, sss)
+					// should not be needed anymore
+					//snames = append(snames, ast.Rules[value[k][0]].Name)
 				}
 			}
 		}
 		selectFromB = append(selectFromB, ss)
-		names = append(names, snames)
+		// should not be needed anymore
+		//names = append(names, snames)
 	}
 
 	// we need to check the CheckRules as well - if we have those we might loose some more entries here
 	if ast.CheckRules != nil {
-		checkCheckRules := func(entry []string, names []string, ast AST, dataInfo map[string]map[string]SeriesInfo) []string {
+		// should remove names here!
+		checkCheckRules := func(entry []SeriesInstanceUIDWithName, ast AST, dataInfo map[string]map[string]SeriesInfo) []SeriesInstanceUIDWithName {
 			// entry is now a list of SeriesInstanceUIDs
-			okSeriesIDS := make([]string, 0)
+			okSeriesIDS := make([]SeriesInstanceUIDWithName, 0)
 			for _, ruleset := range ast.CheckRules {
 				// does this ruleset work for all our selected series?
 				for _, rule := range ruleset.Rs {
@@ -2038,7 +2085,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 					tag1 := rule.Tag
 					tag2 := rule.Tag2
 					if len(tag1) == 3 && len(tag2) == 3 {
-						// find the correct series
+						// find the correct series based on names
 						series_name1 := tag1[0]
 						series_name2 := tag2[0]
 						series_idx1 := -1
@@ -2048,11 +2095,12 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 						// one name can happen several times so we need to
 						// collect all possible sets
 						pairs := make([][]int, 0)
-						for i, name := range names {
-							if name == series_name1 {
+						// we don't need this anymore ... 
+						for i, ruleset_name := range ast.CheckRules {
+							if ruleset_name.Name == series_name1 {
 								series_idx1 = i
 							}
-							if name == series_name2 {
+							if ruleset_name.Name == series_name2 {
 								series_idx2 = i
 							}
 							if series_idx1 != -1 && series_idx2 != -1 {
@@ -2078,14 +2126,14 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 						}
 						// what are the values we have for the two series?
 						for _, p := range pairs {
-							SeriesInstanceUID1 := entry[p[0]]
-							SeriesInstanceUID2 := entry[p[1]]
+							SeriesInstanceUID1 := entry[p[0]].SeriesInstanceUID
+							SeriesInstanceUID2 := entry[p[1]].SeriesInstanceUID
 							ok := evalCheckRule(rule, SeriesInstanceUID1, SeriesInstanceUID2, dataInfo)
 							if ok {
 								// that means we will keep these series ids
 								//fmt.Println("This rule works!")
-								okSeriesIDS = append(okSeriesIDS, SeriesInstanceUID1)
-								okSeriesIDS = append(okSeriesIDS, SeriesInstanceUID2)
+								okSeriesIDS = append(okSeriesIDS, entry[p[0]])
+								okSeriesIDS = append(okSeriesIDS, entry[p[1]])
 							}
 						}
 					}
@@ -2095,36 +2143,36 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 			return okSeriesIDS
 		}
 		for idx, set := range selectFromB {
-			set_names := names[idx]
-			okSeriesIDS := checkCheckRules(set, set_names, ast, dataInfo)
+			//set_names := names[idx]
+			okSeriesIDS := checkCheckRules(set, ast, dataInfo)
 			//if len(okSeriesIDS) > 0 { // we actually have some series we want to keep
 			//	fmt.Println("We have some series that work with this rule, some we might have to remove")
 			//} else {
 			//	fmt.Println("We need to remove all entries")
 			//}
-			contains := func(s []string, e string) bool {
+			contains := func(s []SeriesInstanceUIDWithName, e string) bool {
 				for _, a := range s {
-					if a == e {
+					if a.SeriesInstanceUID == e {
 						return true
 					}
 				}
 				return false
 			}
-			remove := func(s []string, i int) []string {
+			remove := func(s []SeriesInstanceUIDWithName, i int) []SeriesInstanceUIDWithName {
 				s[i] = s[len(s)-1]
 				return s[:len(s)-1]
 			}
 			for idx2 := 0; idx2 < len(selectFromB[idx]); idx2++ {
 				v := selectFromB[idx][idx2]
-				if !contains(okSeriesIDS, v) {
+				if !contains(okSeriesIDS, v.SeriesInstanceUID) {
 					// remove this series
 					//fmt.Println("Removing", v)
 					selectFromB[idx] = remove(selectFromB[idx], idx2)
-					names[idx] = remove(names[idx], idx2)
+					// no longer needed
+					// names[idx] = remove(names[idx], idx2)
 					idx2--
 				}
 			}
-
 		}
 	}
 
@@ -2140,15 +2188,17 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 	}
 
 	var cache []int32 = make([]int32, len(selectFromB))
-	for idx, set := range selectFromB {
+	for idx := 0; idx < len(selectFromB); idx++ {
+		set := selectFromB[idx]
+	    //for idx, set := range selectFromB {
 		l := int32(0)
 		for i := 0; i < len(set); i++ {
 			a := set[i] // for _, a := range selectFromB[i] {
-			l += numImagesBySeriesInstanceUID[a]
+			l += numImagesBySeriesInstanceUID[a.SeriesInstanceUID]
 		}
 		cache[idx] = l
 	}
-
+	// this would fail because it does not need to be called in the same order as above, cannot trust i to be 0 for the first one?
 	order := argsort.SortSlice(selectFromB, func(i, j int) bool {
 		/*	l1 := 0
 			for _, a := range selectFromB[i] {
@@ -2179,15 +2229,15 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 	})
 	// fmt.Println("%v", order)
 	// we should apply the order now
-	var outSelect [][]string
-	var outNames [][]string
+	var outSelect [][]SeriesInstanceUIDWithName
+	//var outNames [][]string
 	for i := 0; i < len(order); i++ {
 		outSelect = append(outSelect, selectFromB[order[i]])
-		outNames = append(outNames, names[order[i]])
+		//outNames = append(outNames, names[order[i]])
 	}
 
 	//return selectFromB, names
-	return outSelect, outNames
+	return outSelect // , outNames
 }
 
 func humanizeFilter(ast AST) []string {
@@ -3142,7 +3192,7 @@ func main() {
 					//fmt.Printf("Parsing series filter successful\n%s\n%s\n", string(s), strings.Join(ss[:], "\n"))
 					config.SeriesFilterType = "select"
 					// check if we have any matches - cheap for us here
-					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
+					matches := findMatchingSets(ast, config.Data.DataInfo)
 					/*postfix := "s"
 					if len(matches) == 1 {
 						postfix = ""
@@ -3217,7 +3267,7 @@ func main() {
 				//fmt.Printf("Suggested abstract syntax tree for your data [%f]\n%s\n", l, string(s))
 				fmt.Println(humanizeFilter(ast))
 
-				matches, _ := findMatchingSets(ast, config.Data.DataInfo)
+				matches := findMatchingSets(ast, config.Data.DataInfo)
 				postfix := "s"
 				if len(matches) == 1 {
 					postfix = ""
@@ -3281,7 +3331,7 @@ func main() {
 				line := []byte(series_filter_no_comments)
 				yyParse(&exprLex{line: line})
 				if !errorOnParse {
-					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
+					matches := findMatchingSets(ast, config.Data.DataInfo)
 					// a more informative output would include information for each job
 					// so we look into config.Data.DataInfo to find the image series and copy those values over
 					// should we add all info or just the most important - like remove the All to make this shorter?
@@ -3299,7 +3349,7 @@ func main() {
 							found := false
 							for StudyInstanceUID, study := range config.Data.DataInfo {
 								for SeriesInstanceUID, series := range study {
-									if SeriesInstanceUID == jobSeriesInstanceUID {
+									if SeriesInstanceUID == jobSeriesInstanceUID.SeriesInstanceUID {
 										job := SeriesForJobInfo{
 											SeriesInstanceUID: SeriesInstanceUID,
 											StudyInstanceUID:  StudyInstanceUID,
@@ -3449,7 +3499,7 @@ func main() {
 					fmt.Printf("Parsing series filter\n%s\n%s\n", string(s), ss)
 					config.SeriesFilterType = "select"
 					// check if we have any matches - cheap for us here
-					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
+					matches := findMatchingSets(ast, config.Data.DataInfo)
 					postfix := "s"
 					if len(matches) == 1 {
 						postfix = ""
@@ -3472,7 +3522,7 @@ func main() {
 				fmt.Printf("Suggested abstract syntax tree for your data [%f]\n%s\n", l, string(s))
 				fmt.Println(humanizeFilter(ast))
 
-				matches, _ := findMatchingSets(ast, config.Data.DataInfo)
+				matches := findMatchingSets(ast, config.Data.DataInfo)
 				postfix := "s"
 				if len(matches) == 1 {
 					postfix = ""
@@ -3525,7 +3575,7 @@ func main() {
 			// a list of series instance uids. In case we export by series we have a single entry, if
 			// we export on the study or patient level we have more series. Picking one entry means
 			// exporting all the series in the entry.
-			var selectFromB [][]string = nil
+			var selectFromB [][]SeriesInstanceUIDWithName = nil
 			var selectFromBNames [][]string = nil
 			for StudyInstanceUID, value := range config.Data.DataInfo {
 				for SeriesInstanceUID, value2 := range value {
@@ -3547,7 +3597,14 @@ func main() {
 				mm := regexp.MustCompile(config.SeriesFilter)
 				for key, value := range selectFromA {
 					if mm.MatchString(value) {
-						selectFromB = append(selectFromB, []string{key})
+						var ssss []SeriesInstanceUIDWithName
+						sss := SeriesInstanceUIDWithName{
+							SeriesInstanceUID: key,
+							Name: "no-name",
+						}
+						ssss = append(ssss, sss)
+						selectFromB = append(selectFromB, ssss)
+						// should no longer be needed
 						selectFromBNames = append(selectFromBNames, []string{"no-name"})
 					}
 				}
@@ -3565,7 +3622,7 @@ func main() {
 					//if ast.Output_level != "series" && ast.Output_level != "study" {
 					//	exitGracefully(fmt.Errorf("we only support \"Select <series>\" and \"Select <study>\" for now as the output level"))
 					//}
-					selectFromB, selectFromBNames = findMatchingSets(ast, config.Data.DataInfo)
+					selectFromB = findMatchingSets(ast, config.Data.DataInfo)
 					//fmt.Printf("NAMES ARE: %v\n", selectFromBNames)
 				}
 				//s, _ = json.MarshalIndent(ast, "", "  ")
@@ -3615,7 +3672,14 @@ func main() {
 			}
 			output_json_array := []string{}
 			for _, idx := range runIdx {
-				fmt.Printf("found %d matching series sets. Picked index %d, trigger series: %s\n", len(selectFromB), idx, strings.Join(selectFromB[idx], ", "))
+				asString := func(s []SeriesInstanceUIDWithName) string {
+					ret := ""
+					for i := 0; i < len(s); i++ {
+						ret = ret + s[i].Name+":"+ s[i].SeriesInstanceUID
+					}
+					return ret
+				}
+				fmt.Printf("found %d matching series sets. Picked index %d, trigger series: %s\n", len(selectFromB), idx, asString(selectFromB[idx]))
 
 				folder_name := fmt.Sprintf("ror_trigger_run_%s_*", time.Now().Weekday())
 				if trigger_job_folder != "" {
@@ -3664,7 +3728,7 @@ func main() {
 					var classifyTypes []string
 					for _, value := range config.Data.DataInfo {
 						for SeriesInstanceUID, value2 := range value {
-							if SeriesInstanceUID == thisSeriesInstanceUID {
+							if SeriesInstanceUID == thisSeriesInstanceUID.SeriesInstanceUID {
 								closestPath = value2.Path
 								classifyTypes = value2.ClassifyTypes
 							}
@@ -3674,7 +3738,7 @@ func main() {
 						fmt.Println("ERROR: Could not detect the closest PATH")
 						closestPath = config.Data.Path
 					}
-					numFiles, descr := copyFiles(thisSeriesInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Viewer.Clip, startCounter)
+					numFiles, descr := copyFiles(thisSeriesInstanceUID.SeriesInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Viewer.Clip, startCounter)
 					startCounter += numFiles
 
 					descr.NameFromSelect = selectFromBNames[idx][idx2]
