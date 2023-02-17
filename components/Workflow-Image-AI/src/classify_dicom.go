@@ -34,6 +34,11 @@ type Rule struct {
 	Rule     string      `json:"rule"`
 }
 
+type RuleSet struct {
+	Name 	string
+	Rs  	[]Rule
+}
+
 // dataInfo.checkRules(rule, SeriesInstanceUID1, SeriesInstanceUID2)
 func evalCheckRule(rule Rule, SeriesInstanceUID1 string, SeriesInstanceUID2 string, dataInfo map[string]map[string]SeriesInfo) bool {
 	// we already have the series instance uids for both series in the rule

@@ -1691,13 +1691,13 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		// compute penalty for the complexity of the rules, more rules is worse
 		var total float64
 		for _, rulelist := range ast.Rules {
-			total = total + float64(len(rulelist))
+			total = total + float64(len(rulelist.Rs))
 		}
 		b := sumX + 1.0/math.Log2(total+1.0)
 		return b
 	}
 	// addRule: add a single rule
-	addRule := func(rules *[]Rule, targetValues map[string][]string) bool {
+	addRule := func(rules *RuleSet, targetValues map[string][]string) bool {
 		// do we have access to targetValues here?
 		// what are the possible fields we can match with?
 		// fields := []string{"SeriesDescription", "StudyDescription", "NumImages", "Modality"}
@@ -1740,7 +1740,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 
 		// what are possible fields values? We would need to know what we can equate our value to
 		// we need to parse all the dataset for this to know what is available...
-		*rules = append(*rules, r)
+		rules.Rs = append(rules.Rs, r)
 
 		return true
 	}
@@ -1748,10 +1748,13 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 	// change an existing rule (here just create a new one)
 	changeRule := func(rule *Rule, targetValues map[string][]string) bool {
 		// we can change a rule based on the operator (like < we can change the value)
-		rr := make([]Rule, 0)
+		var rr RuleSet = RuleSet{
+			Name: "",
+			Rs: make([]Rule, 0),
+		}  // rr := make([]Rule, 0)
 		ok := addRule(&rr, targetValues)
 		if ok {
-			*rule = rr[0]
+			*rule = rr.Rs[0]
 		} else {
 			return false
 		}
@@ -1760,9 +1763,12 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 	}
 
 	// addRules: add a new complete rule set
-	addRules := func(rules *[][]Rule, targetValues map[string][]string) bool {
+	addRules := func(rules *[]RuleSet, targetValues map[string][]string) bool {
 		// get a new rule
-		rr := make([]Rule, 0)
+		var rr RuleSet = RuleSet{
+			Name: "",
+			Rs: make([]Rule, 0),
+		}// := make(RuleSet, 0)
 		ok := addRule(&rr, targetValues)
 		if ok {
 			*rules = append(*rules, rr)
@@ -1783,11 +1789,11 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			return false
 		}
 		var ruleIdx int = -1
-		if len(ast.Rules[rulesetIdx]) > 0 {
-			ruleIdx = rand.Intn((len(ast.Rules[rulesetIdx]) - 0) + 0)
+		if len(ast.Rules[rulesetIdx].Rs) > 0 {
+			ruleIdx = rand.Intn((len(ast.Rules[rulesetIdx].Rs) - 0) + 0)
 		}
 		if ruleIdx > -1 {
-			ok := changeRule(&ast.Rules[rulesetIdx][ruleIdx], targetValues)
+			ok := changeRule(&ast.Rules[rulesetIdx].Rs[ruleIdx], targetValues)
 			// or add a new rule
 			if !ok {
 				ok = addRule(&ast.Rules[rulesetIdx], targetValues)
@@ -1870,7 +1876,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 			var matches bool = false
 			var matchesIdx int = -1
 			for idx, ruleset := range ast.Rules { // todo: check if this works if a ruleset matches the 2 series
-				if value2.evalRules(ruleset) { // check if this ruleset fits with this series
+				if value2.evalRules(ruleset.Rs) { // check if this ruleset fits with this series
 					matches = true
 					matchesIdx = idx // this corresponds to the ruleset but only ast.Rules_list_names contains the name for it
 					break
@@ -2027,7 +2033,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]s
 			okSeriesIDS := make([]string, 0)
 			for _, ruleset := range ast.CheckRules {
 				// does this ruleset work for all our selected series?
-				for _, rule := range ruleset {
+				for _, rule := range ruleset.Rs {
 					// each one is an integer, we look for r here
 					tag1 := rule.Tag
 					tag2 := rule.Tag2
@@ -2216,7 +2222,7 @@ func ast2Select(ast AST) string {
 	stm := fmt.Sprintf("SELECT %s\n  FROM study", ast.Output_level)
 	for idx2, rules := range ast.Rules {
 		s := ""
-		for idx, rule := range rules {
+		for idx, rule := range rules.Rs {
 			a := ""
 			if idx > 0 {
 				a = "\n    AND\n"
@@ -2254,7 +2260,7 @@ func ast2Select(ast AST) string {
 	if ast.CheckRules != nil {
 		stm = fmt.Sprintf("%s\nCheck\n  ", stm)
 		for _, rulesets := range ast.CheckRules {
-			for idx, rule := range rulesets {
+			for idx, rule := range rulesets.Rs {
 				a := ""
 				if idx > 0 {
 					a = "\n    AND\n"

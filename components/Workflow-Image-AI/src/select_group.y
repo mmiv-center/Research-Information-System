@@ -21,9 +21,9 @@ type AST struct {
     Output_level string
     Select_level string
     Select_level_by_rule []string
-    Rule_list_names []string
-    Rules [][]Rule // we need sets of rules for each series we describe
-    CheckRules [][]Rule // we capture the special check rules here
+    Rule_list_names []string  //  should be deprecated
+    Rules []RuleSet // we need sets of rules for each series we describe
+    CheckRules []RuleSet // we capture the special check rules here
 }
 
 var ast AST                 // our abstract syntax tree
@@ -44,8 +44,10 @@ var currentCheckTag2 []string       // a pair of named series '.' DICOM name
     word string
 }
 
-%type <word> command, select_stmt, base_select, level_types, rule_list, rule, where_clause, where_clauses, level_types_with_name
-%type <word> check_stmt base_check check_rule_list check_rule tag_string group_tag_pair check_tag1 check_tag2 command_list
+%type <word> top, command, select_stmt, base_select, level_types, rule_list, rule
+%type <word> where_clause, where_clauses, level_types_with_name
+%type <word> check_stmt base_check check_rule_list check_rule tag_string 
+%type <word> group_tag_pair check_tag1 check_tag2 command_list
 
 %token '+' '-' '*' '/' '"' '\''
 %token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND ALSO LBRACKET RBRACKET COMMA
@@ -64,6 +66,7 @@ top:
         //fmt.Printf("command \"%w\"\n", $1)
         //s, _ := json.MarshalIndent(ast, "", "  ")
         //fmt.Printf("internal ast is: \"%s\"\n",string(s))
+        $$ = $1
     };
 
 command_list:
@@ -111,7 +114,7 @@ base_select:
         currentRules = nil
         // get space in Rules now for rules
         if ast.Rules == nil {
-            ast.Rules = make([][]Rule, 0)
+            ast.Rules = make([]RuleSet, 0)
         }
 
         $$ = fmt.Sprintf("\nlevel types: %s, from: %s", $2, $4)
@@ -128,7 +131,7 @@ base_select:
         }
         currentRules = nil
         if ast.Rules == nil {
-            ast.Rules = make([][]Rule, 0)
+            ast.Rules = make([]RuleSet, 0)
         }
 
         $$ = fmt.Sprintf("\nlevel types: %s, from: %s", $2, $3)
@@ -153,8 +156,17 @@ where_clause:
 |   WHERE level_types_with_name HAS rule_list
     {
         if len(currentRules) > 0 {
+            name_for_ruleset := ""
+            if len(ast.Rule_list_names) > 0 {
+                name_for_ruleset = ast.Rule_list_names[len(ast.Rule_list_names)-1]
+            } 
             // add the currentRules if they are not already in the list
-            ast.Rules = append(ast.Rules, currentRules)
+            // make a RuleSet out of current rules
+            var rs RuleSet = RuleSet{
+                Name: name_for_ruleset,
+                Rs: currentRules,
+            }
+            ast.Rules = append(ast.Rules, rs)
             ast.Select_level_by_rule = append(ast.Select_level_by_rule, $2)
             currentRules = nil
         }
@@ -164,7 +176,11 @@ where_clause:
     {
         if len(currentRules) > 0 {
             // add the currentRules if they are not already in the list
-            ast.Rules = append(ast.Rules, currentRules)
+            var rs RuleSet = RuleSet{
+                Name: "",
+                Rs: currentRules,
+            }
+            ast.Rules = append(ast.Rules, rs)
             ast.Select_level_by_rule = append(ast.Select_level_by_rule, "series")
             currentRules = nil
         }
@@ -174,6 +190,7 @@ where_clause:
 level_types_with_name:
     level_types
     {
+        // need to add the name to the current RuleSet, will use the last added name
         ast.Rule_list_names = append(ast.Rule_list_names, "no-name")
         $$ = $1
     }
@@ -390,10 +407,14 @@ base_check:
     CHECK check_rule_list
     {
         if ast.CheckRules == nil {
-           ast.CheckRules = make([][]Rule,0)
+           ast.CheckRules = make([]RuleSet,0)
         }
         if len(currentCheckRules)  > 0 {
-            ast.CheckRules  = append(ast.CheckRules, currentCheckRules)
+            var rs RuleSet = RuleSet{
+                Name: "",
+                Rs: currentCheckRules,
+            }
+            ast.CheckRules  = append(ast.CheckRules, rs)
         }
         currentCheckRules = nil
         $$ = $2
@@ -405,21 +426,28 @@ check_rule_list:
         //fmt.Printf("found a rule: \"%s\"\n", $1)
         // add the rule to the current list of rules
         if len(currentCheckRules) > 0 {
-            ast.CheckRules  = append(ast.CheckRules, currentCheckRules)
+            var rs RuleSet = RuleSet{
+                Name: "",
+                Rs: currentCheckRules,
+            }
+            ast.CheckRules  = append(ast.CheckRules, rs)
             currentCheckRules = nil 
         }
         $$ = $1
     }
 |   check_rule_list AND check_rule
     {
-        //fmt.Println("found AND rule")
-        $$ = fmt.Sprintf("%s AND %s", $$, $3)
+        // fmt.Println("found AND rule")
+        $$ = $1 + " AND " + $3
+        // res := fmt.Sprintf("%s AND %s", $$, $3)
+        // $$ = res
     }
 
 check_rule:
     LBRACKET check_rule_list RBRACKET
     {
-        $$ = fmt.Sprintf("%s, brackets %s", $$, $2)
+        $$ = $$ + ", brackets " + $2
+        //$$ = fmt.Sprintf("%s, brackets %s", $$, $2) // should be $2
     }
 |   NOT check_rule
     {
@@ -436,10 +464,10 @@ check_rule:
             Tag: currentCheckTag1,
             Tag2: currentCheckTag2,
             Operator: "==",
-            Value: fmt.Sprintf("%s == %s", $1, $3),
+            Value: $1 + " == " + $1, // fmt.Sprintf("%s == %s", $1, $3),
         }
         currentCheckRules = append(currentCheckRules, r)
-        $$ = fmt.Sprintf("Variable %s == %s", $1, $3)
+        $$ = $1 + " == " + $3 // fmt.Sprintf("Variable %s == %s", $1, $3)
     }
 
 check_tag1:
@@ -449,7 +477,7 @@ check_tag1:
         if len(lastGroupTag) > 1 {
             currentCheckTag1 =  append(currentCheckTag1, lastGroupTag[1])
         }
-        $$ = fmt.Sprintf("%s @ %s", $1, $3)
+        $$ = $1 + " @ " + $3 // fmt.Sprintf("%s @ %s", $1, $3)
     }
 
 check_tag2:
@@ -459,7 +487,7 @@ check_tag2:
         if len(lastGroupTag) > 1 {
             currentCheckTag2 =  append(currentCheckTag2, lastGroupTag[1])
         }
-        $$ = fmt.Sprintf("%s @ %s", $1, $3)
+        $$ = $1 + " @ " + $3 // fmt.Sprintf("%s @ %s", $1, $3)
     }
 
 
