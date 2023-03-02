@@ -1,4 +1,4 @@
-all:	build/linux-amd64/ror	build/macos-amd64/ror	build/windows-amd64/ror.exe
+all:	build/linux-amd64/ror	build/macos-amd64/ror	build/windows-amd64/ror.exe	build/macos-arm64/ror
 	@echo "Done"
 .PHONY : all
 
@@ -15,3 +15,6 @@ build/macos-amd64/ror: src/ror.go src/classify_dicom.go src/select_group.go src/
 
 build/windows-amd64/ror.exe: src/ror.go src/classify_dicom.go src/select_group.go src/status_tui.go src/annotate_tui.go
 	env GOOS=windows GOARCH=amd64 go build -ldflags "-X main.compileDate=`date -u +.%Y%m%d.%H%M%S`" -o build/windows-amd64/ror.exe src/ror.go src/classify_dicom.go src/select_group.go src/status_tui.go src/annotate_tui.go
+
+build/macos-arm64/ror: src/ror.go src/classify_dicom.go src/select_group.go src/status_tui.go src/annotate_tui.go
+	env GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.compileDate=`date -u +.%Y%m%d.%H%M%S`" -o build/macos-arm64/ror src/ror.go src/classify_dicom.go src/select_group.go src/status_tui.go src/annotate_tui.go

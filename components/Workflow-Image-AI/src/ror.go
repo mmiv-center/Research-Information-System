@@ -2616,6 +2616,16 @@ func checkOutput(config Config, trigger_container string, dir string) string {
 	return ret
 }
 
+func isFlagPassed(name string) bool {
+    found := false
+    flag.Visit(func(f *flag.Flag) {
+        if f.Name == name {
+            found = true
+        }
+    })
+    return found
+}
+
 var app *tview.Application = nil
 
 func main() {
@@ -3065,6 +3075,11 @@ func main() {
 				configCommand.PrintDefaults()
 				return
 			}
+			if len(configCommand.Args()) > 0 {
+				// there are additional arguments
+				configCommand.PrintDefaults()
+				return
+			}
 
 			//fmt.Println("Config")
 			// are we init already?
@@ -3120,10 +3135,10 @@ func main() {
 				//defer app.Stop()
 				fmt.Println("")
 
-				if data_clear {
+				/*if data_clear {
 					// empty out the existing data before adding new data
 					config.Data.DataInfo = make(map[string]map[string]SeriesInfo)
-				}
+				}*/
 
 				config.Data.Path = data_path
 				studies, err = dataSets(config, config.Data.DataInfo)
@@ -3153,6 +3168,11 @@ func main() {
 						"%s config --temp_directory \"<folder>\"\n\nExample trigger data folders will appear there.\n",
 						own_name)
 				}
+			}
+			if data_clear {
+				// empty out the existing data before adding new data
+				config.Data.DataInfo = make(map[string]map[string]SeriesInfo)
+				config.Data.Path = ""
 			}
 			if author_name != "" {
 				config.Author.Name = author_name
@@ -3223,9 +3243,16 @@ func main() {
 			}
 			if config.Viewer.Clip == nil {
 				config.Viewer.Clip = make([]float32, 2)
+				config.Viewer.Clip[0] = float32(config_clip_0)
+				config.Viewer.Clip[1] = float32(config_clip_1)
 			}
-			config.Viewer.Clip[0] = float32(config_clip_0)
-			config.Viewer.Clip[1] = float32(config_clip_1)
+			// check if the user provided this argument, only change if that is the case (don't change the value if some clips exists from before)
+			if isFlagPassed("clip0") {
+			    config.Viewer.Clip[0] = float32(config_clip_0)
+			}
+			if isFlagPassed("clip1") {
+			    config.Viewer.Clip[1] = float32(config_clip_1)
+			}
 			if project_name_string != "" {
 				project_name_string = strings.Replace(project_name_string, " ", "_", -1)
 				project_name_string = strings.ToLower(project_name_string)
@@ -3280,6 +3307,9 @@ func main() {
 			}
 			//file, _ := json.MarshalIndent(config, "", " ")
 			//_ = ioutil.WriteFile(dir_path, file, 0600)
+		} else {
+			flag.Usage()
+			os.Exit(-1)
 		}
 	case "status":
 		if err := statusCommand.Parse(os.Args[2:]); err == nil {
