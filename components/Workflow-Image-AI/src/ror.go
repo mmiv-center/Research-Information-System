@@ -1649,7 +1649,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		}
 
 		// compute the match with the data
-		a := findMatchingSets(ast, datasets)
+		a, _ := findMatchingSets(ast, datasets)
 
 		var numSeriesByStudy = make(map[string]int32)
 		for _, vv := range datasets {
@@ -1867,7 +1867,7 @@ type SeriesInstanceUIDWithName struct {
 
 // findMatchingSets returns all matching sets for this rule and the provided data
 // It also returns a list of the names given to each rule in select.
-func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]SeriesInstanceUIDWithName) {
+func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]SeriesInstanceUIDWithName, []string) {
 
 	// we need to store the seriesinstanceuid and the name assigned to it by the rule
 	var selectFromB [][]SeriesInstanceUIDWithName
@@ -2264,14 +2264,14 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 		//outNames = append(outNames, names[order[i]])
 	}
 
-	if len(complains) > 0 {
+	/*if len(complains) > 0 {
 		for _, entry := range complains {
 			fmt.Println(entry)
 		}
-	}
+	}*/
 
 	//return selectFromB, names
-	return outSelect // , outNames
+	return outSelect, complains // , outNames
 }
 
 func humanizeFilter(ast AST) []string {
@@ -3246,7 +3246,7 @@ func main() {
 					//fmt.Printf("Parsing series filter successful\n%s\n%s\n", string(s), strings.Join(ss[:], "\n"))
 					config.SeriesFilterType = "select"
 					// check if we have any matches - cheap for us here
-					matches := findMatchingSets(ast, config.Data.DataInfo)
+					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
 					/*postfix := "s"
 					if len(matches) == 1 {
 						postfix = ""
@@ -3328,7 +3328,7 @@ func main() {
 				//fmt.Printf("Suggested abstract syntax tree for your data [%f]\n%s\n", l, string(s))
 				fmt.Println(humanizeFilter(ast))
 
-				matches := findMatchingSets(ast, config.Data.DataInfo)
+				matches, _ := findMatchingSets(ast, config.Data.DataInfo)
 				postfix := "s"
 				if len(matches) == 1 {
 					postfix = ""
@@ -3395,7 +3395,7 @@ func main() {
 				line := []byte(series_filter_no_comments)
 				yyParse(&exprLex{line: line})
 				if !errorOnParse {
-					matches := findMatchingSets(ast, config.Data.DataInfo)
+					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
 					// a more informative output would include information for each job
 					// so we look into config.Data.DataInfo to find the image series and copy those values over
 					// should we add all info or just the most important - like remove the All to make this shorter?
@@ -3563,7 +3563,7 @@ func main() {
 					fmt.Printf("Parsing series filter\n%s\n%s\n", string(s), ss)
 					config.SeriesFilterType = "select"
 					// check if we have any matches - cheap for us here
-					matches := findMatchingSets(ast, config.Data.DataInfo)
+					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
 					postfix := "s"
 					if len(matches) == 1 {
 						postfix = ""
@@ -3586,7 +3586,7 @@ func main() {
 				fmt.Printf("Suggested abstract syntax tree for your data [%f]\n%s\n", l, string(s))
 				fmt.Println(humanizeFilter(ast))
 
-				matches := findMatchingSets(ast, config.Data.DataInfo)
+				matches, _ := findMatchingSets(ast, config.Data.DataInfo)
 				postfix := "s"
 				if len(matches) == 1 {
 					postfix = ""
@@ -3656,6 +3656,7 @@ func main() {
 				exitGracefully(fmt.Errorf("there is no data. Did you forget to specify a data folder?\n\n\t%s config --data <folder>", own_name))
 			}
 
+			var complains []string
 			// check if we have a trivial filter (glob) or a proper rule filter
 			if config.SeriesFilterType == "glob" {
 				mm := regexp.MustCompile(config.SeriesFilter)
@@ -3686,7 +3687,7 @@ func main() {
 					//if ast.Output_level != "series" && ast.Output_level != "study" {
 					//	exitGracefully(fmt.Errorf("we only support \"Select <series>\" and \"Select <study>\" for now as the output level"))
 					//}
-					selectFromB = findMatchingSets(ast, config.Data.DataInfo)
+					selectFromB, complains = findMatchingSets(ast, config.Data.DataInfo)
 					//fmt.Printf("NAMES ARE: %v\n", selectFromBNames)
 				}
 				//s, _ = json.MarshalIndent(ast, "", "  ")
@@ -3697,6 +3698,14 @@ func main() {
 			}
 			if len(selectFromB) == 0 {
 				exitGracefully(fmt.Errorf("found %d series, but there is no matching data after applying your series_filter. Did you specify a filter that does not work or is too restrictive?\n\n\t%s\n\n ", len(selectFromA), config.SeriesFilter))
+			}
+			if len(complains) > 0 {
+				if len(complains) > 0 {
+					for _, entry := range complains {
+						fmt.Println(entry)
+					}
+				}
+				exitGracefully(fmt.Errorf("refuse to continue"))
 			}
 			// if trigger_each we want to run this for all of them, not just a single one
 			var runIdx []int
@@ -3802,6 +3811,7 @@ func main() {
 						fmt.Println("ERROR: Could not detect the closest PATH")
 						closestPath = config.Data.Path
 					}
+					// this only works if we have unqiue SeriesInstanceUIDs for all studies and patients
 					numFiles, descr := copyFiles(thisSeriesInstanceUID.SeriesInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Viewer.Clip, startCounter)
 					startCounter += numFiles
 
