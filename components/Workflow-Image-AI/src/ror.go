@@ -1933,6 +1933,34 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 			}
 		}
 	}
+	// We should check if there is something wrong with the data, if for example
+	// the same SeriesInstanceUID is used for more than one StudyInstanceUID we should
+	// warn/refuse to process.
+	var complains []string;
+	for pid, value := range seriesByPatient {
+		for SeriesInstanceUID := range value {
+			// do we have that SeriesInstanceUID somewhere else?
+			var complain_txt string
+			for pid2, value2 := range seriesByPatient {
+				if pid == pid2 {
+					continue
+				}
+				
+				for SeriesInstanceUID2 := range value2 {
+					if SeriesInstanceUID == SeriesInstanceUID2 {
+						// add a complain
+						complain_txt = "Error: Patient " + pid + " series " + SeriesInstanceUID + " also present in patient " + pid2 + ". SeriesInstanceUID should be unique!"
+						break;
+					}
+				}
+				if complain_txt != "" {
+					break;
+				}
+			}
+			complains = append(complains, complain_txt)
+		}	
+	}
+
 	if ast.Output_level == "study" {
 		// If we want to export by study we need to export all studies where all the individual rules
 		// resulted in a match at the series level. But we will export matched series for these studies only.
@@ -2234,6 +2262,12 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 	for i := 0; i < len(order); i++ {
 		outSelect = append(outSelect, selectFromB[order[i]])
 		//outNames = append(outNames, names[order[i]])
+	}
+
+	if len(complains) > 0 {
+		for _, entry := range complains {
+			fmt.Println(entry)
+		}
 	}
 
 	//return selectFromB, names
