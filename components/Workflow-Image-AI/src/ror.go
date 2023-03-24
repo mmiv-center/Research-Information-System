@@ -1974,7 +1974,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				for SeriesInstanceUID2 := range value2 {
 					if SeriesInstanceUID == SeriesInstanceUID2 {
 						// add a complain
-						complain_txt = "Error: Patient " + pid + " series " + SeriesInstanceUID + " also present in patient " + pid2 + ". SeriesInstanceUID should be unique!"
+						complain_txt = "Warning: Patient " + pid + " series " + SeriesInstanceUID + " also present in patient " + pid2 + ". SeriesInstanceUID should be unique!"
 						break;
 					}
 				}
