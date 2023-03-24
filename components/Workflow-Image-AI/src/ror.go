@@ -901,7 +901,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 
 // copyFiles will copy all DICOM files that fit the string to the dest_path directory.
 // we could display those images as well on the command line - just to impress
-func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path string, sort_dicom bool, classifyTypes []string, clip []float32, startCounter int) (int, Description) {
+func copyFiles(SelectedSeriesInstanceUID string, SelectedStudyInstanceUID string, source_path string, dest_path string, sort_dicom bool, classifyTypes []string, clip []float32, startCounter int) (int, Description) {
 
 	destination_path := dest_path + "/input"
 
@@ -943,206 +943,210 @@ func copyFiles(SelectedSeriesInstanceUID string, source_path string, dest_path s
 
 			dataset, err := dicom.ParseFile(path, nil) // See also: dicom.Parse which has a generic io.Reader API.
 			if err == nil {
-				SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
+				StudyInstanceUIDVal, err := dataset.FindElementByTag(tag.StudyInstanceUID)
 				if err == nil {
-					var SeriesInstanceUID string = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
-					if SeriesInstanceUID != SelectedSeriesInstanceUID {
-						return nil // ignore that file
-					}
+					var StudyInstanceUID string = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
+					SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
+					if err == nil {
+						var SeriesInstanceUID string = dicom.MustGetStrings(SeriesInstanceUIDVal.Value)[0]
+						if SeriesInstanceUID != SelectedSeriesInstanceUID || StudyInstanceUID != SelectedStudyInstanceUID {
+							return nil // ignore that file
+						}
 
-					// we can get a version of the image, scale it and print out on the command line
-					// for a trigger call this has to work without the tui interface
-					showImage := true
-					if showImage {
-						if app != nil {
-							footer.Clear()
-							structure.Clear()
-						}
-						info := ""
-						langFmt := message.NewPrinter(language.English)
-						if app == nil {
-							viewer = nil
-						}
-						orig_width, orig_height := showDataset(dataset, counter+1, path, info, viewer, clip)
-						if app != nil {
-							fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
-						} else {
-							fmt.Println(langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
-						}
-						if len(info) > 0 {
-							//fmt.Fprintf(structure, langFmt.Sprintf("\033[2K%s\n%d", info, theight))
+						// we can get a version of the image, scale it and print out on the command line
+						// for a trigger call this has to work without the tui interface
+						showImage := true
+						if showImage {
 							if app != nil {
-								fmt.Fprintf(structure, langFmt.Sprintf("%s", info))
+								footer.Clear()
+								structure.Clear()
+							}
+							info := ""
+							langFmt := message.NewPrinter(language.English)
+							if app == nil {
+								viewer = nil
+							}
+							orig_width, orig_height := showDataset(dataset, counter+1, path, info, viewer, clip)
+							if app != nil {
+								fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
 							} else {
-								fmt.Printf(langFmt.Sprintf("%s", info))
+								fmt.Println(langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+							}
+							if len(info) > 0 {
+								//fmt.Fprintf(structure, langFmt.Sprintf("\033[2K%s\n%d", info, theight))
+								if app != nil {
+									fmt.Fprintf(structure, langFmt.Sprintf("%s", info))
+								} else {
+									fmt.Printf(langFmt.Sprintf("%s", info))
+								}
+							}
+							if app != nil {
+								app.Draw()
 							}
 						}
-						if app != nil {
-							app.Draw()
-						}
-					}
 
-					//fmt.Printf("%05d files\r", counter)
-					var SeriesDescription string
-					SeriesDescriptionVal, err := dataset.FindElementByTag(tag.SeriesDescription)
-					if err == nil {
-						SeriesDescription = dicom.MustGetStrings(SeriesDescriptionVal.Value)[0]
-						if SeriesDescription != "" {
-							description.SeriesDescription = SeriesDescription
+						//fmt.Printf("%05d files\r", counter)
+						var SeriesDescription string
+						SeriesDescriptionVal, err := dataset.FindElementByTag(tag.SeriesDescription)
+						if err == nil {
+							SeriesDescription = dicom.MustGetStrings(SeriesDescriptionVal.Value)[0]
+							if SeriesDescription != "" {
+								description.SeriesDescription = SeriesDescription
+							}
 						}
-					}
-					var PatientID string
-					PatientIDVal, err := dataset.FindElementByTag(tag.PatientID)
-					if err == nil {
-						PatientID = dicom.MustGetStrings(PatientIDVal.Value)[0]
-						if PatientID != "" {
-							description.PatientID = PatientID
+						var PatientID string
+						PatientIDVal, err := dataset.FindElementByTag(tag.PatientID)
+						if err == nil {
+							PatientID = dicom.MustGetStrings(PatientIDVal.Value)[0]
+							if PatientID != "" {
+								description.PatientID = PatientID
+							}
 						}
-					}
-					var PatientName string
-					PatientNameVal, err := dataset.FindElementByTag(tag.PatientName)
-					if err == nil {
-						PatientName = dicom.MustGetStrings(PatientNameVal.Value)[0]
-						if PatientName != "" {
-							description.PatientName = PatientName
+						var PatientName string
+						PatientNameVal, err := dataset.FindElementByTag(tag.PatientName)
+						if err == nil {
+							PatientName = dicom.MustGetStrings(PatientNameVal.Value)[0]
+							if PatientName != "" {
+								description.PatientName = PatientName
+							}
 						}
-					}
-					var SequenceName string
-					SequenceNameVal, err := dataset.FindElementByTag(tag.SequenceName)
-					if err == nil {
-						SequenceName = dicom.MustGetStrings(SequenceNameVal.Value)[0]
-						if SequenceName != "" {
-							description.SequenceName = SequenceName
+						var SequenceName string
+						SequenceNameVal, err := dataset.FindElementByTag(tag.SequenceName)
+						if err == nil {
+							SequenceName = dicom.MustGetStrings(SequenceNameVal.Value)[0]
+							if SequenceName != "" {
+								description.SequenceName = SequenceName
+							}
 						}
-					}
-					var StudyDate string
-					StudyDateVal, err := dataset.FindElementByTag(tag.StudyDate)
-					if err == nil {
-						StudyDate = dicom.MustGetStrings(StudyDateVal.Value)[0]
-						if StudyDate != "" {
-							description.StudyDate = StudyDate
+						var StudyDate string
+						StudyDateVal, err := dataset.FindElementByTag(tag.StudyDate)
+						if err == nil {
+							StudyDate = dicom.MustGetStrings(StudyDateVal.Value)[0]
+							if StudyDate != "" {
+								description.StudyDate = StudyDate
+							}
 						}
-					}
-					var StudyTime string
-					StudyTimeVal, err := dataset.FindElementByTag(tag.StudyTime)
-					if err == nil {
-						StudyTime = dicom.MustGetStrings(StudyTimeVal.Value)[0]
-						if StudyTime != "" {
-							description.StudyTime = StudyTime
+						var StudyTime string
+						StudyTimeVal, err := dataset.FindElementByTag(tag.StudyTime)
+						if err == nil {
+							StudyTime = dicom.MustGetStrings(StudyTimeVal.Value)[0]
+							if StudyTime != "" {
+								description.StudyTime = StudyTime
+							}
 						}
-					}
-					var SeriesTime string
-					SeriesTimeVal, err := dataset.FindElementByTag(tag.SeriesTime)
-					if err == nil {
-						SeriesTime = dicom.MustGetStrings(SeriesTimeVal.Value)[0]
-						if SeriesTime != "" {
-							description.SeriesTime = SeriesTime
+						var SeriesTime string
+						SeriesTimeVal, err := dataset.FindElementByTag(tag.SeriesTime)
+						if err == nil {
+							SeriesTime = dicom.MustGetStrings(SeriesTimeVal.Value)[0]
+							if SeriesTime != "" {
+								description.SeriesTime = SeriesTime
+							}
 						}
-					}
-					var SeriesNumber string
-					SeriesNumberVal, err := dataset.FindElementByTag(tag.SeriesNumber)
-					if err == nil {
-						SeriesNumber = dicom.MustGetStrings(SeriesNumberVal.Value)[0]
-						if SeriesNumber != "" {
-							description.SeriesNumber = SeriesNumber
+						var SeriesNumber string
+						SeriesNumberVal, err := dataset.FindElementByTag(tag.SeriesNumber)
+						if err == nil {
+							SeriesNumber = dicom.MustGetStrings(SeriesNumberVal.Value)[0]
+							if SeriesNumber != "" {
+								description.SeriesNumber = SeriesNumber
+							}
 						}
-					}
-					var StudyInstanceUID string
-					StudyInstanceUIDVal, err := dataset.FindElementByTag(tag.StudyInstanceUID)
-					if err == nil {
-						StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
-						if StudyInstanceUID != "" {
-							description.StudyInstanceUID = StudyInstanceUID
+						/* // already done
+						var StudyInstanceUID string
+						StudyInstanceUIDVal, err := dataset.FindElementByTag(tag.StudyInstanceUID)
+						if err == nil {
+							StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
+							if StudyInstanceUID != "" {
+								description.StudyInstanceUID = StudyInstanceUID
+							}
+						} */
+						var Modality string
+						ModalityVal, err := dataset.FindElementByTag(tag.Modality)
+						if err == nil {
+							Modality = dicom.MustGetStrings(ModalityVal.Value)[0]
+							if Modality != "" {
+								description.Modality = Modality
+							}
 						}
-					}
-					var Modality string
-					ModalityVal, err := dataset.FindElementByTag(tag.Modality)
-					if err == nil {
-						Modality = dicom.MustGetStrings(ModalityVal.Value)[0]
+						var ReferringPhysician string
+						ReferringPhysicianVal, err := dataset.FindElementByTag(tag.ReferringPhysicianName)
+						if err == nil {
+							ReferringPhysician = dicom.MustGetStrings(ReferringPhysicianVal.Value)[0]
+							if ReferringPhysician != "" {
+								description.ReferringPhysician = ReferringPhysician
+							}
+						}
+
+						outputPath := destination_path
+						inputFile, _ := os.Open(path)
+						data, _ := ioutil.ReadAll(inputFile)
+						// what is the next unused filename? We can have this case if other series are exported as well
+						fname := fmt.Sprintf("%06d.dcm", counter)
 						if Modality != "" {
-							description.Modality = Modality
+							fname = fmt.Sprintf("%s_%s", Modality, fname)
 						}
-					}
-					var ReferringPhysician string
-					ReferringPhysicianVal, err := dataset.FindElementByTag(tag.ReferringPhysicianName)
-					if err == nil {
-						ReferringPhysician = dicom.MustGetStrings(ReferringPhysicianVal.Value)[0]
-						if ReferringPhysician != "" {
-							description.ReferringPhysician = ReferringPhysician
-						}
-					}
-
-					outputPath := destination_path
-					inputFile, _ := os.Open(path)
-					data, _ := ioutil.ReadAll(inputFile)
-					// what is the next unused filename? We can have this case if other series are exported as well
-					fname := fmt.Sprintf("%06d.dcm", counter)
-					if Modality != "" {
-						fname = fmt.Sprintf("%s_%s", Modality, fname)
-					}
-					outputPathFileName := fmt.Sprintf("%s/%s", outputPath, fname)
-					_, err = os.Stat(outputPathFileName)
-					for !os.IsNotExist(err) {
-						counter = counter + 1
-						outputPathFileName := fmt.Sprintf("%s/%06d.dcm", outputPath, counter)
+						outputPathFileName := fmt.Sprintf("%s/%s", outputPath, fname)
 						_, err = os.Stat(outputPathFileName)
+						for !os.IsNotExist(err) {
+							counter = counter + 1
+							outputPathFileName := fmt.Sprintf("%s/%06d.dcm", outputPath, counter)
+							_, err = os.Stat(outputPathFileName)
+						}
+						ioutil.WriteFile(outputPathFileName, data, 0644)
+
+						// We can do a better destination path here. The friendly way of doing this is
+						// to provide separate folders aka the BIDS way.
+						// We can create a shadow structure that uses symlinks and sorts everything into
+						// sub-folders. Lets create a data view and place the info in that directory.
+						symOrder := sort_dicom
+						if symOrder {
+							symOrderPath := filepath.Join(dest_path, "input_view_dicom_series")
+							if _, err := os.Stat(symOrderPath); os.IsNotExist(err) {
+								err := os.Mkdir(symOrderPath, 0755)
+								if err != nil {
+									exitGracefully(errors.New("could not create symlink data directory"))
+								}
+							}
+							symOrderPatientPath := filepath.Join(symOrderPath, PatientID+"_"+PatientName)
+							if _, err := os.Stat(symOrderPatientPath); os.IsNotExist(err) {
+								err := os.Mkdir(symOrderPatientPath, 0755)
+								if err != nil {
+									exitGracefully(errors.New("could not create symlink data directory"))
+								}
+							}
+							symOrderPatientDatePath := filepath.Join(symOrderPatientPath, StudyDate+"_"+StudyTime)
+							if _, err := os.Stat(symOrderPatientDatePath); os.IsNotExist(err) {
+								err := os.Mkdir(symOrderPatientDatePath, 0755)
+								if err != nil {
+									exitGracefully(errors.New("could not create symlink data directory"))
+								}
+							}
+							symOrderPatientDateSeriesNumber := filepath.Join(symOrderPatientDatePath, SeriesNumber+"_"+SeriesDescription)
+							if _, err := os.Stat(symOrderPatientDateSeriesNumber); os.IsNotExist(err) {
+								err := os.Mkdir(symOrderPatientDateSeriesNumber, 0755)
+								if err != nil {
+									exitGracefully(errors.New("could not create symlink data directory"))
+								}
+							}
+							if r, err := filepath.Rel(dest_path, symOrderPatientDateSeriesNumber); err == nil {
+								description.InputViewDICOMSeriesPath = r
+							} else {
+								description.InputViewDICOMSeriesPath = symOrderPatientDateSeriesNumber
+							}
+							// now create symbolic link here to our outputPath + counter .dcm == outputPathFileName
+							// this prevents any duplication of space taken up by the images
+							symlink := filepath.Join(symOrderPatientDateSeriesNumber, fname)
+							// use outputPathFileName as the source of the symlink and make the symlink relative
+							relativeDataPath := fmt.Sprintf("../%s", fname) // WRONG
+							if r, err := filepath.Rel(symOrderPatientDateSeriesNumber, outputPath); err == nil {
+								relativeDataPath = r
+								relativeDataPath = filepath.Join(relativeDataPath, fname)
+							}
+
+							if err = os.Symlink(relativeDataPath, symlink); err != nil {
+								fmt.Println("Warning: could not create symlink")
+							}
+						}
 					}
-					ioutil.WriteFile(outputPathFileName, data, 0644)
-
-					// We can do a better destination path here. The friendly way of doing this is
-					// to provide separate folders aka the BIDS way.
-					// We can create a shadow structure that uses symlinks and sorts everything into
-					// sub-folders. Lets create a data view and place the info in that directory.
-					symOrder := sort_dicom
-					if symOrder {
-						symOrderPath := filepath.Join(dest_path, "input_view_dicom_series")
-						if _, err := os.Stat(symOrderPath); os.IsNotExist(err) {
-							err := os.Mkdir(symOrderPath, 0755)
-							if err != nil {
-								exitGracefully(errors.New("could not create symlink data directory"))
-							}
-						}
-						symOrderPatientPath := filepath.Join(symOrderPath, PatientID+"_"+PatientName)
-						if _, err := os.Stat(symOrderPatientPath); os.IsNotExist(err) {
-							err := os.Mkdir(symOrderPatientPath, 0755)
-							if err != nil {
-								exitGracefully(errors.New("could not create symlink data directory"))
-							}
-						}
-						symOrderPatientDatePath := filepath.Join(symOrderPatientPath, StudyDate+"_"+StudyTime)
-						if _, err := os.Stat(symOrderPatientDatePath); os.IsNotExist(err) {
-							err := os.Mkdir(symOrderPatientDatePath, 0755)
-							if err != nil {
-								exitGracefully(errors.New("could not create symlink data directory"))
-							}
-						}
-						symOrderPatientDateSeriesNumber := filepath.Join(symOrderPatientDatePath, SeriesNumber+"_"+SeriesDescription)
-						if _, err := os.Stat(symOrderPatientDateSeriesNumber); os.IsNotExist(err) {
-							err := os.Mkdir(symOrderPatientDateSeriesNumber, 0755)
-							if err != nil {
-								exitGracefully(errors.New("could not create symlink data directory"))
-							}
-						}
-						if r, err := filepath.Rel(dest_path, symOrderPatientDateSeriesNumber); err == nil {
-							description.InputViewDICOMSeriesPath = r
-						} else {
-							description.InputViewDICOMSeriesPath = symOrderPatientDateSeriesNumber
-						}
-						// now create symbolic link here to our outputPath + counter .dcm == outputPathFileName
-						// this prevents any duplication of space taken up by the images
-						symlink := filepath.Join(symOrderPatientDateSeriesNumber, fname)
-						// use outputPathFileName as the source of the symlink and make the symlink relative
-						relativeDataPath := fmt.Sprintf("../%s", fname) // WRONG
-						if r, err := filepath.Rel(symOrderPatientDateSeriesNumber, outputPath); err == nil {
-							relativeDataPath = r
-							relativeDataPath = filepath.Join(relativeDataPath, fname)
-						}
-
-						if err = os.Symlink(relativeDataPath, symlink); err != nil {
-							fmt.Println("Warning: could not create symlink")
-						}
-					}
-
 					//fmt.Println("path: ", fmt.Sprintf("%s/%06d.dcm", outputPath, counter))
 					counter = counter + 1
 				}
@@ -1862,6 +1866,8 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 
 type SeriesInstanceUIDWithName struct {
 	SeriesInstanceUID	string
+	StudyInstanceUID	string
+	PatientName			string
 	Name 				string
 }
 
@@ -1874,8 +1880,19 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 	// not needed anymore... 
 	//var names [][]string = make([][]string, 0)
 	// can only access the information in config.Data for these matches
-	seriesByStudy := make(map[string]map[string][]int)
-	seriesByPatient := make(map[string]map[string][]int)
+	// TODO: make sure that the keys are secured by StudyInstanceUID and SeriesInstanceUID
+	// Users might re-use a seriesInstanceUID in several studies
+
+
+	type IndexWithMeta struct {
+		SeriesInstanceUID	string
+		StudyInstanceUID	string
+		PatientName			string
+		idx 				int
+	}
+
+	seriesByStudy := make(map[string]map[string][]IndexWithMeta)
+	seriesByPatient := make(map[string]map[string][]IndexWithMeta)
 	for StudyInstanceUID, value := range dataInfo {
 		// we can check on the study or the series level or the patient level
 		for SeriesInstanceUID, value2 := range value {
@@ -1906,25 +1923,33 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 			}
 			if matches {
 				if _, ok := seriesByStudy[StudyInstanceUID]; !ok {
-					seriesByStudy[StudyInstanceUID] = make(map[string][]int)
-				}
-				if _, ok := seriesByStudy[StudyInstanceUID][SeriesInstanceUID]; !ok {
-					seriesByStudy[StudyInstanceUID][SeriesInstanceUID] = []int{matchesIdx}
-				} else {
-					seriesByStudy[StudyInstanceUID][SeriesInstanceUID] = append(seriesByStudy[StudyInstanceUID][SeriesInstanceUID], matchesIdx)
+					seriesByStudy[StudyInstanceUID] = make(map[string][]IndexWithMeta)
 				}
 				PatientName := value2.PatientID + value2.PatientName
+				var one_index = IndexWithMeta{
+					SeriesInstanceUID: SeriesInstanceUID,
+					StudyInstanceUID: StudyInstanceUID,
+					PatientName: PatientName,
+					idx: matchesIdx,
+				}
+				if _, ok := seriesByStudy[StudyInstanceUID][SeriesInstanceUID]; !ok {
+					seriesByStudy[StudyInstanceUID][SeriesInstanceUID] = []IndexWithMeta{one_index}
+				} else {
+					seriesByStudy[StudyInstanceUID][SeriesInstanceUID] = append(seriesByStudy[StudyInstanceUID][SeriesInstanceUID], one_index)
+				}
 				if _, ok := seriesByPatient[PatientName]; !ok {
-					seriesByPatient[PatientName] = make(map[string][]int)
+					seriesByPatient[PatientName] = make(map[string][]IndexWithMeta)
 				}
 				if _, ok := seriesByPatient[PatientName][SeriesInstanceUID]; !ok {
-					seriesByPatient[PatientName][SeriesInstanceUID] = []int{matchesIdx}
+					seriesByPatient[PatientName][SeriesInstanceUID] = []IndexWithMeta{one_index}
 				} else {
-					seriesByPatient[PatientName][SeriesInstanceUID] = append(seriesByPatient[PatientName][SeriesInstanceUID], matchesIdx)
+					seriesByPatient[PatientName][SeriesInstanceUID] = append(seriesByPatient[PatientName][SeriesInstanceUID], one_index)
 				}
 				// single level append here
 				var series_instance_uid_with_name = SeriesInstanceUIDWithName{
 					SeriesInstanceUID: SeriesInstanceUID,
+					StudyInstanceUID: StudyInstanceUID,
+					PatientName: PatientName,
 					Name: ast.Rules[matchesIdx].Name,
 				}
 				selectFromB = append(selectFromB, []SeriesInstanceUIDWithName{series_instance_uid_with_name})
@@ -1957,10 +1982,13 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 					break;
 				}
 			}
-			complains = append(complains, complain_txt)
+			if complain_txt != "" {
+				complains = append(complains, complain_txt)
+			}
 		}	
 	}
 
+	// TODO: should we have a series level here as well?
 	if ast.Output_level == "study" {
 		// If we want to export by study we need to export all studies where all the individual rules
 		// resulted in a match at the series level. But we will export matched series for these studies only.
@@ -1977,7 +2005,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				for _, value2 := range value {
 					for _, value3 := range value2 {
 						// each one is an integer, we look for r here
-						if value3 == r {
+						if value3.idx == r {
 							//currentNamesByRule = append(currentNamesByRule, ast.Rules[r].Name)
 							thisThere = true
 						}
@@ -1996,7 +2024,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				for k := range value {
 					sss := SeriesInstanceUIDWithName{
 						SeriesInstanceUID: k,
-					    Name: ast.Rules[value[k][0]].Name,
+					    Name: ast.Rules[value[k][0].idx].Name,
 				    }
 					ss = append(ss, sss)
 					//snames = append(snames, ast.Rules[value[k][0]].Name)
@@ -2022,7 +2050,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				for _, value2 := range value {
 					for _, value3 := range value2 {
 						// each one is an integer, we look for r here
-						if value3 == r {
+						if value3.idx == r {
 							//currentNamesByRule = append(currentNamesByRule, ast.Rules[r].Name)
 							thisThere = true
 						}
@@ -2041,7 +2069,9 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				for k := range value {
 					sss := SeriesInstanceUIDWithName{
 						SeriesInstanceUID: k,
-					    Name: ast.Rules[value[k][0]].Name,
+						StudyInstanceUID: value[k][0].StudyInstanceUID,
+						PatientName: value[k][0].PatientName,
+					    Name: ast.Rules[value[k][0].idx].Name,
 				    }
 					ss = append(ss, sss)
 					// should not be needed anymore
@@ -2070,7 +2100,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				for _, value2 := range value {
 					for _, value3 := range value2 {
 						// each one is an integer, we look for r here
-						if value3 == r {
+						if value3.idx == r {
 							//currentNamesByRule = append(currentNamesByRule, ast.Rules[r].Name)
 							thisThere = true
 						}
@@ -2087,7 +2117,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				for k := range value {
 					sss := SeriesInstanceUIDWithName{
 						SeriesInstanceUID: k,
-					    Name: ast.Rules[value[k][0]].Name,
+					    Name: ast.Rules[value[k][0].idx].Name,
 				    }
 					ss = append(ss, sss)
 					// should not be needed anymore
@@ -2098,6 +2128,10 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 		selectFromB = append(selectFromB, ss)
 		// should not be needed anymore
 		//names = append(names, snames)
+	} else if ast.Output_level == "series" {
+		// we don't need to do anything here, series is default
+	} else {
+		exitGracefully(fmt.Errorf("Error: unknown from statement, should be series, study, project, or participant"))
 	}
 
 	// we need to check the CheckRules as well - if we have those we might loose some more entries here
@@ -3242,17 +3276,18 @@ func main() {
 						Messages []string `json:"messages"`
 						Ast AST `json:"ast"`
 						Matches int `json:"matches"`
+						Complains []string `json:"complains"`
 					}
 					//fmt.Printf("Parsing series filter successful\n%s\n%s\n", string(s), strings.Join(ss[:], "\n"))
 					config.SeriesFilterType = "select"
 					// check if we have any matches - cheap for us here
-					matches, _ := findMatchingSets(ast, config.Data.DataInfo)
+					matches, complains := findMatchingSets(ast, config.Data.DataInfo)
 					/*postfix := "s"
 					if len(matches) == 1 {
 						postfix = ""
 					} */
 					//fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
-					out := Msg{ Messages: ss, Ast: ast, Matches: len(matches) }
+					out := Msg{ Messages: ss, Ast: ast, Matches: len(matches), Complains: complains }
 					human_enc, err := json.MarshalIndent(out, "", " ")      
 					if err != nil {
 						fmt.Println(err)
@@ -3705,7 +3740,8 @@ func main() {
 						fmt.Println(entry)
 					}
 				}
-				exitGracefully(fmt.Errorf("refuse to continue"))
+				// don't exit on error, we can still do something using all the information (StudyInstanceUID)
+				//exitGracefully(fmt.Errorf("refuse to continue"))
 			}
 			// if trigger_each we want to run this for all of them, not just a single one
 			var runIdx []int
@@ -3799,9 +3835,9 @@ func main() {
 				for _, thisSeriesInstanceUID := range selectFromB[idx] {
 					var closestPath string = ""
 					var classifyTypes []string
-					for _, value := range config.Data.DataInfo {
+					for StudyInstanceUID, value := range config.Data.DataInfo {
 						for SeriesInstanceUID, value2 := range value {
-							if SeriesInstanceUID == thisSeriesInstanceUID.SeriesInstanceUID {
+							if SeriesInstanceUID == thisSeriesInstanceUID.SeriesInstanceUID && StudyInstanceUID == thisSeriesInstanceUID.StudyInstanceUID {
 								closestPath = value2.Path
 								classifyTypes = value2.ClassifyTypes
 							}
@@ -3812,7 +3848,7 @@ func main() {
 						closestPath = config.Data.Path
 					}
 					// this only works if we have unqiue SeriesInstanceUIDs for all studies and patients
-					numFiles, descr := copyFiles(thisSeriesInstanceUID.SeriesInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Viewer.Clip, startCounter)
+					numFiles, descr := copyFiles(thisSeriesInstanceUID.SeriesInstanceUID, thisSeriesInstanceUID.StudyInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Viewer.Clip, startCounter)
 					startCounter += numFiles
 
 					descr.NameFromSelect = thisSeriesInstanceUID.Name  // selectFromBNames[idx][idx2]

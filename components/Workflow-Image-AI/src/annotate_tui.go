@@ -104,7 +104,7 @@ func (annotateTUI *AnnotateTUI) Init() {
 		AddItem(annotateTUI.selection, 12, 1, false)
 
 	// start with setting up the list of selected datasets
-	selected := findMatchingSets(annotateTUI.ast, annotateTUI.dataSets)
+	selected, _ := findMatchingSets(annotateTUI.ast, annotateTUI.dataSets)
 	root := tview.NewTreeNode("Selections").SetReference("")
 	annotateTUI.selection.SetRoot(root).SetCurrentNode(root)
 

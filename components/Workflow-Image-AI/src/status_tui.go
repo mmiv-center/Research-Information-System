@@ -98,7 +98,7 @@ func (statusTUI *StatusTUI) Init() {
 		AddItem(statusTUI.selection, 12, 1, false)
 
 	// start with setting up the list of selected datasets
-	selected := findMatchingSets(statusTUI.ast, statusTUI.dataSets)
+	selected, _ := findMatchingSets(statusTUI.ast, statusTUI.dataSets)
 	root := tview.NewTreeNode("Selections").SetReference("")
 	statusTUI.selection.SetRoot(root).SetCurrentNode(root)
 
