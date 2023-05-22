@@ -60,7 +60,7 @@ var own_name string = "ror"
 // will store the path to the config file
 var input_dir string
 
-//go:generate /Users/hauke/go/bin/goyacc -o select_group.go select_group.y
+//go:generate goyacc -o select_group.go select_group.y
 
 //go:embed templates/README.md
 var readme string
@@ -252,7 +252,7 @@ func readConfig(path_string string) (Config, error) {
 	return config, nil
 }
 
-//writeConfig writes the provided config to the given path
+// writeConfig writes the provided config to the given path
 func (config Config) writeConfig() bool {
 	var buf bytes.Buffer
 	zw := gzip.NewWriter(&buf)
@@ -822,7 +822,13 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 				fmt.Println(err)
 			}
 		} else {
-			img, _ = fr.GetImage() // The Go image.Image for this frame
+			img, err = fr.GetImage() // The Go image.Image for this frame
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+		if img == nil {
+			continue // no sense in continuing, maybe we have JPEG we don't understand?
 		}
 
 		//twidth = 196.0/2.0
@@ -1563,7 +1569,9 @@ func createStub(p string, str string) {
 // - ratio of the detected datasets given the number of studies/patients (max entropy?)
 // - one over the complexity of the ast to prefer simple ast's (one over total number of rules)
 // How about longitudinal data? How many series per study is best?
-//   We could use the mean over the average number of image series per study?
+//
+//	We could use the mean over the average number of image series per study?
+//
 // How would we generate new rules for monte-carlo testing?
 // - We can add a new rule to a ruleset by selecting a new variable
 // - We can change an existing rule by changing theh numeric value for '<' and '>'
@@ -1754,8 +1762,8 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		// we can change a rule based on the operator (like < we can change the value)
 		var rr RuleSet = RuleSet{
 			Name: "",
-			Rs: make([]Rule, 0),
-		}  // rr := make([]Rule, 0)
+			Rs:   make([]Rule, 0),
+		} // rr := make([]Rule, 0)
 		ok := addRule(&rr, targetValues)
 		if ok {
 			*rule = rr.Rs[0]
@@ -1771,8 +1779,8 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		// get a new rule
 		var rr RuleSet = RuleSet{
 			Name: "",
-			Rs: make([]Rule, 0),
-		}// := make(RuleSet, 0)
+			Rs:   make([]Rule, 0),
+		} // := make(RuleSet, 0)
 		ok := addRule(&rr, targetValues)
 		if ok {
 			*rules = append(*rules, rr)
@@ -1865,10 +1873,10 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 }
 
 type SeriesInstanceUIDWithName struct {
-	SeriesInstanceUID	string
-	StudyInstanceUID	string
-	PatientName			string
-	Name 				string
+	SeriesInstanceUID string
+	StudyInstanceUID  string
+	PatientName       string
+	Name              string
 }
 
 // findMatchingSets returns all matching sets for this rule and the provided data
@@ -1877,18 +1885,17 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 
 	// we need to store the seriesinstanceuid and the name assigned to it by the rule
 	var selectFromB [][]SeriesInstanceUIDWithName
-	// not needed anymore... 
+	// not needed anymore...
 	//var names [][]string = make([][]string, 0)
 	// can only access the information in config.Data for these matches
 	// TODO: make sure that the keys are secured by StudyInstanceUID and SeriesInstanceUID
 	// Users might re-use a seriesInstanceUID in several studies
 
-
 	type IndexWithMeta struct {
-		SeriesInstanceUID	string
-		StudyInstanceUID	string
-		PatientName			string
-		idx 				int
+		SeriesInstanceUID string
+		StudyInstanceUID  string
+		PatientName       string
+		idx               int
 	}
 
 	seriesByStudy := make(map[string]map[string][]IndexWithMeta)
@@ -1901,20 +1908,20 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 			var matchesIdx int = -1
 			for idx := 0; idx < len(ast.Rules); idx++ {
 				ruleset := ast.Rules[idx]
-			    //for idx, ruleset := range ast.Rules { // todo: check if this works if a ruleset matches the 2 series
+				//for idx, ruleset := range ast.Rules { // todo: check if this works if a ruleset matches the 2 series
 				if value2.evalRules(ruleset.Rs) { // check if this ruleset fits with this series
 					matches = true
 					matchesIdx = idx // this corresponds to the ruleset but only ast.Rules_list_names contains the name for it <-  no longer true
 					// we assume here that if one rule works that none of the other rules will work as well
 					// we should check this and warn the user (go throught the rest of the list to make sure)
-					for idx2 := matchesIdx+1; idx2 < len(ast.Rules); idx2++ {
+					for idx2 := matchesIdx + 1; idx2 < len(ast.Rules); idx2++ {
 						if idx2 == matchesIdx {
 							continue
 						}
 						ruleset := ast.Rules[idx2]
 						if value2.evalRules(ruleset.Rs) {
 							// error case
-							fmt.Println("Error: More than one rule matches a series. Series ", SeriesInstanceUID, " could be both \"" + ast.Rules[matchesIdx].Name + "\" and \"" + ast.Rules[idx2].Name + "\". This will result in a random assignment.")
+							fmt.Println("Error: More than one rule matches a series. Series ", SeriesInstanceUID, " could be both \""+ast.Rules[matchesIdx].Name+"\" and \""+ast.Rules[idx2].Name+"\". This will result in a random assignment.")
 							exitGracefully(fmt.Errorf("Stop here, fix select statement"))
 						}
 					}
@@ -1928,9 +1935,9 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				PatientName := value2.PatientID + value2.PatientName
 				var one_index = IndexWithMeta{
 					SeriesInstanceUID: SeriesInstanceUID,
-					StudyInstanceUID: StudyInstanceUID,
-					PatientName: PatientName,
-					idx: matchesIdx,
+					StudyInstanceUID:  StudyInstanceUID,
+					PatientName:       PatientName,
+					idx:               matchesIdx,
 				}
 				if _, ok := seriesByStudy[StudyInstanceUID][SeriesInstanceUID]; !ok {
 					seriesByStudy[StudyInstanceUID][SeriesInstanceUID] = []IndexWithMeta{one_index}
@@ -1948,9 +1955,9 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				// single level append here
 				var series_instance_uid_with_name = SeriesInstanceUIDWithName{
 					SeriesInstanceUID: SeriesInstanceUID,
-					StudyInstanceUID: StudyInstanceUID,
-					PatientName: PatientName,
-					Name: ast.Rules[matchesIdx].Name,
+					StudyInstanceUID:  StudyInstanceUID,
+					PatientName:       PatientName,
+					Name:              ast.Rules[matchesIdx].Name,
 				}
 				selectFromB = append(selectFromB, []SeriesInstanceUIDWithName{series_instance_uid_with_name})
 				// we should not need this anymore...
@@ -1961,7 +1968,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 	// We should check if there is something wrong with the data, if for example
 	// the same SeriesInstanceUID is used for more than one StudyInstanceUID we should
 	// warn/refuse to process.
-	var complains []string;
+	var complains []string
 	for pid, value := range seriesByPatient {
 		for SeriesInstanceUID := range value {
 			// do we have that SeriesInstanceUID somewhere else?
@@ -1970,22 +1977,22 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				if pid == pid2 {
 					continue
 				}
-				
+
 				for SeriesInstanceUID2 := range value2 {
 					if SeriesInstanceUID == SeriesInstanceUID2 {
 						// add a complain
 						complain_txt = "Warning: Patient " + pid + " series " + SeriesInstanceUID + " also present in patient " + pid2 + ". SeriesInstanceUID should be unique!"
-						break;
+						break
 					}
 				}
 				if complain_txt != "" {
-					break;
+					break
 				}
 			}
 			if complain_txt != "" {
 				complains = append(complains, complain_txt)
 			}
-		}	
+		}
 	}
 
 	// TODO: should we have a series level here as well?
@@ -2024,8 +2031,8 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				for k := range value {
 					sss := SeriesInstanceUIDWithName{
 						SeriesInstanceUID: k,
-					    Name: ast.Rules[value[k][0].idx].Name,
-				    }
+						Name:              ast.Rules[value[k][0].idx].Name,
+					}
 					ss = append(ss, sss)
 					//snames = append(snames, ast.Rules[value[k][0]].Name)
 				}
@@ -2069,10 +2076,10 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				for k := range value {
 					sss := SeriesInstanceUIDWithName{
 						SeriesInstanceUID: k,
-						StudyInstanceUID: value[k][0].StudyInstanceUID,
-						PatientName: value[k][0].PatientName,
-					    Name: ast.Rules[value[k][0].idx].Name,
-				    }
+						StudyInstanceUID:  value[k][0].StudyInstanceUID,
+						PatientName:       value[k][0].PatientName,
+						Name:              ast.Rules[value[k][0].idx].Name,
+					}
 					ss = append(ss, sss)
 					// should not be needed anymore
 					//snames = append(snames, ast.Rules[value[k][0]].Name)
@@ -2117,8 +2124,8 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				for k := range value {
 					sss := SeriesInstanceUIDWithName{
 						SeriesInstanceUID: k,
-					    Name: ast.Rules[value[k][0].idx].Name,
-				    }
+						Name:              ast.Rules[value[k][0].idx].Name,
+					}
 					ss = append(ss, sss)
 					// should not be needed anymore
 					//snames = append(snames, ast.Rules[value[k][0]].Name)
@@ -2157,7 +2164,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 						// one name can happen several times so we need to
 						// collect all possible sets
 						pairs := make([][]int, 0)
-						// we don't need this anymore ... 
+						// we don't need this anymore ...
 						for i, ruleset_name := range ast.CheckRules {
 							if ruleset_name.Name == series_name1 {
 								series_idx1 = i
@@ -2252,7 +2259,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 	var cache []int32 = make([]int32, len(selectFromB))
 	for idx := 0; idx < len(selectFromB); idx++ {
 		set := selectFromB[idx]
-	    //for idx, set := range selectFromB {
+		//for idx, set := range selectFromB {
 		l := int32(0)
 		for i := 0; i < len(set); i++ {
 			a := set[i] // for _, a := range selectFromB[i] {
@@ -2685,13 +2692,13 @@ func checkOutput(config Config, trigger_container string, dir string) string {
 }
 
 func isFlagPassed(name string) bool {
-    found := false
-    flag.Visit(func(f *flag.Flag) {
-        if f.Name == name {
-            found = true
-        }
-    })
-    return found
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
 }
 
 var app *tview.Application = nil
@@ -3273,9 +3280,9 @@ func main() {
 					//s, _ := json.MarshalIndent(ast, "", "  ")
 					ss := humanizeFilter(ast)
 					type Msg struct {
-						Messages []string `json:"messages"`
-						Ast AST `json:"ast"`
-						Matches int `json:"matches"`
+						Messages  []string `json:"messages"`
+						Ast       AST      `json:"ast"`
+						Matches   int      `json:"matches"`
 						Complains []string `json:"complains"`
 					}
 					//fmt.Printf("Parsing series filter successful\n%s\n%s\n", string(s), strings.Join(ss[:], "\n"))
@@ -3287,8 +3294,8 @@ func main() {
 						postfix = ""
 					} */
 					//fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
-					out := Msg{ Messages: ss, Ast: ast, Matches: len(matches), Complains: complains }
-					human_enc, err := json.MarshalIndent(out, "", " ")      
+					out := Msg{Messages: ss, Ast: ast, Matches: len(matches), Complains: complains}
+					human_enc, err := json.MarshalIndent(out, "", " ")
 					if err != nil {
 						fmt.Println(err)
 					}
@@ -3317,10 +3324,10 @@ func main() {
 			}
 			// check if the user provided this argument, only change if that is the case (don't change the value if some clips exists from before)
 			if isFlagPassed("clip0") {
-			    config.Viewer.Clip[0] = float32(config_clip_0)
+				config.Viewer.Clip[0] = float32(config_clip_0)
 			}
 			if isFlagPassed("clip1") {
-			    config.Viewer.Clip[1] = float32(config_clip_1)
+				config.Viewer.Clip[1] = float32(config_clip_1)
 			}
 			if project_name_string != "" {
 				project_name_string = strings.Replace(project_name_string, " ", "_", -1)
@@ -3697,10 +3704,24 @@ func main() {
 				mm := regexp.MustCompile(config.SeriesFilter)
 				for key, value := range selectFromA {
 					if mm.MatchString(value) {
+						var StudyInstanceUID string
+						siuid_pattern := regexp.MustCompile("StudyInstanceUID: (?P<StudyInstanceUID>[^,]+)")
+						StudyInstanceUID_find := siuid_pattern.FindStringSubmatch(value)
+						if len(StudyInstanceUID_find) == 2 {
+							StudyInstanceUID = StudyInstanceUID_find[1]
+						}
+						var PatientName string
+						pn_pattern := regexp.MustCompile("PatientName: (?P<PatientName>[^,]+)")
+						PatientName_find := pn_pattern.FindStringSubmatch(value)
+						if len(PatientName_find) == 2 {
+							PatientName = PatientName_find[1]
+						}
 						var ssss []SeriesInstanceUIDWithName
 						sss := SeriesInstanceUIDWithName{
 							SeriesInstanceUID: key,
-							Name: "no-name",
+							StudyInstanceUID:  StudyInstanceUID,
+							PatientName:       PatientName,
+							Name:              "no-name",
 						}
 						ssss = append(ssss, sss)
 						selectFromB = append(selectFromB, ssss)
@@ -3760,7 +3781,7 @@ func main() {
 						} else if len(selectFromB) < 5 {
 							validEntries = ""
 							for i := 0; i < len(selectFromB)-1; i++ {
-								validEntries += fmt.Sprintf("%d, ", i)	
+								validEntries += fmt.Sprintf("%d, ", i)
 							}
 							validEntries += fmt.Sprintf("%d", len(selectFromB)-1)
 						}
@@ -3784,7 +3805,7 @@ func main() {
 				asString := func(s []SeriesInstanceUIDWithName) string {
 					ret := ""
 					for i := 0; i < len(s); i++ {
-						ret = ret + s[i].Name+":"+ s[i].SeriesInstanceUID + " "
+						ret = ret + s[i].Name + ":" + s[i].SeriesInstanceUID + " "
 					}
 					return ret
 				}
@@ -3844,14 +3865,14 @@ func main() {
 						}
 					}
 					if closestPath == "" {
-						fmt.Println("ERROR: Could not detect the closest PATH")
 						closestPath = config.Data.Path
+						fmt.Println("Warning: Could not detect the closest PATH, use instead", closestPath)
 					}
 					// this only works if we have unqiue SeriesInstanceUIDs for all studies and patients
 					numFiles, descr := copyFiles(thisSeriesInstanceUID.SeriesInstanceUID, thisSeriesInstanceUID.StudyInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Viewer.Clip, startCounter)
 					startCounter += numFiles
 
-					descr.NameFromSelect = thisSeriesInstanceUID.Name  // selectFromBNames[idx][idx2]
+					descr.NameFromSelect = thisSeriesInstanceUID.Name // selectFromBNames[idx][idx2]
 					// we should merge the different descr together to get description
 					description = append(description, descr)
 					fmt.Println("Found", numFiles, "files.")
