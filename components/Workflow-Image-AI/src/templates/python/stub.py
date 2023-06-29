@@ -95,7 +95,7 @@ sd = img3d.std()
 # To import values into the database we need to specify where the data should be stored.
 description['signal-to-noise'] = {
     'record_id':  description['PatientID'],
-    'event_name': description['ReferringPhysician'],
+    'redcap_event_name': description['ReferringPhysician'],
     'field_name': 'signal-to-noise',
     'value':      np.where(sd == 0, 0, img3d.mean()/sd).item(),
 }
