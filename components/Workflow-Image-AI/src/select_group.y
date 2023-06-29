@@ -24,12 +24,14 @@ type AST struct {
     Rule_list_names []string  //  should be deprecated
     Rules []RuleSet // we need sets of rules for each series we describe
     CheckRules []RuleSet // we capture the special check rules here
+    RulesTree []RuleTreeSet
 }
 
 var ast AST                 // our abstract syntax tree
 var charpos int             // the char position in the string
 var program string          // just a copy of the string to parse
 
+var Rules2 RuleSetL
 var currentRules []Rule = nil       // we store one rules information here
 var currentCheckRules []Rule = nil  // for checks there is a separate list
 var errorOnParse = false
@@ -50,7 +52,7 @@ var currentCheckTag2 []string       // a pair of named series '.' DICOM name
 %type <word> group_tag_pair check_tag1 check_tag2 command_list
 
 %token '+' '-' '*' '/' '"' '\''
-%token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND ALSO LBRACKET RBRACKET COMMA
+%token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND OR ALSO LBRACKET RBRACKET COMMA
 %token CONTAINING SMALLER LARGER REGEXP NOT NAMED PROJECT CHECK AT SMALLEREQUAL LARGEREQUAL
 
 %token	<num>	NUM
@@ -116,6 +118,9 @@ base_select:
         if ast.Rules == nil {
             ast.Rules = make([]RuleSet, 0)
         }
+        if ast.RulesTree == nil {
+            ast.RulesTree = make([]RuleTreeSet,0)
+        }
 
         $$ = fmt.Sprintf("\nlevel types: %s, from: %s", $2, $4)
     }
@@ -132,6 +137,9 @@ base_select:
         currentRules = nil
         if ast.Rules == nil {
             ast.Rules = make([]RuleSet, 0)
+        }
+        if ast.RulesTree == nil {
+            ast.RulesTree = make([]RuleTreeSet,0)
         }
 
         $$ = fmt.Sprintf("\nlevel types: %s, from: %s", $2, $3)
@@ -168,7 +176,13 @@ where_clause:
             }
             ast.Rules = append(ast.Rules, rs)
             ast.Select_level_by_rule = append(ast.Select_level_by_rule, $2)
+            var rts RuleTreeSet = RuleTreeSet {
+                Name: name_for_ruleset,
+                Rs: Rules2,
+            }
+            ast.RulesTree = append(ast.RulesTree, rts)
             currentRules = nil
+            Rules2 = RuleSetL{}
         }
         $$ = fmt.Sprintf("found a where clause with: %s and ruleset %s", $2, $4)
     }
@@ -182,7 +196,13 @@ where_clause:
             }
             ast.Rules = append(ast.Rules, rs)
             ast.Select_level_by_rule = append(ast.Select_level_by_rule, "series")
+            var rts RuleTreeSet = RuleTreeSet {
+                Name: "",
+                Rs: Rules2,
+            }
+            ast.RulesTree = append(ast.RulesTree, rts)
             currentRules = nil
+            Rules2 = RuleSetL{}
         }
         $$ = fmt.Sprintf("found a where clause with: series and ruleset %s", $2)
     }
@@ -211,7 +231,70 @@ rule_list:
 |   rule_list AND rule
     {
         //fmt.Println("found AND rule")
+        cr2 := currentRules[len(currentRules)-1]
+        fmt.Println("found AND rule value: ", cr2.Value, " negate: ", cr2.Negate, " operator: ", cr2.Operator, " tag: ", cr2.Tag)
         $$ = fmt.Sprintf("%s AND %s", $$, $3)
+        // we have and so we should use the left and right of the currentRules (should have length 2)
+        cr1 := currentRules[0]
+        fmt.Println("found AND rule value: ", cr1.Value, " negate: ", cr1.Negate, " operator: ", cr1.Operator, " tag: ", cr1.Tag)
+        fmt.Println("Length of currentRules is: ", len(currentRules))
+        // make a copy and create a new tree
+        if (Rules2.Operator == "Initial") || (Rules2.Operator == "") {
+            // overwrite this one
+            Rules2.Operator = "AND"
+            Rules2.Rs1 = nil
+            Rules2.Rs2 = nil
+            Rules2.Leaf1 = cr1
+            Rules2.Leaf2 = cr2
+        } else {
+            // make a new hierarchy and use the current node as Rs1
+            var copyRules RuleSetL = RuleSetL{
+                Operator: Rules2.Operator,
+                Rs1: Rules2.Rs1,
+                Rs2: Rules2.Rs2,
+                Leaf1: Rules2.Leaf1,
+                Leaf2: Rules2.Leaf2,
+            }
+            Rules2.Rs1 = &copyRules
+            Rules2.Operator = "AND"
+            Rules2.Leaf2 = cr2
+            Rules2.Leaf1 = Rule{}
+            Rules2.Rs2 = nil
+        }
+    }
+|   rule_list OR rule
+    {
+        // this is the last rule added - so the above rule from the back.
+        cr2 := currentRules[len(currentRules)-1]
+        fmt.Println("found OR rule value: ", cr2.Value, " negate: ", cr2.Negate, " operator: ", cr2.Operator, " tag: ", cr2.Tag)
+        $$ = fmt.Sprintf("%s OR %s", $$, $3)
+        cr1 := currentRules[0]
+        fmt.Println("found OR rule value: ", cr1.Value, " negate: ", cr1.Negate, " operator: ", cr1.Operator, " tag: ", cr1.Tag)
+        fmt.Println("Length of currentRules is: ", len(currentRules))
+        // make a copy and create a new tree
+        //fmt.Println("IN INITIAL? ", Rules2.Operator)
+        if (Rules2.Operator == "Initial") || (Rules2.Operator == "") {
+            // overwrite this one
+            Rules2.Operator = "OR"
+            Rules2.Rs1 = nil
+            Rules2.Rs2 = nil
+            Rules2.Leaf1 = cr1
+            Rules2.Leaf2 = cr2
+        } else {
+            // make a new hierarchy and use the current node as Rs1
+            var copyRules RuleSetL = RuleSetL{
+                Operator: Rules2.Operator,
+                Rs1: Rules2.Rs1,
+                Rs2: Rules2.Rs2,
+                Leaf1: Rules2.Leaf1,
+                Leaf2: Rules2.Leaf2,
+            }
+            Rules2.Rs1 = &copyRules
+            Rules2.Operator = "OR"
+            Rules2.Leaf2 = cr2
+            Rules2.Leaf1 = Rule{}
+            Rules2.Rs2 = nil 
+        }
     }
 
 rule:
@@ -670,6 +753,8 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
         return HAS
     } else if strings.ToLower(b.String()) == "and" {
         return AND
+    } else if strings.ToLower(b.String()) == "or" {
+        return OR
     } else if strings.ToLower(b.String()) == "containing" {
         return CONTAINING
     } else if strings.ToLower(b.String()) == "contains" {

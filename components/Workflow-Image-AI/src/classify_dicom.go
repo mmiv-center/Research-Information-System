@@ -35,8 +35,22 @@ type Rule struct {
 }
 
 type RuleSet struct {
-	Name 	string
-	Rs  	[]Rule
+	Name string
+	Rs   []Rule
+}
+
+// try to define a logical structure for the rules, we need to express AND and OR and NOT
+type RuleSetL struct {
+	Operator string
+	Rs1      *RuleSetL // could be nil in case we are at a Leaf1
+	Rs2      *RuleSetL // could be nil in case we have a Leaf2
+	Leaf1    Rule
+	Leaf2    Rule
+}
+
+type RuleTreeSet struct {
+	Name string
+	Rs   RuleSetL
 }
 
 // dataInfo.checkRules(rule, SeriesInstanceUID1, SeriesInstanceUID2)
