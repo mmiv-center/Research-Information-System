@@ -359,7 +359,7 @@ The possible syntax for rules is:
 
 where `<field>` can be any of the following `[SeriesDescription|NumImages|SeriesNumber|SequenceName|Modality|StudyDescription|Manufacturer|ManufacturerModelName|PatientID|PatientName|ClassifyTypes]`.
 
-Notice: It is now possible to reference any DICOM tag of an image. In order to support this feature an 'ALL'-section has been added for each series that contains the DICOM tags of the first image of each series. An arbitrary tag can be referenced using the '(0000,0000)' notation of group and tag.
+Notice: It is now possible to reference any DICOM tag of an image. In order to support this feature an 'ALL'-section has been added for each series that contains the DICOM tags of the first image of each series. An arbitrary tag can be referenced using the '("0x0000","0x0000")' notation of group and tag.
 
 ### Select use-case: training a model
 
