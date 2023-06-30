@@ -227,6 +227,20 @@ rule_list:
         // add the rule to the current list of rules
 
         $$ = $1
+        cr2 := currentRules[len(currentRules)-1]
+        fmt.Println("found single rule value: ", cr2.Value, " negate: ", cr2.Negate, " operator: ", cr2.Operator, " tag: ", cr2.Tag)
+        // in this case we have no operator, its just a stand-alone rule, no-op? or and with something that is always true?
+        if (Rules2.Operator == "Initial") || (Rules2.Operator == "") {
+            // overwrite this one
+            Rules2.Operator = "FIRST"
+            Rules2.Rs1 = nil
+            Rules2.Rs2 = nil
+            Rules2.Leaf1 = cr2
+            Rules2.Leaf2 = Rule{}
+        } else {
+            fmt.Println("SHOULD NEVER HAPPEN")
+        }
+
     }
 |   rule_list AND rule
     {
@@ -258,7 +272,7 @@ rule_list:
             Rules2.Rs1 = &copyRules
             Rules2.Operator = "AND"
             Rules2.Leaf2 = cr2
-            Rules2.Leaf1 = Rule{}
+            Rules2.Leaf1 = Rule{} // ignore if Rs1 is not nil 
             Rules2.Rs2 = nil
         }
     }
@@ -291,6 +305,34 @@ rule_list:
             }
             Rules2.Rs1 = &copyRules
             Rules2.Operator = "OR"
+            Rules2.Leaf2 = cr2
+            Rules2.Leaf1 = Rule{}
+            Rules2.Rs2 = nil 
+        }
+    }
+|   NOT rule_list
+    {
+        //fmt.Println("found AND rule")
+        cr2 := currentRules[len(currentRules)-1]
+        fmt.Println("found NOT rule value: ", cr2.Value, " negate: ", cr2.Negate, " operator: ", cr2.Operator, " tag: ", cr2.Tag)
+        if (Rules2.Operator == "Initial") || (Rules2.Operator == "") {
+            // overwrite this one
+            Rules2.Operator = "NOT"
+            Rules2.Rs1 = nil
+            Rules2.Rs2 = nil
+            Rules2.Leaf1 = cr2
+            Rules2.Leaf2 = Rule{}
+        } else {
+            // make a new hierarchy and use the current node as Rs1
+            var copyRules RuleSetL = RuleSetL{
+                Operator: Rules2.Operator,
+                Rs1: Rules2.Rs1,
+                Rs2: Rules2.Rs2,
+                Leaf1: Rules2.Leaf1,
+                Leaf2: Rules2.Leaf2,
+            }
+            Rules2.Rs1 = &copyRules
+            Rules2.Operator = "NOT"
             Rules2.Leaf2 = cr2
             Rules2.Leaf1 = Rule{}
             Rules2.Rs2 = nil 
@@ -755,6 +797,8 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
         return AND
     } else if strings.ToLower(b.String()) == "or" {
         return OR
+    } else if strings.ToLower(b.String()) == "not" {
+        return NOT
     } else if strings.ToLower(b.String()) == "containing" {
         return CONTAINING
     } else if strings.ToLower(b.String()) == "contains" {
