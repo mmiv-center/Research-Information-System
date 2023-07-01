@@ -2402,12 +2402,72 @@ func humanizeFilter(ast AST) []string {
 	return ss
 }
 
+func (rule Rule) toString() string {
+	s := ""
+	a := ""
+	opstr := "containing"
+	if rule.Operator == "contains" {
+		opstr = "containing"
+	} else if rule.Operator == "<" {
+		opstr = "<"
+	} else if rule.Operator == ">" {
+		opstr = ">"
+	} else if rule.Operator == "=" {
+		opstr = "="
+	} else if rule.Operator == "regexp" {
+		opstr = "regexp"
+	}
+	// convert rule.Value so that if we have spaces (string) we use doubble quotes
+	ruleValue := fmt.Sprintf("%v", rule.Value)
+	if strings.Contains(ruleValue, " ") {
+		ruleValue = fmt.Sprintf("\"%v\"", rule.Value)
+	}
+	if len(rule.Tag) == 2 {
+		s = fmt.Sprintf("%s%s (\"%s\",\"%s\") %s %s", s, a, rule.Tag[0], rule.Tag[1], opstr, ruleValue)
+	} else {
+		s = fmt.Sprintf("%s%s %s %s %s", s, a, rule.Tag[0], opstr, ruleValue)
+	}
+	return s
+}
+
+func (s RuleSetL) toString() string {
+	var s1 string = ""
+	var s2 string = ""
+	if s.Rs1 == nil {
+		s1 = s.Leaf1.toString()
+	} else {
+		s1 = s.Rs1.toString()
+	}
+	if s.Operator != "FIRST" {
+		if s.Rs2 == nil {
+			s2 = s.Leaf2.toString()
+		} else {
+			s2 = s.Rs2.toString()
+		}
+	}
+	var erg string = s1
+	if s.Operator != "FIRST" {
+		erg = fmt.Sprintf("%s %s %s", s1, s.Operator, s2)
+	}
+	return erg
+}
+
 // ast2Select create a select statement from the AST
 func ast2Select(ast AST) string {
 	//sep1 := "  "
 	//sep2 := "\n"
 	stm := fmt.Sprintf("SELECT %s\n  FROM study", ast.Output_level)
-	for idx2, rules := range ast.Rules {
+	// parse the RulesTree here
+	for idx2, rules := range ast.RulesTree {
+		s := rules.Rs.toString()
+		if idx2 > 0 {
+			stm = fmt.Sprintf("%s\n  ALSO\n    WHERE series NAMED \"%s\" HAS\n      %s", stm, ast.Rule_list_names[idx2], s)
+		} else {
+			stm = fmt.Sprintf("%s\n    WHERE series NAMED \"%s\" HAS\n      %s", stm, ast.Rule_list_names[idx2], s)
+		}
+	}
+
+	/*	for idx2, rules := range ast.Rules {
 		s := ""
 		for idx, rule := range rules.Rs {
 			a := ""
@@ -2442,7 +2502,7 @@ func ast2Select(ast AST) string {
 		} else {
 			stm = fmt.Sprintf("%s\n    WHERE series NAMED \"%s\" HAS\n      %s", stm, ast.Rule_list_names[idx2], s)
 		}
-	}
+	} */
 	// Now add a section for the CheckRules if there are any
 	if ast.CheckRules != nil {
 		stm = fmt.Sprintf("%s\nCheck\n  ", stm)
@@ -3412,7 +3472,7 @@ func main() {
 				// create an ast
 				// fmt.Println("Suggested abstract syntax tree for your data:")
 				InitParser()
-				line := []byte("Select series from series where series has ClassifyType containing CT")
+				line := []byte("Select series from series where series has Modality containing CT")
 				yyParse(&exprLex{line: line})
 
 				//
@@ -3426,6 +3486,7 @@ func main() {
 				pprof.StartCPUProfile(f)
 				defer pprof.StopCPUProfile() */
 
+				// TODO: this uses the old style RuleSet instead of generating a RuleSetL
 				ast, _ := ast.improveAST(config.Data.DataInfo)
 
 				//s, l := json.MarshalIndent(ast, "", "  ")
