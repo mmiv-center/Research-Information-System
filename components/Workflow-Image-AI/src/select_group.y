@@ -232,13 +232,14 @@ rule_list:
         // in this case we have no operator, its just a stand-alone rule, no-op? or and with something that is always true?
         if (Rules2.Operator == "Initial") || (Rules2.Operator == "") {
             // overwrite this one
-            Rules2.Operator = "FIRST"
+            Rules2.Operator = "FIRST" // only evaluate the first term, NO-OP
             Rules2.Rs1 = nil
             Rules2.Rs2 = nil
             Rules2.Leaf1 = cr2
             Rules2.Leaf2 = Rule{}
         } else {
-            fmt.Println("SHOULD NEVER HAPPEN")
+            fmt.Println("SHOULD NEVER HAPPEN, operator is ", Rules2.Operator)
+            // lets ignore this cr2, seems to be a copy of what we have already
         }
 
     }
@@ -310,9 +311,8 @@ rule_list:
             Rules2.Rs2 = nil 
         }
     }
-|   NOT rule_list
+|   NOT rule
     {
-        //fmt.Println("found AND rule")
         cr2 := currentRules[len(currentRules)-1]
         fmt.Println("found NOT rule value: ", cr2.Value, " negate: ", cr2.Negate, " operator: ", cr2.Operator, " tag: ", cr2.Tag)
         if (Rules2.Operator == "Initial") || (Rules2.Operator == "") {
@@ -344,15 +344,15 @@ rule:
     {
         $$ = fmt.Sprintf("%s, brackets %s", $$, $2)
     }
-|   NOT rule
-    {
-        if currentRules[len(currentRules)-1].Negate == "" || currentRules[len(currentRules)-1].Negate == "no" {
-            currentRules[len(currentRules)-1].Negate = "yes"
-        } else {
-            currentRules[len(currentRules)-1].Negate = "no"
-        }
-        $$ = fmt.Sprintf("%s NOT %s", $$, $1)
-    }
+//|   NOT rule
+//    {
+//        if currentRules[len(currentRules)-1].Negate == "" || currentRules[len(currentRules)-1].Negate == "no" {
+//            currentRules[len(currentRules)-1].Negate = "yes"
+//        } else {
+//            currentRules[len(currentRules)-1].Negate = "no"
+//        }
+//        $$ = fmt.Sprintf("%s NOT %s", $$, $1)
+//    }
 |   tag_string EQUALS STRING
     {
         r := Rule{

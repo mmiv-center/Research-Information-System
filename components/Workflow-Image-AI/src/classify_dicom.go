@@ -123,6 +123,236 @@ func (data SeriesInfo) getData(group_str string, tag_str string) (bool, []string
 }
 
 // return the index of the rule that matched together with the error
+func (data SeriesInfo) evalRulesTree(ruleSetL RuleSetL) bool {
+
+	var left = true
+	var right = true
+	// we should evaluate first the left side of the tree
+	if ruleSetL.Rs1 == nil {
+		// ruleTree.Rs1.Leaf1
+		if ruleSetL.Leaf1.Operator != "" {
+			left = data.evalLeaf(ruleSetL.Leaf1)
+		}
+	} else {
+		left = data.evalRulesTree(*ruleSetL.Rs1)
+	}
+	if ruleSetL.Rs2 == nil {
+		// ruleTree.Rs1.Leaf1
+		if ruleSetL.Leaf2.Operator != "" {
+			right = data.evalLeaf(ruleSetL.Leaf2)
+		}
+	} else {
+		right = data.evalRulesTree(*ruleSetL.Rs2)
+	}
+	if ruleSetL.Operator == "AND" {
+		return left && right
+	} else if ruleSetL.Operator == "OR" {
+		return left || right
+	} else if ruleSetL.Operator == "NOT" {
+		return !left
+	} else if ruleSetL.Operator == "FIRST" {
+		return left // ignore the other branch
+	} else {
+		fmt.Println("Error: unknown operator in rule evaluation ", ruleSetL.Operator)
+	}
+
+	return false
+}
+
+func (data SeriesInfo) evalLeaf(rule Rule) bool {
+	var matches bool = true
+	foundValue := false
+	t := rule.Tag
+	o := rule.Operator
+	v := rule.Value
+	dataData := []string{""}
+	// if we have two fields, one for group, one for tag we need to look into the all fields to find it
+	if len(t) == 2 {
+		// lookup the value by group and tag
+		// values should be read by hexadecimal number
+		var group_str = t[0]
+		var tag_str = t[1]
+		// it is not sufficient to find the entry and set foundValue to true.
+		// if we cannot find the entry we shhould use an empty string but that might
+		// match later, so best if we can cancel here - or we explicitly have to set the
+		// following test false
+		foundValue, dataData = data.getData(group_str, tag_str)
+		if !foundValue { // nothing can make this correct again
+			matches = false
+		}
+		foundValue = false // set this to false again so we can do a test of the value as well
+	} else { // we have a single entry (really?) and treat it as the name of a variable
+		if t[0] == "ClassifyType" {
+			dataData = data.ClassifyTypes
+		} else if t[0] == "ClassifyTypes" {
+			dataData = data.ClassifyTypes
+		} else if t[0] == "SeriesDescription" {
+			dataData = []string{data.SeriesDescription}
+		} else if t[0] == "NumImages" {
+			dataData = []string{fmt.Sprintf("%d", data.NumImages)}
+		} else if t[0] == "NumSlices" {
+			dataData = []string{fmt.Sprintf("%d", data.NumImages)}
+		} else if t[0] == "SeriesNumber" {
+			dataData = []string{fmt.Sprintf("%d", data.SeriesNumber)}
+		} else if t[0] == "SequenceName" {
+			dataData = []string{data.SequenceName}
+		} else if t[0] == "Modality" {
+			dataData = []string{data.Modality}
+		} else if t[0] == "StudyDescription" {
+			dataData = []string{data.StudyDescription}
+		} else if t[0] == "Manufacturer" {
+			dataData = []string{data.Manufacturer}
+		} else if t[0] == "ManufacturerModelName" {
+			dataData = []string{data.ManufacturerModelName}
+		} else if t[0] == "Path" {
+			dataData = []string{data.Path}
+		} else if t[0] == "PatientID" {
+			dataData = []string{data.PatientID}
+		} else if t[0] == "PatientName" {
+			dataData = []string{data.PatientName}
+		} else {
+			// We need to look for named entities here as well. So names that appear in all as groups.
+
+			fmt.Println("Warning: unknown value selected")
+		}
+	}
+	if o == "contains" {
+		for _, vv := range dataData {
+			if vv == v {
+				foundValue = true
+			}
+		}
+	} else if o == "<" {
+		for _, vv := range dataData {
+			if vv == "" { // no value matches nothing
+				foundValue = false
+				continue
+			}
+			numValue, err := strconv.ParseFloat(vv, 32)
+			if err != nil {
+				fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, rule)
+				exitGracefully(err)
+			}
+			tmp_str := fmt.Sprintf("%v", v)
+			if tmp_str == "" { // no value matches nothing
+				foundValue = false
+				continue
+			}
+			numValue2, err := strconv.ParseFloat(tmp_str, 32)
+			if err != nil {
+				fmt.Printf("Error: could not convert value to numeric: \"%s\" rule: %v\n", v, rule)
+				exitGracefully(err)
+			}
+			if numValue < numValue2 {
+				foundValue = true
+			}
+		}
+	} else if o == ">=" {
+		for _, vv := range dataData {
+			if vv == "" { // no value matches nothing
+				foundValue = false
+				continue
+			}
+			numValue, err := strconv.ParseFloat(vv, 32)
+			if err != nil {
+				fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, rule)
+				exitGracefully(err)
+			}
+			tmp_str := fmt.Sprintf("%v", v)
+			if tmp_str == "" { // no value matches nothing
+				foundValue = false
+				continue
+			}
+			numValue2, err := strconv.ParseFloat(tmp_str, 32)
+			if err != nil {
+				fmt.Printf("Error: could not convert value to numeric: \"%s\" rule: %v\n", v, rule)
+				exitGracefully(err)
+			}
+			if numValue >= numValue2 {
+				foundValue = true
+			}
+		}
+	} else if o == "<=" {
+		for _, vv := range dataData {
+			if vv == "" { // no value matches nothing
+				foundValue = false
+				continue
+			}
+			numValue, err := strconv.ParseFloat(vv, 32)
+			if err != nil {
+				fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, rule)
+				exitGracefully(err)
+			}
+			tmp_str := fmt.Sprintf("%v", v)
+			if tmp_str == "" { // no value matches nothing
+				foundValue = false
+				continue
+			}
+			numValue2, err := strconv.ParseFloat(tmp_str, 32)
+			if err != nil {
+				fmt.Printf("Error: could not convert value to numeric: \"%s\" rule: %v\n", v, rule)
+				exitGracefully(err)
+			}
+			if numValue <= numValue2 {
+				foundValue = true
+			}
+		}
+	} else if o == ">" {
+		for _, vv := range dataData {
+			if vv == "" { // no value matches nothing
+				foundValue = false
+				continue
+			}
+			numValue, err := strconv.ParseFloat(vv, 32)
+			if err != nil {
+				fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, rule)
+				exitGracefully(err)
+			}
+			tmp_str := fmt.Sprintf("%v", v)
+			if tmp_str == "" { // no value matches nothing
+				foundValue = false
+				continue
+			}
+			numValue2, err := strconv.ParseFloat(tmp_str, 32)
+			if err != nil {
+				fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", v, rule)
+				exitGracefully(err)
+			}
+			if numValue > numValue2 {
+				foundValue = true
+			}
+		}
+	} else if o == "regexp" { // on every single item
+		for _, vv := range dataData {
+			var rRegex = regexp.MustCompile(fmt.Sprintf("%v", v))
+			if rRegex.MatchString(vv) {
+				foundValue = true
+			}
+		}
+	} else if o == "==" { // this is a non-numeric operator for us we need to be able to work with strings
+		allTrue := true
+		//fmt.Println("We are testing now ==")
+		for _, vv := range dataData {
+			if vv == "" { // no value matches nothing
+				allTrue = false
+				continue
+			}
+			// if we are non-numeric we should just compare the strings
+			if vv != fmt.Sprintf("%v", v) {
+				allTrue = false // no further tests are needed
+			}
+		}
+		foundValue = allTrue
+	} else {
+		fmt.Printf("Error: unknown operator: %s\n", o)
+	}
+	if !foundValue { // any one rule that does not match will result in false
+		matches = false
+	}
+	return matches
+}
+
+// return the index of the rule that matched together with the error
 func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 	// we assume that in the rulelist we reference only values from the data as type SeriesInfo
 	var matches bool = true
@@ -130,194 +360,196 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 	// all rules have to match!
 	for _, val := range ruleList {
 		// in a rule list all rules have to fit
-		foundValue := false
-		t := val.Tag
-		o := val.Operator
-		v := val.Value
-		dataData := []string{""}
-		// if we have two fields, one for group, one for tag we need to look into the all fields to find it
-		if len(t) == 2 {
-			// lookup the value by group and tag
-			// values should be read by hexadecimal number
-			var group_str = t[0]
-			var tag_str = t[1]
-			// it is not sufficient to find the entry and set foundValue to true.
-			// if we cannot find the entry we shhould use an empty string but that might
-			// match later, so best if we can cancel here - or we explicitly have to set the
-			// following test false
-			foundValue, dataData = data.getData(group_str, tag_str)
-			if !foundValue { // nothing can make this correct again
-				matches = false
-			}
-			foundValue = false // set this to false again so we can do a test of the value as well
-		} else { // we have a single entry (really?) and treat it as the name of a variable
-			if t[0] == "ClassifyType" {
-				dataData = data.ClassifyTypes
-			} else if t[0] == "ClassifyTypes" {
-				dataData = data.ClassifyTypes
-			} else if t[0] == "SeriesDescription" {
-				dataData = []string{data.SeriesDescription}
-			} else if t[0] == "NumImages" {
-				dataData = []string{fmt.Sprintf("%d", data.NumImages)}
-			} else if t[0] == "NumSlices" {
-				dataData = []string{fmt.Sprintf("%d", data.NumImages)}
-			} else if t[0] == "SeriesNumber" {
-				dataData = []string{fmt.Sprintf("%d", data.SeriesNumber)}
-			} else if t[0] == "SequenceName" {
-				dataData = []string{data.SequenceName}
-			} else if t[0] == "Modality" {
-				dataData = []string{data.Modality}
-			} else if t[0] == "StudyDescription" {
-				dataData = []string{data.StudyDescription}
-			} else if t[0] == "Manufacturer" {
-				dataData = []string{data.Manufacturer}
-			} else if t[0] == "ManufacturerModelName" {
-				dataData = []string{data.ManufacturerModelName}
-			} else if t[0] == "Path" {
-				dataData = []string{data.Path}
-			} else if t[0] == "PatientID" {
-				dataData = []string{data.PatientID}
-			} else if t[0] == "PatientName" {
-				dataData = []string{data.PatientName}
-			} else {
-				// We need to look for named entities here as well. So names that appear in all as groups.
+		matches = matches && data.evalLeaf(val)
 
-				fmt.Println("Warning: unknown value selected")
-			}
-		}
-		if o == "contains" {
-			for _, vv := range dataData {
-				if vv == v {
-					foundValue = true
+		/*		foundValue := false
+				t := val.Tag
+				o := val.Operator
+				v := val.Value
+				dataData := []string{""}
+				// if we have two fields, one for group, one for tag we need to look into the all fields to find it
+				if len(t) == 2 {
+					// lookup the value by group and tag
+					// values should be read by hexadecimal number
+					var group_str = t[0]
+					var tag_str = t[1]
+					// it is not sufficient to find the entry and set foundValue to true.
+					// if we cannot find the entry we shhould use an empty string but that might
+					// match later, so best if we can cancel here - or we explicitly have to set the
+					// following test false
+					foundValue, dataData = data.getData(group_str, tag_str)
+					if !foundValue { // nothing can make this correct again
+						matches = false
+					}
+					foundValue = false // set this to false again so we can do a test of the value as well
+				} else { // we have a single entry (really?) and treat it as the name of a variable
+					if t[0] == "ClassifyType" {
+						dataData = data.ClassifyTypes
+					} else if t[0] == "ClassifyTypes" {
+						dataData = data.ClassifyTypes
+					} else if t[0] == "SeriesDescription" {
+						dataData = []string{data.SeriesDescription}
+					} else if t[0] == "NumImages" {
+						dataData = []string{fmt.Sprintf("%d", data.NumImages)}
+					} else if t[0] == "NumSlices" {
+						dataData = []string{fmt.Sprintf("%d", data.NumImages)}
+					} else if t[0] == "SeriesNumber" {
+						dataData = []string{fmt.Sprintf("%d", data.SeriesNumber)}
+					} else if t[0] == "SequenceName" {
+						dataData = []string{data.SequenceName}
+					} else if t[0] == "Modality" {
+						dataData = []string{data.Modality}
+					} else if t[0] == "StudyDescription" {
+						dataData = []string{data.StudyDescription}
+					} else if t[0] == "Manufacturer" {
+						dataData = []string{data.Manufacturer}
+					} else if t[0] == "ManufacturerModelName" {
+						dataData = []string{data.ManufacturerModelName}
+					} else if t[0] == "Path" {
+						dataData = []string{data.Path}
+					} else if t[0] == "PatientID" {
+						dataData = []string{data.PatientID}
+					} else if t[0] == "PatientName" {
+						dataData = []string{data.PatientName}
+					} else {
+						// We need to look for named entities here as well. So names that appear in all as groups.
+
+						fmt.Println("Warning: unknown value selected")
+					}
 				}
-			}
-		} else if o == "<" {
-			for _, vv := range dataData {
-				if vv == "" { // no value matches nothing
-					foundValue = false
-					continue
+				if o == "contains" {
+					for _, vv := range dataData {
+						if vv == v {
+							foundValue = true
+						}
+					}
+				} else if o == "<" {
+					for _, vv := range dataData {
+						if vv == "" { // no value matches nothing
+							foundValue = false
+							continue
+						}
+						numValue, err := strconv.ParseFloat(vv, 32)
+						if err != nil {
+							fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
+							exitGracefully(err)
+						}
+						tmp_str := fmt.Sprintf("%v", v)
+						if tmp_str == "" { // no value matches nothing
+							foundValue = false
+							continue
+						}
+						numValue2, err := strconv.ParseFloat(tmp_str, 32)
+						if err != nil {
+							fmt.Printf("Error: could not convert value to numeric: \"%s\" rule: %v\n", v, val)
+							exitGracefully(err)
+						}
+						if numValue < numValue2 {
+							foundValue = true
+						}
+					}
+				} else if o == ">=" {
+					for _, vv := range dataData {
+						if vv == "" { // no value matches nothing
+							foundValue = false
+							continue
+						}
+						numValue, err := strconv.ParseFloat(vv, 32)
+						if err != nil {
+							fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
+							exitGracefully(err)
+						}
+						tmp_str := fmt.Sprintf("%v", v)
+						if tmp_str == "" { // no value matches nothing
+							foundValue = false
+							continue
+						}
+						numValue2, err := strconv.ParseFloat(tmp_str, 32)
+						if err != nil {
+							fmt.Printf("Error: could not convert value to numeric: \"%s\" rule: %v\n", v, val)
+							exitGracefully(err)
+						}
+						if numValue >= numValue2 {
+							foundValue = true
+						}
+					}
+				} else if o == "<=" {
+					for _, vv := range dataData {
+						if vv == "" { // no value matches nothing
+							foundValue = false
+							continue
+						}
+						numValue, err := strconv.ParseFloat(vv, 32)
+						if err != nil {
+							fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
+							exitGracefully(err)
+						}
+						tmp_str := fmt.Sprintf("%v", v)
+						if tmp_str == "" { // no value matches nothing
+							foundValue = false
+							continue
+						}
+						numValue2, err := strconv.ParseFloat(tmp_str, 32)
+						if err != nil {
+							fmt.Printf("Error: could not convert value to numeric: \"%s\" rule: %v\n", v, val)
+							exitGracefully(err)
+						}
+						if numValue <= numValue2 {
+							foundValue = true
+						}
+					}
+				} else if o == ">" {
+					for _, vv := range dataData {
+						if vv == "" { // no value matches nothing
+							foundValue = false
+							continue
+						}
+						numValue, err := strconv.ParseFloat(vv, 32)
+						if err != nil {
+							fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
+							exitGracefully(err)
+						}
+						tmp_str := fmt.Sprintf("%v", v)
+						if tmp_str == "" { // no value matches nothing
+							foundValue = false
+							continue
+						}
+						numValue2, err := strconv.ParseFloat(tmp_str, 32)
+						if err != nil {
+							fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", v, val)
+							exitGracefully(err)
+						}
+						if numValue > numValue2 {
+							foundValue = true
+						}
+					}
+				} else if o == "regexp" { // on every single item
+					for _, vv := range dataData {
+						var rRegex = regexp.MustCompile(fmt.Sprintf("%v", v))
+						if rRegex.MatchString(vv) {
+							foundValue = true
+						}
+					}
+				} else if o == "==" { // this is a non-numeric operator for us we need to be able to work with strings
+					allTrue := true
+					//fmt.Println("We are testing now ==")
+					for _, vv := range dataData {
+						if vv == "" { // no value matches nothing
+							allTrue = false
+							continue
+						}
+						// if we are non-numeric we should just compare the strings
+						if vv != fmt.Sprintf("%v", v) {
+							allTrue = false // no further tests are needed
+						}
+					}
+					foundValue = allTrue
+				} else {
+					fmt.Printf("Error: unknown operator: %s\n", o)
 				}
-				numValue, err := strconv.ParseFloat(vv, 32)
-				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
-					exitGracefully(err)
-				}
-				tmp_str := fmt.Sprintf("%v", v)
-				if tmp_str == "" { // no value matches nothing
-					foundValue = false
-					continue
-				}
-				numValue2, err := strconv.ParseFloat(tmp_str, 32)
-				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\" rule: %v\n", v, val)
-					exitGracefully(err)
-				}
-				if numValue < numValue2 {
-					foundValue = true
-				}
-			}
-		} else if o == ">=" {
-			for _, vv := range dataData {
-				if vv == "" { // no value matches nothing
-					foundValue = false
-					continue
-				}
-				numValue, err := strconv.ParseFloat(vv, 32)
-				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
-					exitGracefully(err)
-				}
-				tmp_str := fmt.Sprintf("%v", v)
-				if tmp_str == "" { // no value matches nothing
-					foundValue = false
-					continue
-				}
-				numValue2, err := strconv.ParseFloat(tmp_str, 32)
-				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\" rule: %v\n", v, val)
-					exitGracefully(err)
-				}
-				if numValue >= numValue2 {
-					foundValue = true
-				}
-			}
-		} else if o == "<=" {
-			for _, vv := range dataData {
-				if vv == "" { // no value matches nothing
-					foundValue = false
-					continue
-				}
-				numValue, err := strconv.ParseFloat(vv, 32)
-				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
-					exitGracefully(err)
-				}
-				tmp_str := fmt.Sprintf("%v", v)
-				if tmp_str == "" { // no value matches nothing
-					foundValue = false
-					continue
-				}
-				numValue2, err := strconv.ParseFloat(tmp_str, 32)
-				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\" rule: %v\n", v, val)
-					exitGracefully(err)
-				}
-				if numValue <= numValue2 {
-					foundValue = true
-				}
-			}
-		} else if o == ">" {
-			for _, vv := range dataData {
-				if vv == "" { // no value matches nothing
-					foundValue = false
-					continue
-				}
-				numValue, err := strconv.ParseFloat(vv, 32)
-				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", vv, val)
-					exitGracefully(err)
-				}
-				tmp_str := fmt.Sprintf("%v", v)
-				if tmp_str == "" { // no value matches nothing
-					foundValue = false
-					continue
-				}
-				numValue2, err := strconv.ParseFloat(tmp_str, 32)
-				if err != nil {
-					fmt.Printf("Error: could not convert value to numeric: \"%s\"\n rule: %v", v, val)
-					exitGracefully(err)
-				}
-				if numValue > numValue2 {
-					foundValue = true
-				}
-			}
-		} else if o == "regexp" { // on every single item
-			for _, vv := range dataData {
-				var rRegex = regexp.MustCompile(fmt.Sprintf("%v", v))
-				if rRegex.MatchString(vv) {
-					foundValue = true
-				}
-			}
-		} else if o == "==" { // this is a non-numeric operator for us we need to be able to work with strings
-			allTrue := true
-			//fmt.Println("We are testing now ==")
-			for _, vv := range dataData {
-				if vv == "" { // no value matches nothing
-					allTrue = false
-					continue
-				}
-				// if we are non-numeric we should just compare the strings
-				if vv != fmt.Sprintf("%v", v) {
-					allTrue = false // no further tests are needed
-				}
-			}
-			foundValue = allTrue
-		} else {
-			fmt.Printf("Error: unknown operator: %s\n", o)
-		}
-		if !foundValue { // any one rule that does not match will result in false
-			matches = false
-		}
+				if !foundValue { // any one rule that does not match will result in false
+					matches = false
+				}*/
 	}
 
 	return matches

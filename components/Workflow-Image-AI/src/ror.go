@@ -1906,20 +1906,26 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 			// we assume here that we are in the series level...
 			var matches bool = false
 			var matchesIdx int = -1
-			for idx := 0; idx < len(ast.Rules); idx++ {
-				ruleset := ast.Rules[idx]
+			/*for idx := 0; idx < len(ast.RulesTree); idx++ {
+				if value2.evalRulesTree(ast.RulesTree[idx].Rs) {
+					fmt.Printf("YES THIS RULE WORKS")
+				}
+			}*/
+
+			for idx := 0; idx < len(ast.RulesTree); idx++ {
+				ruleset := ast.RulesTree[idx]
 				//for idx, ruleset := range ast.Rules { // todo: check if this works if a ruleset matches the 2 series
-				if value2.evalRules(ruleset.Rs) { // check if this ruleset fits with this series
+				if value2.evalRulesTree(ruleset.Rs) { // check if this ruleset fits with this series
 					matches = true
 					matchesIdx = idx // this corresponds to the ruleset but only ast.Rules_list_names contains the name for it <-  no longer true
 					// we assume here that if one rule works that none of the other rules will work as well
 					// we should check this and warn the user (go throught the rest of the list to make sure)
-					for idx2 := matchesIdx + 1; idx2 < len(ast.Rules); idx2++ {
+					for idx2 := matchesIdx + 1; idx2 < len(ast.RulesTree); idx2++ {
 						if idx2 == matchesIdx {
 							continue
 						}
-						ruleset := ast.Rules[idx2]
-						if value2.evalRules(ruleset.Rs) {
+						ruleset := ast.RulesTree[idx2]
+						if value2.evalRulesTree(ruleset.Rs) {
 							// error case
 							fmt.Println("Error: More than one rule matches a series. Series ", SeriesInstanceUID, " could be both \""+ast.Rules[matchesIdx].Name+"\" and \""+ast.Rules[idx2].Name+"\". This will result in a random assignment.")
 							exitGracefully(fmt.Errorf("Stop here, fix select statement"))
@@ -1928,6 +1934,31 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 					break
 				}
 			}
+
+			/*
+				for idx := 0; idx < len(ast.Rules); idx++ {
+					ruleset := ast.Rules[idx]
+					//for idx, ruleset := range ast.Rules { // todo: check if this works if a ruleset matches the 2 series
+					if value2.evalRules(ruleset.Rs) { // check if this ruleset fits with this series
+						matches = true
+						matchesIdx = idx // this corresponds to the ruleset but only ast.Rules_list_names contains the name for it <-  no longer true
+						// we assume here that if one rule works that none of the other rules will work as well
+						// we should check this and warn the user (go throught the rest of the list to make sure)
+						for idx2 := matchesIdx + 1; idx2 < len(ast.Rules); idx2++ {
+							if idx2 == matchesIdx {
+								continue
+							}
+							ruleset := ast.Rules[idx2]
+							if value2.evalRules(ruleset.Rs) {
+								// error case
+								fmt.Println("Error: More than one rule matches a series. Series ", SeriesInstanceUID, " could be both \""+ast.Rules[matchesIdx].Name+"\" and \""+ast.Rules[idx2].Name+"\". This will result in a random assignment.")
+								exitGracefully(fmt.Errorf("Stop here, fix select statement"))
+							}
+						}
+						break
+					}
+				}
+			*/
 			if matches {
 				if _, ok := seriesByStudy[StudyInstanceUID]; !ok {
 					seriesByStudy[StudyInstanceUID] = make(map[string][]IndexWithMeta)
