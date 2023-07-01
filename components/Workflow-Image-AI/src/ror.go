@@ -201,6 +201,7 @@ type SeriesInfo struct {
 	ClassifyTypes         []string
 	All                   []TagAndValue
 	Annotations           []Annotation
+	SOPInstanceUIDs       []string
 }
 
 // readConfig parses a provided config file as JSON.
@@ -765,6 +766,9 @@ func Scale(src image.Image, rect image.Rectangle, scale draw.Scaler) image.Image
 }
 
 // showDataset is a helper function to display the dataset
+// this function takes a long time, better if we fill all the images we want to display into a queue and
+// take the latest image to display. In that case display would not delay the reading of images, we skip images
+// if we are too slow displaying.
 func showDataset(dataset dicom.Dataset, counter int, path string, info string, viewer *tview.TextView, clip []float32) (int, int) {
 	pixelDataElement, err := dataset.FindElementByTag(tag.PixelData)
 	if err != nil {
@@ -1268,6 +1272,7 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 					var ManufacturerModelName string
 					var PatientID string
 					var PatientName string
+					var SOPInstanceUID string
 
 					StudyInstanceUID = dicom.MustGetStrings(StudyInstanceUIDVal.Value)[0]
 					SeriesInstanceUIDVal, err := dataset.FindElementByTag(tag.SeriesInstanceUID)
@@ -1398,6 +1403,10 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 					if err == nil {
 						PatientName = dicom.MustGetStrings(PatientNameVal.Value)[0]
 					}
+					SOPInstanceUIDVal, err := dataset.FindElementByTag(tag.SOPInstanceUID)
+					if err == nil {
+						SOPInstanceUID = dicom.MustGetStrings(SOPInstanceUIDVal.Value)[0]
+					}
 
 					if SeriesInstanceUID == "" {
 						// no series instance uid skip this file
@@ -1483,10 +1492,13 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 								PatientName:           PatientName,
 								All:                   val.All,
 								ClassifyTypes:         val.ClassifyTypes, // only parse the first image? No, we need to parse all because we have to collect all possible classes for Localizer (aixal + coronal + sagittal)
+								SOPInstanceUIDs:       append(val.SOPInstanceUIDs, SOPInstanceUID),
 							}
 						} else {
 							// if there is no SeriesInstanceUID but there is a StudyInstanceUID we could have
 							// other series already in the list
+							var firstSOP []string = make([]string, 0)
+							firstSOP = append(firstSOP, SOPInstanceUID)
 
 							//fmt.Printf("WE have this study, add another SERIES NOW %d\n", len(datasets[StudyInstanceUID]))
 							datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1,
@@ -1502,10 +1514,13 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 								Path:                  path_pieces,
 								All:                   all,
 								ClassifyTypes:         ClassifyDICOM(dataset),
+								SOPInstanceUIDs:       firstSOP,
 							}
 						}
 					} else {
 						datasets[StudyInstanceUID] = make(map[string]SeriesInfo)
+						var firstSOP []string = make([]string, 0)
+						firstSOP = append(firstSOP, SOPInstanceUID)
 						datasets[StudyInstanceUID][SeriesInstanceUID] = SeriesInfo{NumImages: 1,
 							SeriesDescription:     SeriesDescription,
 							SeriesNumber:          SeriesNumber,
@@ -1519,6 +1534,7 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 							Path:                  path_pieces,
 							All:                   all,
 							ClassifyTypes:         ClassifyDICOM(dataset),
+							SOPInstanceUIDs:       firstSOP,
 						}
 					}
 				} else {
@@ -1895,7 +1911,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 		SeriesInstanceUID string
 		StudyInstanceUID  string
 		PatientName       string
-		idx               int
+		idx               int // the index of the matching RulesTreeSet
 	}
 
 	seriesByStudy := make(map[string]map[string][]IndexWithMeta)
@@ -1927,7 +1943,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 						ruleset := ast.RulesTree[idx2]
 						if value2.evalRulesTree(ruleset.Rs) {
 							// error case
-							fmt.Println("Error: More than one rule matches a series. Series ", SeriesInstanceUID, " could be both \""+ast.Rules[matchesIdx].Name+"\" and \""+ast.Rules[idx2].Name+"\". This will result in a random assignment.")
+							fmt.Println("Error: More than one rule matches a series. Series ", SeriesInstanceUID, " could be both \""+ast.RulesTree[matchesIdx].Name+"\" and \""+ast.RulesTree[idx2].Name+"\". This will result in a random assignment.")
 							exitGracefully(fmt.Errorf("Stop here, fix select statement"))
 						}
 					}
@@ -2002,8 +2018,15 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 	var complains []string
 	for pid, value := range seriesByPatient {
 		for SeriesInstanceUID := range value {
+			// build a cache of SOPInstanceUIDs as a map
+			sopMap := make(map[string]struct{})
+			var indexwithmeta = value[SeriesInstanceUID][0]
+			var sops []string = dataInfo[indexwithmeta.StudyInstanceUID][indexwithmeta.SeriesInstanceUID].SOPInstanceUIDs
+			for _, sop := range sops {
+				sopMap[sop] = struct{}{}
+			}
+
 			// do we have that SeriesInstanceUID somewhere else?
-			var complain_txt string
 			for pid2, value2 := range seriesByPatient {
 				if pid == pid2 {
 					continue
@@ -2012,16 +2035,24 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				for SeriesInstanceUID2 := range value2 {
 					if SeriesInstanceUID == SeriesInstanceUID2 {
 						// add a complain
-						complain_txt = "Warning: Patient " + pid + " series " + SeriesInstanceUID + " also present in patient " + pid2 + ". SeriesInstanceUID should be unique!"
-						break
+						complains = append(complains, "Warning: Patient "+pid+" series "+SeriesInstanceUID+" also present in patient "+pid2+". SeriesInstanceUID should be unique!")
+						//break
+					}
+					// check for duplicate sopinstanceuids...
+					for vv := range value[SeriesInstanceUID2] {
+						var indexwithmeta2 = value[SeriesInstanceUID2][vv]
+						var sops []string = dataInfo[indexwithmeta2.StudyInstanceUID][indexwithmeta2.SeriesInstanceUID].SOPInstanceUIDs
+						for _, sop := range sops {
+							if _, ok := sopMap[sop]; !ok {
+								// found a duplicate key
+								complains = append(complains, "Warning: Patient "+pid+" study "+indexwithmeta.StudyInstanceUID+" and "+indexwithmeta2.StudyInstanceUID+" series "+indexwithmeta.SeriesInstanceUID+" and "+indexwithmeta2.SeriesInstanceUID+" have a duplicate SOPInstanceUID "+sop+". SOPInstanceUIDs should be unique!")
+							}
+						}
 					}
 				}
-				if complain_txt != "" {
-					break
-				}
 			}
-			if complain_txt != "" {
-				complains = append(complains, complain_txt)
+			if len(complains) > 0 {
+				break // only show the first set
 			}
 		}
 	}
