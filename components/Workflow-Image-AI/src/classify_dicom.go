@@ -328,6 +328,7 @@ func (data SeriesInfo) evalLeaf(rule Rule) bool {
 			if rRegex.MatchString(vv) {
 				foundValue = true
 			}
+			//fmt.Printf("  REGEXP %s \"%s\" with data \"%s\", series description: %s\n", foundValue, v, vv, data.SeriesDescription)
 		}
 	} else if o == "==" { // this is a non-numeric operator for us we need to be able to work with strings
 		allTrue := true

@@ -228,7 +228,7 @@ rule_list:
 
         $$ = $1
         cr2 := currentRules[len(currentRules)-1]
-        fmt.Println("found single rule value: ", cr2.Value, " negate: ", cr2.Negate, " operator: ", cr2.Operator, " tag: ", cr2.Tag)
+        //fmt.Println("found single rule value FIRST 2: \"", cr2.Value, "\" negate: \"", cr2.Negate, "\" operator: \"", cr2.Operator, "\" tag: \"", cr2.Tag, "\"")
         // in this case we have no operator, its just a stand-alone rule, no-op? or and with something that is always true?
         if (Rules2.Operator == "Initial") || (Rules2.Operator == "") {
             // overwrite this one
@@ -247,12 +247,12 @@ rule_list:
     {
         //fmt.Println("found AND rule")
         cr2 := currentRules[len(currentRules)-1]
-        fmt.Println("found AND rule value: ", cr2.Value, " negate: ", cr2.Negate, " operator: ", cr2.Operator, " tag: ", cr2.Tag)
+        //fmt.Println("found AND rule value 2: \"", cr2.Value, "\" negate: \"", cr2.Negate, "\" operator: \"", cr2.Operator, "\" tag: \"", cr2.Tag, "\"")
         $$ = fmt.Sprintf("%s AND %s", $$, $3)
         // we have and so we should use the left and right of the currentRules (should have length 2)
         cr1 := currentRules[0]
-        fmt.Println("found AND rule value: ", cr1.Value, " negate: ", cr1.Negate, " operator: ", cr1.Operator, " tag: ", cr1.Tag)
-        fmt.Println("Length of currentRules is: ", len(currentRules))
+        //fmt.Println("found AND rule value 1: \"", cr1.Value, "\" negate: \"", cr1.Negate, "\" operator: \"", cr1.Operator, "\" tag: \"", cr1.Tag, "\"")
+        //fmt.Println("Length of currentRules is: ", len(currentRules))
         // make a copy and create a new tree
         if (Rules2.Operator == "Initial") || (Rules2.Operator == "") {
             // overwrite this one
@@ -281,11 +281,11 @@ rule_list:
     {
         // this is the last rule added - so the above rule from the back.
         cr2 := currentRules[len(currentRules)-1]
-        fmt.Println("found OR rule value: ", cr2.Value, " negate: ", cr2.Negate, " operator: ", cr2.Operator, " tag: ", cr2.Tag)
+        //fmt.Println("found OR rule 2 value: \"", cr2.Value, "\" negate: \"", cr2.Negate, "\" operator: \"", cr2.Operator, "\" tag: \"", cr2.Tag, "\"")
         $$ = fmt.Sprintf("%s OR %s", $$, $3)
         cr1 := currentRules[0]
-        fmt.Println("found OR rule value: ", cr1.Value, " negate: ", cr1.Negate, " operator: ", cr1.Operator, " tag: ", cr1.Tag)
-        fmt.Println("Length of currentRules is: ", len(currentRules))
+        //fmt.Println("found OR rule 1 value: \"", cr1.Value, "\" negate: \"", cr1.Negate, "\" operator: \"", cr1.Operator, "\" tag: \"", cr1.Tag, "\"")
+        //fmt.Println("Length of currentRules is: ", len(currentRules))
         // make a copy and create a new tree
         //fmt.Println("IN INITIAL? ", Rules2.Operator)
         if (Rules2.Operator == "Initial") || (Rules2.Operator == "") {
@@ -314,7 +314,7 @@ rule_list:
 |   NOT rule
     {
         cr2 := currentRules[len(currentRules)-1]
-        fmt.Println("found NOT rule value: ", cr2.Value, " negate: ", cr2.Negate, " operator: ", cr2.Operator, " tag: ", cr2.Tag)
+        //fmt.Println("found NOT rule value: ", cr2.Value, " negate: ", cr2.Negate, " operator: ", cr2.Operator, " tag: ", cr2.Tag)
         if (Rules2.Operator == "Initial") || (Rules2.Operator == "") {
             // overwrite this one
             Rules2.Operator = "NOT"

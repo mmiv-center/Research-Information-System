@@ -1289,20 +1289,19 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 					}
 					//fmt.Printf("NEW series display! \"%s\" \"%s\"", StudyInstanceUID, SeriesInstanceUID)
 
-					removeElement := func(s []*dicom.Element, i int) []*dicom.Element {
-						s[i] = s[len(s)-1]
-						return s[:len(s)-1]
-					}
+					//removeElement := func(s []*dicom.Element, i int) []*dicom.Element {
+					//	s[i] = s[len(s)-1]
+					//	return s[:len(s)-1]
+					//}
 
-					var all_dicom []*dicom.Element = dataset.Elements
+					var all_dicom []*dicom.Element = make([]*dicom.Element, 0)
 					// we should clean out the larger elements based on VR
-					for i := 0; i < len(all_dicom); i++ {
-						if all_dicom[i].ValueRepresentation == tag.VRUInt16List ||
-							all_dicom[i].ValueRepresentation == tag.VRUInt32List ||
-							all_dicom[i].ValueRepresentation == tag.VRBytes ||
-							all_dicom[i].ValueRepresentation == tag.VRPixelData {
-							all_dicom = removeElement(all_dicom, i) // append(all[:i], all[i+1:]...)
-							i--
+					for i := 0; i < len(dataset.Elements); i++ {
+						if !(dataset.Elements[i].ValueRepresentation == tag.VRUInt16List ||
+							dataset.Elements[i].ValueRepresentation == tag.VRUInt32List ||
+							dataset.Elements[i].ValueRepresentation == tag.VRBytes ||
+							dataset.Elements[i].ValueRepresentation == tag.VRPixelData) {
+							all_dicom = append(all_dicom, dataset.Elements[i]) // append(all[:i], all[i+1:]...)
 						}
 					}
 					// now convert for the All secion
@@ -1490,7 +1489,7 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 								Path:                  lcp,
 								PatientID:             PatientID,
 								PatientName:           PatientName,
-								All:                   val.All,
+								All:                   all,
 								ClassifyTypes:         val.ClassifyTypes, // only parse the first image? No, we need to parse all because we have to collect all possible classes for Localizer (aixal + coronal + sagittal)
 								SOPInstanceUIDs:       append(val.SOPInstanceUIDs, SOPInstanceUID),
 							}
@@ -1677,6 +1676,8 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		}
 
 		// compute the match with the data
+		// this is using the RulesTree, but we only changed the Rs Rules, need to do more here (like copy?)
+
 		a, _ := findMatchingSets(ast, datasets)
 
 		var numSeriesByStudy = make(map[string]int32)
@@ -1885,6 +1886,9 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			}
 		}
 	}
+	// TODO: we change rules in the old style Rs but we need to put the result back into
+	// RulesTree now - that is what is used in other parts of the program.
+
 	return bestRulesetEver, likelihood(bestRulesetEver)
 }
 
@@ -3472,7 +3476,7 @@ func main() {
 				// create an ast
 				// fmt.Println("Suggested abstract syntax tree for your data:")
 				InitParser()
-				line := []byte("Select series from series where series has Modality containing CT")
+				line := []byte("Select series from series where series has Modality containing MR")
 				yyParse(&exprLex{line: line})
 
 				//
