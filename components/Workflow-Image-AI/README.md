@@ -331,7 +331,7 @@ We will select cases with a single matching image series.
 Given our current test data we can identify 9721 matching datasets.
 ```
 
-In the above example the best rul found simply selects all series based on the modality (CR).
+In the above example the best rule found simply selects all series based on the modality (CR).
 
 Here is a more complex example of a select statement. The syntax is similar to SQL, newlines and formatting are superfluous.
 
@@ -372,7 +372,7 @@ The possible syntax for rules is:
 - `<field> regexp <string>` match the field with the provided regular expression. For example "^GE" would match with values that start with "GE", or "b$" matches with all strings that end with the letter "b", or "patient[6-9]" matches with all strings that have a 6, 7, 8, or 9 after "patient".
 
 where `<field>` can be any of the following `[SeriesDescription|NumImages|SeriesNumber|SequenceName|Modality|StudyDescription|Manufacturer|ManufacturerModelName|PatientID|PatientName|ClassifyTypes]`.
-Reference any DICOM tag shared by all images of a series using the '("0x0000","0x0000")' notation of group and tag. The supported tags include all tags that have a value representation that is not array or binary.
+Reference any other DICOM tag using the '("0x0000","0x0000")' notation for group and tag. The supported tags include all tags that have a value representation that is not array or binary.
 
 ### Select use-case: training a model
 
