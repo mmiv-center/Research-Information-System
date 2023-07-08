@@ -35,12 +35,20 @@ Below is a window capture from one start to finish run of the tool. This workflo
 
 ### Install on MacOS
 
-Download the ror executable. Copy the file to a folder like /usr/local/bin/ that is in your path. This will make it easier afterwards to work with the tool as you can use `ror` instead of the full path.
+Download the ror executable. There are two executables, one for Intel (amd64) and one for the M1/M2 line of MacOS (arm64). Copy the file to a folder like /usr/local/bin/ that is in your path. This will make it easier afterwards to work with the tool as you can use `ror` instead of the full path.
 
 ```bash
+# Intel-based mac (amd64)
 wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/macos-amd64/ror > /usr/local/bin/ror
 chmod +x /usr/local/bin/ror
 ```
+
+```bash
+# Silicon-based mac (arm64)
+wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/macos-arm64/ror > /usr/local/bin/ror
+chmod +x /usr/local/bin/ror
+```
+
 
 ### Install on Windows
 
@@ -96,6 +104,12 @@ ror config --data ./data --temp_directory `pwd`
 ```
 
 ![Screenshot of configuring data folder](images/configData.png)
+
+Calling the above function several times will add additional DICOM images for processing. In case you want to start over and remove all previously added data use
+
+```bash
+ror config --clear
+```
 
 Notice: In order to speed up testing you should not have too many DICOM files in the data directory. Specify a subset of the folders in the data directory by using double quotes (prevents the shell from interpreting your path) and the special glob-characters '*' and '[]'. For example you can select all sub-folders in ./data that start with 006 up to and including 009 with `--data "./data/00[6-9]*"` (double quotes are important here to prevent the shell from replacing the value prematurely).
 
@@ -342,7 +356,7 @@ Select patient
 '
 ```
 
-Limitations: i) The 'not' operator only works on the level of individual rules. ii) There is support for braces '(', ')', but that is not very useful at the moment - maybe for 'not'. iii) There is no 'or', there is only 'and'.
+The available logical operators on the 'where'-level include "and", "or", and "not". Use brackets '(' and ')' to enforce a grouping order.
 
 ### Details on select as a language to specify input datasets
 
@@ -358,8 +372,7 @@ The possible syntax for rules is:
 - `<field> regexp <string>` match the field with the provided regular expression. For example "^GE" would match with values that start with "GE", or "b$" matches with all strings that end with the letter "b", or "patient[6-9]" matches with all strings that have a 6, 7, 8, or 9 after "patient".
 
 where `<field>` can be any of the following `[SeriesDescription|NumImages|SeriesNumber|SequenceName|Modality|StudyDescription|Manufacturer|ManufacturerModelName|PatientID|PatientName|ClassifyTypes]`.
-
-Notice: It is now possible to reference any DICOM tag of an image. In order to support this feature an 'ALL'-section has been added for each series that contains the DICOM tags of the first image of each series. An arbitrary tag can be referenced using the '("0x0000","0x0000")' notation of group and tag.
+Reference any DICOM tag shared by all images of a series using the '("0x0000","0x0000")' notation of group and tag. The supported tags include all tags that have a value representation that is not array or binary.
 
 ### Select use-case: training a model
 
