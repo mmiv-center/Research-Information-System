@@ -4155,11 +4155,21 @@ func main() {
 					fmt.Printf("%s", err)
 					exitGracefully(errors.New("could not create the temporary directory for the trigger"))
 				}
+				resultdir := dir + "_output"
 				if !trigger_keep {
 					defer os.RemoveAll(dir)
+					defer os.RemoveAll(resultdir)
 				} else {
 					fmt.Printf("trigger data directory is \"%s\"\n", dir)
 				}
+				// now create the output folder - based on ${dir}_output
+				if _, err := os.Stat(resultdir); os.IsNotExist(err) {
+					err := os.Mkdir(resultdir, 0755)
+					if err != nil {
+						exitGracefully(errors.New("could not create the output directory"))
+					}
+				}
+
 				if trigger_keep {
 					// change the LastDataFolder in config
 					dir_path := input_dir + "/.ror/config"
