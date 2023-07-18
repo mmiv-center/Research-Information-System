@@ -8,15 +8,15 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 datafolder = sys.argv[1]
+outputfolder = sys.argv[2]
 
 description = {}
 with open(os.path.join(datafolder, "descr.json")) as f:
     description = json.load(f)[0]
 
-output=os.path.join(datafolder,"output")
-if not(os.path.exists(output)):
+if not(os.path.exists(outputfolder)):
     try:
-        os.mkdir(output,0o777)
+        os.mkdir(outputfolder,0o777)
     except OSError as error:
         (error)
     
@@ -105,5 +105,5 @@ description['shape_y'] = img3d.shape[1]
 description['shape_z'] = img3d.shape[2]
 
 # remember to save the structured information into the output folder
-with open(output+"/output.json", 'w') as outfile:
+with open(outputfolder+"/output.json", 'w') as outfile:
     outfile.write(json.dumps(description, indent=4, sort_keys=True))
