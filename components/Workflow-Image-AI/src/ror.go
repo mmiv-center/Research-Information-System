@@ -43,6 +43,11 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 
+	"github.com/sjwhitworth/golearn/base"
+	"github.com/sjwhitworth/golearn/evaluation"
+	"github.com/sjwhitworth/golearn/filters"
+	"github.com/sjwhitworth/golearn/trees"
+
 	"image/color"
 	_ "image/jpeg"
 
@@ -177,6 +182,7 @@ type Config struct {
 type TagAndValue struct {
 	Tag   tag.Tag  `json:"tag"`
 	Value []string `json:"value"`
+	Type  string   `json:"type"`
 }
 
 type Annotation struct {
@@ -1305,23 +1311,46 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 						}
 					}
 					// now convert for the All secion
-					var all []TagAndValue = make([]TagAndValue, len(all_dicom))
+					var all []TagAndValue = make([]TagAndValue, 0)
 					for i := 0; i < len(all_dicom); i++ {
-						all[i].Tag.Element = all_dicom[i].Tag.Element
-						all[i].Tag.Group = all_dicom[i].Tag.Group
+						var tav TagAndValue
+						tav.Tag.Element = all_dicom[i].Tag.Element
+						tav.Tag.Group = all_dicom[i].Tag.Group
+
+						// special treatments for known value representations
+						if all_dicom[i].RawValueRepresentation == "TM" {
+							tav.Value = all_dicom[i].Value.GetValue().([]string)
+							tav.Type = "numeric"
+							all = append(all, tav)
+							continue // do not check more
+						}
 
 						switch all_dicom[i].Value.ValueType() {
 						case dicom.Strings:
-							all[i].Value = all_dicom[i].Value.GetValue().([]string)
+							tav.Value = all_dicom[i].Value.GetValue().([]string)
+							tav.Type = "categorical"
+							all = append(all, tav)
 						case dicom.Ints:
-							all[i].Value = []string{}
+							tav.Value = []string{}
+							did := false
 							for _, v := range all_dicom[i].Value.GetValue().([]int) {
-								all[i].Value = append(all[i].Value, fmt.Sprintf("%d", v))
+								tav.Value = append(tav.Value, fmt.Sprintf("%d", v))
+								tav.Type = "numeric"
+								did = true
+							}
+							if did {
+								all = append(all, tav)
 							}
 						case dicom.Floats:
-							all[i].Value = []string{}
+							tav.Value = []string{}
+							did := false
 							for _, v := range all_dicom[i].Value.GetValue().([]float64) {
-								all[i].Value = append(all[i].Value, fmt.Sprintf("%f", v))
+								tav.Value = append(tav.Value, fmt.Sprintf("%f", v))
+								tav.Type = "numeric"
+								did = true
+							}
+							if did {
+								all = append(all, tav)
 							}
 						default:
 							// todo: handle sequences here
@@ -1578,6 +1607,179 @@ func createStub(p string, str string) {
 	}
 }
 
+func printTree(t *trees.DecisionTreeNode, level int) {
+	var splitRule string = ""
+	if t.SplitRule.SplitAttr != nil {
+		splitRule = fmt.Sprintf(" split value: \"%f\" attribute: \"%s\"", t.SplitRule.SplitVal, t.SplitRule.SplitAttr.GetName())
+	} else {
+		splitRule = fmt.Sprintf(" split value: \"%f\"", t.SplitRule.SplitVal)
+	}
+	fmt.Println(strings.Repeat(" ", level) + "Predict attribute \"" + t.ClassAttr.GetName() + "\" with rule " + t.SplitRule.String() + " " + splitRule)
+	for name, v := range t.Children {
+		fmt.Println(strings.Repeat(" ", level+2) + "Predict: \"" + v.Class + "\" with value: \"" + name + "\" from column \"" + v.ClassAttr.GetName() + "\", rule " + v.String())
+		if len(v.Children) > 0 {
+			printTree(v, level+2)
+		}
+	}
+}
+
+// Create a useful decision tree for a set of data points (ND) is an excercise in
+// understanding that dataset. Lets say we want to split the data into two parts,
+// or into one large part and some outliers, or into important, close to a decision
+// border and unimportant, far-away from a decision border cases. The features used
+// in each of the above cases as well as the decision trees that result from them
+// would relay information about the dataset.
+//
+// We have a special case here with DICOM images. They follow an hierarchical model
+// of Patient, Study, Series, and Image. Splits that we are interested in
+// should following that hierarchy. A group that splits data across a hierarchy level
+// would be preferred. Like T1-weighted images, one for each patient, or study like
+// a balanced split.
+func generateAST(datasets map[string]map[string]SeriesInfo) (AST, float64) {
+	var ast AST
+
+	// first convert out datasets to a table suitable for golearn
+	// AttributeNames and AttributeTypes
+	var cats []string = make([]string, 0)
+	var variables map[string]base.Attribute = make(map[string]base.Attribute)
+	var rowCount = 0
+	for _, v := range datasets {
+		for _, v2 := range v {
+			for _, v3 := range v2.All {
+				key := fmt.Sprintf("0x%04x,0x%04x", v3.Tag.Group, v3.Tag.Element)
+				if _, ok := variables[key]; ok {
+					continue
+				}
+				// if we have not added that variable yet
+				if v3.Type == "numeric" {
+					variables[key] = base.NewFloatAttribute("")
+				} else if v3.Type == "categorical" {
+					variables[key] = new(base.CategoricalAttribute)
+					cats = append(cats, key)
+				} else {
+					fmt.Println("SHould never happen")
+				}
+			}
+			rowCount = rowCount + 1
+		}
+	}
+	var instances *base.DenseInstances = base.NewDenseInstances()
+	specs := make([]base.AttributeSpec, 0)
+	var specName2Idx map[string]int = make(map[string]int)
+	var c int = 0
+	for i, a := range variables {
+		a.SetName(i)
+		spec := instances.AddAttribute(a)
+		specs = append(specs, spec)
+		specName2Idx[i] = c
+		c = c + 1
+	}
+
+	var tree *trees.ID3DecisionTree //  base.Classifier
+	//var tree base.Classifier
+
+	// Allocate the Instances to return
+	instances.Extend(rowCount)
+	rowCounter := 0
+	for _, v := range datasets {
+		for _, v2 := range v {
+			for _, v3 := range v2.All {
+				key := fmt.Sprintf("0x%04x,0x%04x", v3.Tag.Group, v3.Tag.Element)
+				// ignore all keys that have an unknown type
+				if idx, ok := specName2Idx[key]; ok {
+					if variables[key].GetType() == base.Float64Type {
+						if _, error := strconv.ParseFloat(strings.TrimSpace(v3.Value[0]), 32); error == nil {
+							instances.Set(specs[idx], rowCounter, variables[key].GetSysValFromString(strings.TrimSpace(v3.Value[0])))
+						} else {
+							instances.Set(specs[idx], rowCounter, variables[key].GetSysValFromString("0"))
+						}
+					} else if variables[key].GetType() == base.CategoricalType {
+						instances.Set(specs[idx], rowCounter, variables[key].GetSysValFromString(strings.TrimSpace(v3.Value[0])))
+					} else {
+						// should not happen
+						fmt.Println("HEY?")
+					}
+				}
+
+			}
+			rowCounter = rowCounter + 1
+		}
+	}
+	// what is the class we want to predict?
+	var random_class_idx int = rand.Intn((len(cats) - 0) + 0)
+	pred := cats[random_class_idx]
+	//pred := cats[specName2Idx["0x0040,0x0316"]]
+	instances.AddClassAttribute(variables[pred])
+	//if val, ok := variables["0x0008,0x103e"]; ok {
+	//	instances.AddClassAttribute(val)
+	//} else {
+	//	instances.AddClassAttribute(variables[cats[10]])
+	//}
+
+	filt := filters.NewChiMergeFilter(instances, 0.90)
+	for _, a := range base.NonClassFloatAttributes(instances) {
+		filt.AddAttribute(a)
+	}
+	filt.Train()
+	instancesf := base.NewLazilyFilteredInstances(instances, filt)
+
+	trainData, testData := base.InstancesTrainTestSplit(instancesf, 0.80)
+
+	//
+	// First up, use ID3
+	//
+	tree = trees.NewID3DecisionTree(0.8)
+	// (Parameter controls train-prune split.)
+
+	// Train the ID3 tree
+	err := tree.Fit(trainData)
+	if err != nil {
+		panic(err)
+	}
+
+	// Generate predictions
+	predictions, err := tree.Predict(testData)
+	if err != nil {
+		panic(err)
+	}
+
+	// Evaluate
+	fmt.Println("ID3 Performance (information gain)")
+	cf, err := evaluation.GetConfusionMatrix(testData, predictions)
+	if err != nil {
+		panic(fmt.Sprintf("Unable to get confusion matrix: %s", err.Error()))
+	}
+	/*	var ty string = "unknown"
+		if tree.Root.Type == base.Float64Type {
+			ty = "float"
+		} else if tree.Root.Type == base.CategoricalType {
+			ty = "categorical"
+		} else if tree.Root.Type == base.BinaryType {
+			ty = "binary"
+		} else {
+			fmt.Println("What is this type?")
+		}
+
+		fmt.Println("Decision tree estimating \"" + cats[random_class_idx] + "\" Type: \"" + ty + "\" from attribute \"" + tree.Root.ClassAttr.GetName() + "\" with rule " + tree.Root.SplitRule.String())
+		for name, v := range tree.Root.Children {
+			fmt.Println("  Child: " + name + " class: \"" + v.Class + "\" from attribute \"" + v.ClassAttr.GetName() + "\" with rule " + v.String())
+		} */
+	fmt.Println(evaluation.GetSummary(cf))
+	//tree.Save("/tmp/models/DecisionTree.h")
+
+	if tree.PruneSplit == 0.8 {
+		printTree(tree.Root, 2)
+	} else {
+		fmt.Println("No PruneSplit found...")
+	}
+	fmt.Println("done")
+
+	// create the ast from the above tree, by using the reference class with the largest
+	// F1 score
+
+	return ast, 0
+}
+
 // Could we create an ast at random that is useful?
 // We would need to check how good an ast is given the
 // data. A likelihood function would incorporate
@@ -1589,7 +1791,7 @@ func createStub(p string, str string) {
 //
 // How would we generate new rules for monte-carlo testing?
 // - We can add a new rule to a ruleset by selecting a new variable
-// - We can change an existing rule by changing theh numeric value for '<' and '>'
+// - We can change an existing rule by changing the numeric value for '<' and '>'
 // - We can add a new ruleset with a random rule
 func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float64) {
 	// collect all the values in all the SeriesInfo fields
@@ -2574,7 +2776,8 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 		if trigger_cpus != "" {
 			arr2 = append(arr2, fmt.Sprintf("--cpus=\"%s\"", trigger_cpus))
 		}
-		arr2 = append(arr2, "-v", fmt.Sprintf("%s:/data", strings.Replace(dir, " ", "\\ ", -1)))
+		arr2 = append(arr2, "-v", fmt.Sprintf("%s:/data:ro", strings.Replace(dir, " ", "\\ ", -1)))
+		arr2 = append(arr2, "-v", fmt.Sprintf("%s_output:/output", strings.Replace(dir, " ", "\\ ", -1)))
 		arr2 = append(arr2, trigger_container)
 		arr2 = append(arr2, arr...)
 		fmt.Println(strings.Join(arr2, " "))
@@ -3489,6 +3692,7 @@ func main() {
 				}
 				pprof.StartCPUProfile(f)
 				defer pprof.StopCPUProfile() */
+				generateAST(config.Data.DataInfo)
 
 				// TODO: this uses the old style RuleSet instead of generating a RuleSetL
 				ast, _ := ast.improveAST(config.Data.DataInfo)
@@ -4120,11 +4324,12 @@ func main() {
 			result_call_string = strings.Replace(result_call_string, "{output}", "/data/output", -1)
 			result_call_string = strings.Replace(result_call_string, "{descr}", "/data/descr.json", -1)
 			result_call_string = strings.Replace(result_call_string, "{output_json}", "/data/output.json", -1)
-
+			fmt.Printf("\n\tif [ ! -d \"%s/%s_output\" ]; then\n\t\tmkdir \"%s/%s_output\";\n\tfi\n", abs_temp_path, filepath.Base(folder), abs_temp_path, filepath.Base(folder))
 			fmt.Println("\n\tdocker run --rm -it \\\n\t",
-				"-v", fmt.Sprintf("\"%s/%s\":/data", abs_temp_path, filepath.Base(folder)), "\\\n\t",
+				"-v", fmt.Sprintf("\"%s/%s\":/data:ro", abs_temp_path, filepath.Base(folder)), "\\\n\t",
+				"-v", fmt.Sprintf("\"%s/%s_output\":/output", abs_temp_path, filepath.Base(folder)), "\\\n\t",
 				fmt.Sprintf("workflow_%s", projectName),
-				fmt.Sprintf("%s", result_call_string),
+				result_call_string,
 			)
 			fmt.Println("")
 			fmt.Println("If the above call was sufficient to run your workflow, we can now submit.")
