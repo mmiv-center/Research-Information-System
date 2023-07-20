@@ -2319,6 +2319,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 					sss := SeriesInstanceUIDWithName{
 						SeriesInstanceUID: k,
 						Name:              ast.Rules[value[k][0].idx].Name,
+						Order:             len(selectFromB),
 					}
 					ss = append(ss, sss)
 					//snames = append(snames, ast.Rules[value[k][0]].Name)
@@ -2366,6 +2367,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 						StudyInstanceUID:  value[k][0].StudyInstanceUID,
 						PatientName:       value[k][0].PatientName,
 						Name:              ast.Rules[value[k][0].idx].Name,
+						Order:             len(selectFromB),
 					}
 					ss = append(ss, sss)
 					// should not be needed anymore
@@ -2412,6 +2414,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 					sss := SeriesInstanceUIDWithName{
 						SeriesInstanceUID: k,
 						Name:              ast.Rules[value[k][0].idx].Name,
+						Order:             len(selectFromB),
 					}
 					ss = append(ss, sss)
 					// should not be needed anymore
