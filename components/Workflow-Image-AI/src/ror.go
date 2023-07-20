@@ -2123,9 +2123,26 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 
 	seriesByStudy := make(map[string]map[string][]IndexWithMeta)
 	seriesByPatient := make(map[string]map[string][]IndexWithMeta)
-	for StudyInstanceUID, value := range dataInfo {
+	// TODO: we need to keep a fixed order in these two loops, do we need to sort them?
+	StudyInstanceUIDKeys := []string{}
+	for key, _ := range dataInfo {
+		StudyInstanceUIDKeys = append(StudyInstanceUIDKeys, key)
+	}
+	sort.Strings(StudyInstanceUIDKeys)
+	//for StudyInstanceUID, value := range dataInfo {
+	for i := 0; i < len(StudyInstanceUIDKeys); i++ {
+		StudyInstanceUID := StudyInstanceUIDKeys[i]
+		value := dataInfo[StudyInstanceUID]
 		// we can check on the study or the series level or the patient level
-		for SeriesInstanceUID, value2 := range value {
+		SeriesInstanceUIDKeys := []string{}
+		for key, _ := range value {
+			SeriesInstanceUIDKeys = append(SeriesInstanceUIDKeys, key)
+		}
+		sort.Strings(SeriesInstanceUIDKeys)
+		for j := 0; j < len(SeriesInstanceUIDKeys); j++ {
+			SeriesInstanceUID := SeriesInstanceUIDKeys[j]
+			value2 := value[SeriesInstanceUID]
+			// for SeriesInstanceUID, value2 := range value {
 			// we assume here that we are in the series level...
 			var matches bool = false
 			var matchesIdx int = -1
