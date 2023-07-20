@@ -2099,6 +2099,7 @@ type SeriesInstanceUIDWithName struct {
 	StudyInstanceUID  string
 	PatientName       string
 	Name              string
+	Order             int
 }
 
 // findMatchingSets returns all matching sets for this rule and the provided data
@@ -2211,6 +2212,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 					StudyInstanceUID:  StudyInstanceUID,
 					PatientName:       PatientName,
 					Name:              ast.Rules[matchesIdx].Name,
+					Order:             len(selectFromB),
 				}
 				selectFromB = append(selectFromB, []SeriesInstanceUIDWithName{series_instance_uid_with_name})
 				// we should not need this anymore...
@@ -4095,6 +4097,8 @@ func main() {
 				// don't exit on error, we can still do something using all the information (StudyInstanceUID)
 				//exitGracefully(fmt.Errorf("refuse to continue"))
 			}
+			// we need to ensure that selectFromB is always sorted in the same order
+
 			// if trigger_each we want to run this for all of them, not just a single one
 			var runIdx []int
 			// if we are on the series level we export a single series here, but we can also be on the study or patient level and export more
@@ -4136,12 +4140,16 @@ func main() {
 				asString := func(s []SeriesInstanceUIDWithName) string {
 					ret := ""
 					for i := 0; i < len(s); i++ {
-						ret = ret + s[i].Name + ":" + s[i].SeriesInstanceUID + " "
+						ret = ret + s[i].Name + ":" + s[i].SeriesInstanceUID + " (Order:" + strconv.Itoa(s[i].Order) + ")"
 					}
 					return ret
 				}
-				fmt.Printf("found %d matching series sets. Picked index %d, trigger series: %s\n", len(selectFromB), idx, asString(selectFromB[idx]))
-
+				for _, tmp := range selectFromB {
+					if tmp[0].Order == idx {
+						fmt.Printf("found %d matching series sets. Picked index %d, trigger series: %s\n", len(selectFromB), idx, asString(tmp))
+						break
+					}
+				}
 				folder_name := fmt.Sprintf("ror_trigger_run_%s_*", time.Now().Weekday())
 				if trigger_job_folder != "" {
 					folder_name = trigger_job_folder
@@ -4194,29 +4202,36 @@ func main() {
 				// export each series from the current set in selectFromB
 				var description []Description
 				var startCounter int = 0
-				for _, thisSeriesInstanceUID := range selectFromB[idx] {
-					var closestPath string = ""
-					var classifyTypes []string
-					for StudyInstanceUID, value := range config.Data.DataInfo {
-						for SeriesInstanceUID, value2 := range value {
-							if SeriesInstanceUID == thisSeriesInstanceUID.SeriesInstanceUID && StudyInstanceUID == thisSeriesInstanceUID.StudyInstanceUID {
-								closestPath = value2.Path
-								classifyTypes = value2.ClassifyTypes
+				// we need to look for the correct entry in selectFromB using Order (same for all entries in map)
+				for _, tmp := range selectFromB {
+					if len(tmp) < 1 || tmp[0].Order != idx {
+						continue
+					}
+					for _, thisSeriesInstanceUID := range tmp {
+						var closestPath string = ""
+						var classifyTypes []string
+						for StudyInstanceUID, value := range config.Data.DataInfo {
+							for SeriesInstanceUID, value2 := range value {
+								if SeriesInstanceUID == thisSeriesInstanceUID.SeriesInstanceUID && StudyInstanceUID == thisSeriesInstanceUID.StudyInstanceUID {
+									closestPath = value2.Path
+									classifyTypes = value2.ClassifyTypes
+								}
 							}
 						}
-					}
-					if closestPath == "" {
-						closestPath = config.Data.Path
-						fmt.Println("Warning: Could not detect the closest PATH, use instead", closestPath)
-					}
-					// this only works if we have unqiue SeriesInstanceUIDs for all studies and patients
-					numFiles, descr := copyFiles(thisSeriesInstanceUID.SeriesInstanceUID, thisSeriesInstanceUID.StudyInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Viewer.Clip, startCounter)
-					startCounter += numFiles
+						if closestPath == "" {
+							closestPath = config.Data.Path
+							fmt.Println("Warning: Could not detect the closest PATH, use instead", closestPath)
+						}
+						// this only works if we have unqiue SeriesInstanceUIDs for all studies and patients
+						numFiles, descr := copyFiles(thisSeriesInstanceUID.SeriesInstanceUID, thisSeriesInstanceUID.StudyInstanceUID, closestPath, dir, config.SortDICOM, classifyTypes, config.Viewer.Clip, startCounter)
+						startCounter += numFiles
 
-					descr.NameFromSelect = thisSeriesInstanceUID.Name // selectFromBNames[idx][idx2]
-					// we should merge the different descr together to get description
-					description = append(description, descr)
-					fmt.Println("Found", numFiles, "files.")
+						descr.NameFromSelect = thisSeriesInstanceUID.Name // selectFromBNames[idx][idx2]
+						// we should merge the different descr together to get description
+						description = append(description, descr)
+						fmt.Println("Found", numFiles, "files.")
+					}
+					break
 				}
 				// write out a description
 				file, _ := json.MarshalIndent(description, "", " ")
