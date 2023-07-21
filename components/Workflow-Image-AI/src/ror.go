@@ -3132,7 +3132,7 @@ func main() {
 	var trigger_last bool
 	triggerCommand.BoolVar(&trigger_last, "last", false, "Trigger the last created workflow.")
 	var trigger_job string
-	triggerCommand.StringVar(&trigger_job, "job", "", "Trigger a specific job. Specify a number based on the order of jobs returned by --jobs.")
+	triggerCommand.StringVar(&trigger_job, "job", "", "Trigger a specific job. Specify a number based on the order of jobs returned by status --jobs.")
 	var trigger_job_folder string
 	triggerCommand.StringVar(&trigger_job_folder, "folder", "", "Specify the directory name where the data folder should be placed. The folder will still be placed into the specified temp directory.")
 
@@ -3826,7 +3826,8 @@ func main() {
 							}
 						}
 					}
-
+					// we would like to save some space on the output, so MarshalIndent only one
+					// specific levels (All should be in a single line)
 					file, _ := json.MarshalIndent(jobs, "", " ")
 					fmt.Println(string(file))
 				} else {
@@ -4230,11 +4231,13 @@ func main() {
 					for _, thisSeriesInstanceUID := range tmp {
 						var closestPath string = ""
 						var classifyTypes []string
+					loop:
 						for StudyInstanceUID, value := range config.Data.DataInfo {
 							for SeriesInstanceUID, value2 := range value {
 								if SeriesInstanceUID == thisSeriesInstanceUID.SeriesInstanceUID && StudyInstanceUID == thisSeriesInstanceUID.StudyInstanceUID {
 									closestPath = value2.Path
 									classifyTypes = value2.ClassifyTypes
+									break loop
 								}
 							}
 						}
