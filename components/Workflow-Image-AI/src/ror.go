@@ -3798,6 +3798,7 @@ func main() {
 						SeriesInstanceUID string
 						StudyInstanceUID  string
 						Info              SeriesInfo
+						JobID             int
 					}
 					// we need a way to identify a job
 					// we can just use the [][]SeriesInstanceUIDs for this purpose
@@ -3813,6 +3814,7 @@ func main() {
 											SeriesInstanceUID: SeriesInstanceUID,
 											StudyInstanceUID:  StudyInstanceUID,
 											Info:              series,
+											JobID:             i,
 										}
 
 										jobs[i] = append(jobs[i], job)
