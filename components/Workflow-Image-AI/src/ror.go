@@ -271,7 +271,7 @@ func (config Config) writeConfig() bool {
 	zw.Comment = "see github.com/MMIV-Center/Research-Information-System/"
 	zw.ModTime = time.Now()
 
-	file, _ := json.MarshalIndent(config, "", " ")
+	file, _ := json.MarshalIndent(config, "", "  ")
 	_, err := zw.Write(file)
 
 	if err != nil {
@@ -1657,7 +1657,7 @@ func generateAST(datasets map[string]map[string]SeriesInfo) (AST, float64) {
 					variables[key] = new(base.CategoricalAttribute)
 					cats = append(cats, key)
 				} else {
-					fmt.Println("SHould never happen")
+					fmt.Println("SHould never happen, wrong Type")
 				}
 			}
 			rowCount = rowCount + 1
@@ -2653,7 +2653,11 @@ func (rule Rule) toString() string {
 	if len(rule.Tag) == 2 {
 		s = fmt.Sprintf("%s%s (\"%s\",\"%s\") %s %s", s, a, rule.Tag[0], rule.Tag[1], opstr, ruleValue)
 	} else {
-		s = fmt.Sprintf("%s%s %s %s %s", s, a, rule.Tag[0], opstr, ruleValue)
+		tag0 := ""
+		if len(rule.Tag) > 0 {
+			tag0 = rule.Tag[0]
+		}
+		s = fmt.Sprintf("%s%s %s %s %s", s, a, tag0, opstr, ruleValue)
 	}
 	return s
 }
@@ -2662,20 +2666,28 @@ func (s RuleSetL) toString() string {
 	var s1 string = ""
 	var s2 string = ""
 	if s.Rs1 == nil {
-		s1 = s.Leaf1.toString()
+		if s.Leaf1 != nil {
+			s1 = s.Leaf1.toString()
+		}
 	} else {
 		s1 = s.Rs1.toString()
 	}
 	if s.Operator != "FIRST" {
 		if s.Rs2 == nil {
-			s2 = s.Leaf2.toString()
+			if s.Leaf2 != nil {
+				s2 = s.Leaf2.toString()
+			}
 		} else {
 			s2 = s.Rs2.toString()
 		}
 	}
 	var erg string = s1
 	if s.Operator != "FIRST" {
-		erg = fmt.Sprintf("%s %s %s", s1, s.Operator, s2)
+		if s.Operator == "NOT" {
+			erg = fmt.Sprintf("NOT ( %s )", s1)
+		} else {
+			erg = fmt.Sprintf("( %s ) %s ( %s )", s1, s.Operator, s2)
+		}
 	}
 	return erg
 }
@@ -3646,7 +3658,7 @@ func main() {
 					} */
 					//fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
 					out := Msg{Messages: ss, Ast: ast, Matches: len(matches), Complains: complains}
-					human_enc, err := json.MarshalIndent(out, "", " ")
+					human_enc, err := json.MarshalIndent(out, "", "  ")
 					if err != nil {
 						fmt.Println(err)
 					}
@@ -3714,7 +3726,7 @@ func main() {
 				}
 				pprof.StartCPUProfile(f)
 				defer pprof.StopCPUProfile() */
-				generateAST(config.Data.DataInfo)
+				//				generateAST(config.Data.DataInfo)
 
 				// TODO: this uses the old style RuleSet instead of generating a RuleSetL
 				ast, _ := ast.improveAST(config.Data.DataInfo)
@@ -3776,7 +3788,7 @@ func main() {
 			}
 
 			if status_data {
-				file, _ := json.MarshalIndent(config.Data, "", " ")
+				file, _ := json.MarshalIndent(config.Data, "", "  ")
 				fmt.Println(string(file))
 				return
 			}
@@ -3830,7 +3842,7 @@ func main() {
 					}
 					// we would like to save some space on the output, so MarshalIndent only one
 					// specific levels (All should be in a single line)
-					file, _ := json.MarshalIndent(jobs, "", " ")
+					file, _ := json.MarshalIndent(jobs, "", "  ")
 					fmt.Println(string(file))
 				} else {
 					fmt.Printf("Error: could not parse the selection filter. If you have not created a select filter yet try to generate one with:\n\t %s config --suggest\n", own_name)
@@ -3851,13 +3863,13 @@ func main() {
 					newConfig.Data.DataInfo = nil     // hide the data
 					newConfig.ProjectToken = "hidden" // hide the project token
 					newConfig.Annotate = Annotate{}   // hide the annotation
-					file, _ := json.MarshalIndent(newConfig, "", " ")
+					file, _ := json.MarshalIndent(newConfig, "", "  ")
 					fmt.Println(string(file))
 				} else {
 					fmt.Printf("Error: could not marshal the config again %s", string(tt))
 				}
 			} else {
-				file, _ := json.MarshalIndent(config, "", " ")
+				file, _ := json.MarshalIndent(config, "", "  ")
 				fmt.Println(string(file))
 			}
 			if status_detailed {
@@ -4259,7 +4271,7 @@ func main() {
 					break
 				}
 				// write out a description
-				file, _ := json.MarshalIndent(description, "", " ")
+				file, _ := json.MarshalIndent(description, "", "  ")
 				_ = ioutil.WriteFile(dir+"/descr.json", file, 0644)
 				if !trigger_test {
 					// check if the call string is empty

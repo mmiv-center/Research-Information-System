@@ -44,8 +44,8 @@ type RuleSetL struct {
 	Operator string
 	Rs1      *RuleSetL // could be nil in case we are at a Leaf1
 	Rs2      *RuleSetL // could be nil in case we have a Leaf2
-	Leaf1    Rule
-	Leaf2    Rule
+	Leaf1    *Rule
+	Leaf2    *Rule
 }
 
 type RuleTreeSet struct {
@@ -130,16 +130,16 @@ func (data SeriesInfo) evalRulesTree(ruleSetL RuleSetL) bool {
 	// we should evaluate first the left side of the tree
 	if ruleSetL.Rs1 == nil {
 		// ruleTree.Rs1.Leaf1
-		if ruleSetL.Leaf1.Operator != "" {
-			left = data.evalLeaf(ruleSetL.Leaf1)
+		if ruleSetL.Leaf1 != nil && ruleSetL.Leaf1.Operator != "" {
+			left = data.evalLeaf(*ruleSetL.Leaf1)
 		}
 	} else {
 		left = data.evalRulesTree(*ruleSetL.Rs1)
 	}
 	if ruleSetL.Rs2 == nil {
 		// ruleTree.Rs1.Leaf1
-		if ruleSetL.Leaf2.Operator != "" {
-			right = data.evalLeaf(ruleSetL.Leaf2)
+		if ruleSetL.Leaf2 != nil && ruleSetL.Leaf2.Operator != "" {
+			right = data.evalLeaf(*ruleSetL.Leaf2)
 		}
 	} else {
 		right = data.evalRulesTree(*ruleSetL.Rs2)
@@ -153,7 +153,7 @@ func (data SeriesInfo) evalRulesTree(ruleSetL RuleSetL) bool {
 	} else if ruleSetL.Operator == "FIRST" {
 		return left // ignore the other branch
 	} else {
-		fmt.Println("Error: unknown operator in rule evaluation ", ruleSetL.Operator)
+		fmt.Printf("Error: unknown operator in rule evaluation \"%s\"\n", ruleSetL.Operator)
 	}
 
 	return false
