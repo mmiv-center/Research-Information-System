@@ -3829,7 +3829,7 @@ func main() {
 											SeriesInstanceUID: SeriesInstanceUID,
 											StudyInstanceUID:  StudyInstanceUID,
 											Info:              series,
-											JobID:             i,
+											JobID:             jobSeriesInstanceUID.Order,
 										}
 
 										jobs[i] = append(jobs[i], job)
