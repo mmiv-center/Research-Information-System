@@ -47,7 +47,7 @@ func getCurrentRuleIdx(entry string) (int64, error) {
     if parts[0] == "" && len(parts) == 2 {
         b, err := strconv.ParseInt(strings.Trim(parts[1], " "), 10, 32)
         if err == nil {
-            fmt.Println("      getCurrentRuleIdx found:", b)
+            //fmt.Println("      getCurrentRuleIdx found:", b)
             return b, nil
         }
     }
@@ -61,7 +61,7 @@ func getCurrentRulesLIdx(entry string) (int64, error) {
     if parts[0] == "" && len(parts) == 2 {
         b, err := strconv.ParseInt(strings.Trim(parts[1], " "), 10, 32)
         if err == nil {
-            fmt.Println("      getCurrentRulesLIdx found:", b)
+            //fmt.Println("      getCurrentRulesLIdx found:", b)
             return b, nil
         }
     }
@@ -218,7 +218,7 @@ where_clause:
             // could be a more complex rule as well
             entry, err2 := getCurrentRulesLIdx($4)
             if err2 == nil {
-                fmt.Println("SHOULD BE HERE, so Rs1 ", $4, "should not be empty but is ", currentRulesL[entry], "with entry", entry)
+                //fmt.Println("SHOULD BE HERE, so Rs1 ", $4, "should not be empty but is ", currentRulesL[entry], "with entry", entry)
                 retRule.Operator = "FIRST"
                 retRule.Rs1 = &currentRulesL[entry]
                 retRule.Rs2 = nil
@@ -310,7 +310,7 @@ rule_list:
             Operator: "FIRST",
         }
 
-        fmt.Printf(" SINGLE RULE rule got $$ as \"%s\", right as \"%s\"\n", $$, $1)
+        //fmt.Printf(" SINGLE RULE rule got $$ as \"%s\", right as \"%s\"\n", $$, $1)
         var cr1 Rule
         entry, err1 := getCurrentRuleIdx($1)
         if (err1 == nil) {
@@ -320,7 +320,7 @@ rule_list:
             retRule.Rs2 = nil
             retRule.Leaf1 = &cr1
             retRule.Leaf2 = nil
-            fmt.Println("IN single rule without anything else, found leaf1", cr1, "entry is", entry)
+            //fmt.Println("IN single rule without anything else, found leaf1", cr1, "entry is", entry)
         } else {
             entry, err2 := getCurrentRulesLIdx($1)
             if err2 == nil {
@@ -329,7 +329,7 @@ rule_list:
                 retRule.Rs2 = nil
                 retRule.Leaf1 = nil
                 retRule.Leaf2 = nil
-                fmt.Println("IN rule without anything else, found Rs1", currentRulesL[entry], "entry is", entry)
+                //fmt.Println("IN rule without anything else, found Rs1", currentRulesL[entry], "entry is", entry)
             } else {
                fmt.Println("Error: nether this or that, a single rule without complex stuff inside, should not happen")
             }
@@ -342,7 +342,7 @@ rule_list:
         retRule := RuleSetL{
             Operator: "AND",
         }
-        fmt.Printf(" AND rule got $$ as \"%s\", left as \"%s\", right as \"%s\"\n", $$, $1, $3)
+        //fmt.Printf(" AND rule got $$ as \"%s\", left as \"%s\", right as \"%s\"\n", $$, $1, $3)
 
         entry, err1 := getCurrentRuleIdx($1)
         if (err1 == nil) {
@@ -377,7 +377,7 @@ rule_list:
             Operator: "OR",
         }
 
-        fmt.Printf(" OR rule got $$ as \"%s\", left as \"%s\", right as \"%s\"\n", $$, $1, $3)
+        //fmt.Printf(" OR rule got $$ as \"%s\", left as \"%s\", right as \"%s\"\n", $$, $1, $3)
 
         var cr1 Rule
         var cr2 Rule
@@ -399,7 +399,7 @@ rule_list:
             if err2 == nil {
                 retRule.Leaf1 = nil
                 retRule.Rs1 = &currentRulesL[entry]
-                fmt.Println("IN OR, found Rs1 with", currentRulesL[entry], "entry is", entry)
+                //fmt.Println("IN OR, found Rs1 with", currentRulesL[entry], "entry is", entry)
             }
         }
         if err2 == nil {
@@ -411,7 +411,7 @@ rule_list:
             if err2 == nil {
                 retRule.Leaf2 = nil
                 retRule.Rs2 = &currentRulesL[entry]
-                fmt.Println("IN OR, found Rs2 with", currentRulesL[entry], "entry is", entry)
+                //fmt.Println("IN OR, found Rs2 with", currentRulesL[entry], "entry is", entry)
             } else {
                 fmt.Println("Error: should never happen because its either Leaf or Rs")
             }
@@ -458,7 +458,7 @@ rule:
         var cr2 Rule
         entry, err2 := getCurrentRuleIdx($2)
         if (err2 == nil) {
-            fmt.Println("Found bracket current rule as :", entry)
+            //fmt.Println("Found bracket current rule as :", entry)
             cr2 = currentRules[entry]
 
             retRule.Operator = "FIRST" // only evaluate the first term, NO-OP
@@ -475,7 +475,7 @@ rule:
                 retRule.Leaf2 = nil
                 retRule.Leaf1 = nil
                 retRule.Rs2 = nil
-                fmt.Println("FOUND bracket rule with complex entry for Rs1", currentRulesL[entry], "entry is", entry)
+                //fmt.Println("FOUND bracket rule with complex entry for Rs1", currentRulesL[entry], "entry is", entry)
             } else {
                 fmt.Println("ERROR: should never happen, we need at least an index for something here")
             }
@@ -488,7 +488,7 @@ rule:
         retRule := RuleSetL{
             Operator: "NOT",
         }
-        fmt.Printf(" NOT rule got $$ as \"%s\", right as \"%s\"\n", $$, $2)
+        //fmt.Printf(" NOT rule got $$ as \"%s\", right as \"%s\"\n", $$, $2)
         var cr2 Rule
         entry, err2 := getCurrentRuleIdx($2)
         if (err2 == nil) {
@@ -506,7 +506,7 @@ rule:
                 retRule.Leaf2 = nil
                 retRule.Leaf1 = nil
                 retRule.Rs2 = nil 
-                fmt.Println("in NOT rule found", currentRulesL[entry])
+                //fmt.Println("in NOT rule found", currentRulesL[entry])
             } else {
                 fmt.Println("Error: Should never happen in NOT rule")
             }
@@ -606,7 +606,7 @@ rule:
             Value: $3,
         }
         currentRules = append(currentRules, r)
-        fmt.Printf("store a currentRule as regexp %s \"%s\" (id: %d)\n", lastGroupTag, $3, len(currentRules)-1)
+        //fmt.Printf("store a currentRule as regexp %s \"%s\" (id: %d)\n", lastGroupTag, $3, len(currentRules)-1)
         $$ = fmt.Sprintf("currentRules:%d", len(currentRules)-1) // fmt.Sprintf("Variable %s contains %s", $1, $3)
     }
 

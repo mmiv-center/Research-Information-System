@@ -2625,7 +2625,10 @@ func humanizeFilter(ast AST) []string {
 	} else {
 		ss = append(ss, fmt.Sprintf("We will select cases with %d image series.\n", len(ast.Rules)))
 	}
-	ss = append(ss, fmt.Sprintf("To use this select statement call:\n%s config --select '\n%s\n'\n", own_name, ast2Select(ast)))
+	str := strings.Replace(ast2Select(ast), "\n", "", -1)
+	space := regexp.MustCompile(`\s+`)
+	str = space.ReplaceAllString(str, " ")
+	ss = append(ss, fmt.Sprintf("To use this select statement call:\n%s config --select '%s'\n", own_name, str))
 
 	return ss
 }
