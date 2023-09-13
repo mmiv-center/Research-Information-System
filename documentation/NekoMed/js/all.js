@@ -27,6 +27,12 @@ jQuery(document).ready(function() {
 	var IP = jQuery('#exampleIP').val();
 	var AETitle = jQuery('#exampleAE').val();
 	AETitle = AETitle.trim();
+	var p_str = jQuery('#examplePort').val();
+	if (p_str.length < 2) {
+	    alert("The port number is strange, please enter a number above 1024 up to 65,535");
+	    return;
+	}
+	
 	var Port = parseInt(jQuery('#examplePort').val());
 	if (!ValidateIPaddress(IP)) {
 	    alert("The IP number you entered does not match an official IP. Try again.");
@@ -69,10 +75,10 @@ jQuery(document).ready(function() {
 	    });	    
 	    data.sort(function(a,b) {
 		if (a.Points < b.Points)
-		    return -1;
+		    return 1;
 		if (a.Points == b.Points)
 		    return 0;
-		return 1;
+		return -1;
 	    });
 	    jQuery('#leaderboard').children().remove();
 	    var counter = 1;

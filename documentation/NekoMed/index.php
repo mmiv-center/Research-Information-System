@@ -72,7 +72,7 @@
                     <div class="col-lg-8">
                         <h2 class="text-white mb-4">Announce your connection (3 points)</h2>
                         <p class="text-white-50" style="margin-bottom: 20px;">
-                          We will use our "NekoMed" network - a stand-alone Wifi network (pw: whitehazelnut). You have connected to NekoMed (<a href="http://192.168.0.80:4444">http://192.168.0.80:4444</a>). Your computers IP seems to be <i style="color: orange;">
+                          We will use our "NekoMed" network - a stand-alone Wifi network (pw: whitehazelnut). You have connected to NekoMed (<a href="http://192.168.0.80:4444">http://192.168.0.87:4444</a>). The IP of your computer appears to be <i style="color: orange;">
 <?php if (isset($_SERVER["HTTP_X_FORWARDED_FOR"]) && $_SERVER["HTTP_X_FORWARDED_FOR"] != "") {
   $IP = $_SERVER["HTTP_X_FORWARDED_FOR"];
   $proxy = $_SERVER["REMOTE_ADDR"];
@@ -237,7 +237,7 @@ storescu -aet "&lt;calling_AETitle&gt;" \
                     <div class="col-xl-4 col-lg-5">
                         <div class="featured-text text-center text-lg-left">
                             <h4>Workshop</h4>
-                            <p class="text-black-50 mb-0">Thanks for participating!</p>
+                            <p class="text-black-50 mb-0">Thank you for participating</p>
                         </div>
                     </div>
                 </div>
@@ -255,7 +255,7 @@ storescu -aet "&lt;calling_AETitle&gt;" \
                         </div>
                     </div>
                 </div>
-                <!-- Project Two Row-->
+                <!-- Project Row Three-->
                 <div class="row gx-0 justify-content-center">
                     <div class="col-lg-6"><img class="img-fluid" src="assets/img/demo-image-02.jpg" alt="..." /></div>
                     <div class="col-lg-6 order-lg-first">
@@ -269,6 +269,20 @@ storescu -aet "&lt;calling_AETitle&gt;" \
                         </div>
                     </div>
                 </div>
+                <div class="row gx-0 mb-5 mb-lg-0 justify-content-center">
+                    <div class="col-lg-6"><img class="img-fluid" src="assets/img/demo-image-03.jpg" alt="..." /></div>
+                    <div class="col-lg-6">
+                        <div class="bg-black text-center h-100 project">
+                            <div class="d-flex h-100">
+                                <div class="project-text w-100 my-auto text-center text-lg-left">
+                                    <h4 class="text-white">Learn more abouts</h4>
+                                    <p class="mb-0 text-white-50">Multi-modal imaging, image registration, image segmentation, DICOM structured reports, ...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Project Two Row-->
             </div>
         </section>
         <!-- Contact-->
@@ -279,9 +293,9 @@ storescu -aet "&lt;calling_AETitle&gt;" \
                         <div class="card py-4 h-100">
                             <div class="card-body text-center">
                                 <i class="fas fa-map-marked-alt text-primary mb-2"></i>
-                                <h4 class="text-uppercase m-0">Address</h4>
+                                <h4 class="text-uppercase m-0">Contact Institution</h4>
                                 <hr class="my-4 mx-auto" />
-                                <div class="small text-black-50">Mohn Medical Imaging and Visualization Centre, Bergen, Norway</div>
+                                <div class="small text-black-50"><a href="https://mmiv.no">Mohn Medical Imaging and Visualization Centre, Department of Radiology, Haukeland University Hospital, Bergen, Norway</a></div>
                             </div>
                         </div>
                     </div>
@@ -295,16 +309,16 @@ storescu -aet "&lt;calling_AETitle&gt;" \
                             </div>
                         </div>
                     </div>
-<!--                    <div class="col-md-4 mb-3 mb-md-0">
+                    <div class="col-md-4 mb-3 mb-md-0">
                         <div class="card py-4 h-100">
                             <div class="card-body text-center">
                                 <i class="fas fa-mobile-alt text-primary mb-2"></i>
-                                <h4 class="text-uppercase m-0">Phone</h4>
+                                <h4 class="text-uppercase m-0">Sources</h4>
                                 <hr class="my-4 mx-auto" />
-                                <div class="small text-black-50">+1 (555) 902-8832</div>
+                                <div class="small text-black-50">Logo was created by "Draw Things with AI", all other images have been taken on trips to Tromsø in 2023.</div>
                             </div>
                         </div>
-                    </div>-->
+                    </div>
                 </div>
    <!--             <div class="social d-flex justify-content-center">
                     <a class="mx-2" href="#!"><i class="fab fa-twitter"></i></a>

@@ -7,7 +7,21 @@
 cons="../php/connections.json"
 data="../data/"
 
+if [ ! -e "${cons}" ]; then
+    echo "Info: no \"${cons}\" found, nothing to be done."
+    exit 0
+fi
+
 numConnections=$(jq length "$cons")
+if [ "${numConnections}" = "" ]; then
+    echo "Info: no connection yet, nothing to be found"
+    exit 0
+fi
+if [ "${numConnections}" -eq 0 ]; then
+    echo "Info: no connection yet, nothing to be found"
+    exit 0
+fi
+
 pickedConnection=$(($RANDOM % numConnections))
 echo "There are $numConnections connections available. We select connection $pickedConnection."
 IP=$(jq ".[$pickedConnection].IP" "$cons" | tr '"' ' ')
