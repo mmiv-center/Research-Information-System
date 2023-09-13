@@ -9,9 +9,27 @@ cd NekoMed
 php -S localhost:4444
 ```
 
-Navigate to the website:
+```bash
+cd php
+watch -n 2 ./sendOutData.sh
+```
+
+## Client
+
+Connect to the network and Navigate to the website:
 
 ```
 http://localhost:4444/
 ```
 
+```bash
+cd php
+storescp -aet "DOG" \
+         --sort-on-study-uid "MYDATA" \
+         --eostudy-timeout 16 \
+         --exec-sync \
+         --exec-on-eostudy "/Users/haukebartsch/src/Research-Information-System/documentation/NekoMed/php/process.py #r #a #c #p" \
+         -od "/tmp/" \
+         -fe ".dcm" \
+         11114
+```
