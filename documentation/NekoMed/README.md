@@ -1,4 +1,4 @@
-!(Title image)[assets/img/Title.png]
+![Title image](assets/img/Title.png)
 
 # NekoMed - MMIV Connectathon, a competion system for image-based AI systems
 
@@ -19,7 +19,7 @@ Serve the local index.php from a php server on a port such as 4444. You will nee
 
 ```bash
 cd NekoMed
-php -S localhost:4444
+php -S <IP competition machine>:4444
 ```
 
 ```bash
