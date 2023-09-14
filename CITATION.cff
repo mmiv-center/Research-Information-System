@@ -1,0 +1,34 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Research Information System
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - orcid: 'https://orcid.org/0000-0003-1486-4128'
+    email: Hauke.Bartsch@gmail.com
+    given-names: Hauke
+    family-names: Bartsch
+identifiers:
+  - type: url
+    value: >-
+      https://github.com/mmiv-center/Research-Information-System/
+    description: Source code repository
+repository-code: >-
+  https://github.com/mmiv-center/Research-Information-System.git
+url: >-
+  https://github.com/mmiv-center/Research-Information-System/
+abstract: >-
+  An infrastructure description for hospital-based research
+  institutions used by the Western Norway Regional Health
+  Authorities, a regional hospital system connecting 4 major
+  hospitals. 
+keywords:
+  - Research infrastructure
+license: Apache-2.0
+commit: 790fe21
+version: '0.10'
+date-released: '2023-09-14'
