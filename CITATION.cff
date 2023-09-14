@@ -28,7 +28,7 @@ abstract: >-
   hospitals. 
 keywords:
   - Research infrastructure
-license: Apache-2.0
+license: GPL-3.0
 commit: 790fe21
 version: '0.10'
 date-released: '2023-09-14'
