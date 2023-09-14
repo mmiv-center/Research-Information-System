@@ -1,3 +1,5 @@
+!(Title image)[assets/img/Title.png]
+
 # NekoMed - MMIV Connectathon, a competion system for image-based AI systems
 
 This part of the repository contains a competion system used in the 2023 Tromsø workshop on image-based AI system in hospitals. The competition took 1 1/2 hours. Groups successful during this period continued afterwards as long as the router was kept plugged in.
