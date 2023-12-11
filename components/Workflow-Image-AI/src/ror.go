@@ -24,7 +24,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"os/user"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -282,7 +281,7 @@ func (config Config) writeConfig() bool {
 		log.Fatal(err)
 	}
 
-	err = ioutil.WriteFile(dir_path, buf.Bytes(), 0600)
+	err = os.WriteFile(dir_path, buf.Bytes(), 0600)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -2967,7 +2966,7 @@ func checkOutput(config Config, trigger_container string, dir string) string {
 	validStudyInstanceUIDs := make(map[string]bool)
 	validSeriesInstanceUIDs := make(map[string]bool)
 	validSOPInstanceUIDs := make(map[string]bool)
-	err = filepath.Walk(dir+"/input", func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(dir+"/input", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -3071,10 +3070,10 @@ var app *tview.Application = nil
 
 func main() {
 
-	rand.Seed(time.Now().UnixNano())
+	//rand.Seed(time.Now().UnixNano())
 	// disable logging
 	log.SetFlags(0)
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard /*ioutil.Discard*/)
 
 	const (
 		defaultInputDir    = "Specify where you want to setup shop"
@@ -3103,6 +3102,10 @@ func main() {
 	var init_type string
 	initCommand.StringVar(&init_type, "type", "", "Type of project. The supported types are \"python\", \"notebook\", \"bash\", \"webapp\", or a github repository. Based on\nthis choice you will get a different initial directory structure.")
 
+	// allow to specify the ror directory when you do config
+	//if input_dir == "." {
+	configCommand.StringVar(&input_dir, "working_directory", ".", defaultInputDir)
+	//}
 	var data_path string
 	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files. If you want to specify a subset of folders\nuse double quotes for the path and the glob syntax. For example all folders that\nstart with numbers 008 and 009 would be read with --data \"path/to/data/0[8-9]*\"")
 	var data_clear bool
@@ -3125,6 +3128,10 @@ func main() {
 	var config_clip_1 float64
 	configCommand.Float64Var(&config_clip_1, "clip1", 95.0, "The upper percentage for the display range. Removes small regions of very bright pixel.")
 
+	// allow to specify the ror directory when you do trigger
+	//if input_dir == "." {
+	triggerCommand.StringVar(&input_dir, "working_directory", ".", defaultInputDir)
+	//}
 	var triggerWaitTime string
 	triggerCommand.StringVar(&triggerWaitTime, "delay", "0s", defaultTriggerTime)
 	var trigger_test bool
@@ -3151,6 +3158,10 @@ func main() {
 	var trigger_job_folder string
 	triggerCommand.StringVar(&trigger_job_folder, "folder", "", "Specify the directory name where the data folder should be placed. The folder will still be placed into the specified temp directory.")
 
+	// allow to specify the ror directory when you do status
+	//if input_dir == "." {
+	statusCommand.StringVar(&input_dir, "working_directory", ".", defaultInputDir)
+	//}
 	var status_detailed bool
 	statusCommand.BoolVar(&status_detailed, "all", false, "Display all information.")
 	var status_help bool
@@ -3162,6 +3173,10 @@ func main() {
 	var status_data bool
 	statusCommand.BoolVar(&status_data, "data", false, "Show the list of imported data in json format.")
 
+	// allow to specify the ror directory when you do build
+	//if input_dir == "." {
+	buildCommand.StringVar(&input_dir, "working_directory", ".", defaultInputDir)
+	//}
 	var build_help bool
 	buildCommand.BoolVar(&build_help, "help", false, "Show help for build.")
 
@@ -3195,12 +3210,12 @@ func main() {
 	var annotate_ontology string
 	annotateCommand.StringVar(&annotate_ontology, "ontology", "", "Ontology to use for annotation.")
 
-	var user_name string
-	user, err := user.Current()
-	if err != nil {
-		user_name = user.Username
-		fmt.Println("got a user name ", user_name)
-	}
+	//var user_name string
+	//user, err := user.Current()
+	//if err == nil {
+	//	user_name = user.Username
+	//	//fmt.Println("got a user name ", user_name)
+	//}
 
 	own_name = os.Args[0]
 	// Showing useful information when the user enters the --help option
