@@ -3103,9 +3103,7 @@ func main() {
 	initCommand.StringVar(&init_type, "type", "", "Type of project. The supported types are \"python\", \"notebook\", \"bash\", \"webapp\", or a github repository. Based on\nthis choice you will get a different initial directory structure.")
 
 	// allow to specify the ror directory when you do config
-	//if input_dir == "." {
 	configCommand.StringVar(&input_dir, "working_directory", ".", defaultInputDir)
-	//}
 	var data_path string
 	configCommand.StringVar(&data_path, "data", "", "Path to a folder with DICOM files. If you want to specify a subset of folders\nuse double quotes for the path and the glob syntax. For example all folders that\nstart with numbers 008 and 009 would be read with --data \"path/to/data/0[8-9]*\"")
 	var data_clear bool
@@ -3129,9 +3127,7 @@ func main() {
 	configCommand.Float64Var(&config_clip_1, "clip1", 95.0, "The upper percentage for the display range. Removes small regions of very bright pixel.")
 
 	// allow to specify the ror directory when you do trigger
-	//if input_dir == "." {
 	triggerCommand.StringVar(&input_dir, "working_directory", ".", defaultInputDir)
-	//}
 	var triggerWaitTime string
 	triggerCommand.StringVar(&triggerWaitTime, "delay", "0s", defaultTriggerTime)
 	var trigger_test bool
@@ -3159,9 +3155,7 @@ func main() {
 	triggerCommand.StringVar(&trigger_job_folder, "folder", "", "Specify the directory name where the data folder should be placed. The folder will still be placed into the specified temp directory.")
 
 	// allow to specify the ror directory when you do status
-	//if input_dir == "." {
 	statusCommand.StringVar(&input_dir, "working_directory", ".", defaultInputDir)
-	//}
 	var status_detailed bool
 	statusCommand.BoolVar(&status_detailed, "all", false, "Display all information.")
 	var status_help bool
@@ -3174,9 +3168,7 @@ func main() {
 	statusCommand.BoolVar(&status_data, "data", false, "Show the list of imported data in json format.")
 
 	// allow to specify the ror directory when you do build
-	//if input_dir == "." {
 	buildCommand.StringVar(&input_dir, "working_directory", ".", defaultInputDir)
-	//}
 	var build_help bool
 	buildCommand.BoolVar(&build_help, "help", false, "Show help for build.")
 
@@ -3640,6 +3632,24 @@ func main() {
 				config.ProjectToken = project_token
 			}
 			if config_series_filter != "" {
+				// As an option we can specify a filename as a select statement, the file will be read as ascii and
+				// its content used instead.
+				if _, err := os.Stat(config_series_filter); err == nil && !os.IsNotExist(err) {
+					// overwrite config_series_filter with the content of the file
+					fi, err := os.Open(config_series_filter)
+					if err == nil {
+						defer func() {
+							if err = fi.Close(); err != nil {
+								log.Fatal(err)
+							}
+						}()
+						b, err := io.ReadAll(fi)
+						if err == nil {
+							config_series_filter = string(b[:])
+						}
+					}
+				}
+
 				// if we want comments we should use /* */, would be good if we can keep them in the code
 				// we can remove them before we parse...
 				// we might have newlines in the filter string, remove those first before we safe
