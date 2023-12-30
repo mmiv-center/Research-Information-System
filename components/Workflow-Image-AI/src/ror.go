@@ -1803,6 +1803,19 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 	tmpTargetValues["NumImages"] = make(map[string]bool)
 	tmpTargetValues["SeriesNumber"] = make(map[string]bool)
 	tmpTargetValues["ManufacturerModelName"] = make(map[string]bool)
+	// add all the values from .All
+	for _, v := range datasets {
+		for _, v2 := range v {
+			for _, v3 := range v2.All {
+				key := fmt.Sprintf("0x%04x,0x%04x", v3.Tag.Group, v3.Tag.Element)
+				if _, ok := tmpTargetValues[key]; !ok {
+					// do something here
+					tmpTargetValues[key] = make(map[string]bool)
+				}
+			}
+		}
+	}
+
 	for _, v := range datasets {
 		for _, v2 := range v {
 			tmpTargetValues["SeriesDescription"][v2.SeriesDescription] = true
@@ -1815,6 +1828,19 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			tmpTargetValues["ManufacturerModelName"][v2.ManufacturerModelName] = true
 		}
 	}
+	// do the same with .All
+	for _, v := range datasets {
+		for _, v2 := range v {
+			for _, v3 := range v2.All {
+				key := fmt.Sprintf("0x%04x,0x%04x", v3.Tag.Group, v3.Tag.Element)
+				if _, ok := tmpTargetValues[key]; ok {
+					// do something here
+					tmpTargetValues[key][strings.TrimSpace(v3.Value[0])] = true
+				}
+			}
+		}
+	}
+
 	targetValues := make(map[string][]string)
 	targetValues["StudyDescription"] = []string{}
 	targetValues["SeriesDescription"] = []string{}
@@ -1824,12 +1850,20 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 	targetValues["NumImages"] = []string{}
 	targetValues["SeriesNumber"] = []string{}
 	targetValues["ManufacturerModelName"] = []string{}
+	for k, _ := range tmpTargetValues {
+		if _, ok := targetValues[k]; !ok {
+			targetValues[k] = []string{}
+		}
+	}
+
 	targetType := func(s string) string {
 		if s == "NumImages" || s == "SeriesNumber" {
 			return "numeric"
 		}
 		return "text"
 	}
+	// TODO: guess the value type for an .All tag and convert
+	// to numbers if possible.
 	for k, v := range tmpTargetValues {
 		for k2 := range v {
 			if k2 == "" {
@@ -1837,28 +1871,38 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			}
 			if k == "StudyDescription" {
 				targetValues["StudyDescription"] = append(targetValues["StudyDescription"], k2)
+				continue
 			}
 			if k == "SeriesDescription" {
 				targetValues["SeriesDescription"] = append(targetValues["SeriesDescription"], k2)
+				continue
 			}
 			if k == "Modality" {
 				targetValues["Modality"] = append(targetValues["Modality"], k2)
+				continue
 			}
 			if k == "SequenceName" {
 				targetValues["SequenceName"] = append(targetValues["SequenceName"], k2)
+				continue
 			}
 			if k == "Manufacturer" {
 				targetValues["Manufacturer"] = append(targetValues["Manufacturer"], k2)
+				continue
 			}
 			if k == "NumImages" {
 				targetValues["NumImages"] = append(targetValues["NumImages"], k2)
+				continue
 			}
 			if k == "SeriesNumber" {
 				targetValues["SeriesNumber"] = append(targetValues["SeriesNumber"], k2)
+				continue
 			}
 			if k == "ManufacturerModelName" {
 				targetValues["ManufacturerModelName"] = append(targetValues["ManufacturerModelName"], k2)
+				continue
 			}
+			// in all other cases
+			targetValues[k] = append(targetValues[k], k2)
 		}
 	}
 	// we might have some entries that only have empty values, we don't like those as they
@@ -3174,7 +3218,7 @@ func main() {
 
 	var config_series_filter string
 	configCommand.StringVar(&config_series_filter, "select", "",
-		"Filter applied to series before trigger. This regular expression should\n"+
+		"Filter applied to series before trigger. This regular expression (or path to text file) should\n"+
 			"match anything in the string build by StudyInstanceUID: %s, \n"+
 			"SeriesInstanceUID: %s, SeriesDescription: %s, ... As an example you might search\n"+
 			"for a any series with a SeriesDescription starting with \"T1\" and ending in \"_2mm\"\n"+
