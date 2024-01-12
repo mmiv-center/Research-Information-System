@@ -1850,7 +1850,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 	targetValues["NumImages"] = []string{}
 	targetValues["SeriesNumber"] = []string{}
 	targetValues["ManufacturerModelName"] = []string{}
-	for k, _ := range tmpTargetValues {
+	for k := range tmpTargetValues {
 		if _, ok := targetValues[k]; !ok {
 			targetValues[k] = []string{}
 		}
@@ -2168,7 +2168,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 	seriesByPatient := make(map[string]map[string][]IndexWithMeta)
 	// TODO: we need to keep a fixed order in these two loops, do we need to sort them?
 	StudyInstanceUIDKeys := []string{}
-	for key, _ := range dataInfo {
+	for key := range dataInfo {
 		StudyInstanceUIDKeys = append(StudyInstanceUIDKeys, key)
 	}
 	sort.Strings(StudyInstanceUIDKeys)
@@ -2178,7 +2178,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 		value := dataInfo[StudyInstanceUID]
 		// we can check on the study or the series level or the patient level
 		SeriesInstanceUIDKeys := []string{}
-		for key, _ := range value {
+		for key := range value {
 			SeriesInstanceUIDKeys = append(SeriesInstanceUIDKeys, key)
 		}
 		sort.Strings(SeriesInstanceUIDKeys)
@@ -3738,7 +3738,7 @@ func main() {
 				} else {
 					// maybe its a simple glob expression? We should add in any case
 					//fmt.Println("We tried to parse the series filter but failed. Maybe you just want to grep?")
-					exitGracefully(errors.New("We tried to parse the series filter but failed."))
+					exitGracefully(errors.New("we tried to parse the series filter but failed"))
 					config.SeriesFilterType = "glob"
 				}
 				config.SeriesFilter = config_series_filter
@@ -3778,7 +3778,7 @@ func main() {
 			}
 			if config_suggest {
 				if config.Data.DataInfo == nil {
-					exitGracefully(errors.New(fmt.Sprintf("to suggest a selection we need some data first. Use\n\t%s config --data <path to DICOMs>", own_name)))
+					exitGracefully(fmt.Errorf("to suggest a selection we need some data first. Use\n\t%s config --data <path to DICOMs>", own_name))
 				}
 
 				// get dataset and ast from config
@@ -3850,7 +3850,7 @@ func main() {
 				var statusTui StatusTUI
 				statusTui.dataSets = config.Data.DataInfo
 				if config.SeriesFilterType != "select" {
-					exitGracefully(errors.New(fmt.Sprintf("we can only work with select filters. No filter defined.\n\t%s config --suggest\nor fix your current selection filter.\n", own_name)))
+					exitGracefully(fmt.Errorf("we can only work with select filters. No filter defined.\n\t%s config --suggest\nor fix your current selection filter", own_name))
 				}
 				InitParser()
 				line := []byte(config.SeriesFilter)
@@ -4028,9 +4028,8 @@ func main() {
 					}
 					fmt.Println("")
 				}
-			} else {
-				// fmt.Fprintf(os.Stderr, "This short status does not contain data information. Use the --all option to obtain all info.")
-			}
+			} // fmt.Fprintf(os.Stderr, "This short status does not contain data information. Use the --all option to obtain all info.")
+
 			if status_detailed && config.SeriesFilterType == "select" {
 				comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
 				series_filter_no_comments := comments.ReplaceAllString(config.SeriesFilter, " ")
@@ -4509,10 +4508,10 @@ func main() {
 				annotateTui.dataSets = config.Data.DataInfo
 				annotateTui.ontology = config.Annotate.Ontology
 				if config.Annotate.Ontology == nil {
-					exitGracefully(errors.New(fmt.Sprintf("need an ontology, use\n\t%s annotate --ontology <json filename>\nto create one", own_name)))
+					exitGracefully(fmt.Errorf("need an ontology, use\n\t%s annotate --ontology <json filename>\nto create one", own_name))
 				}
 				if config.SeriesFilterType != "select" {
-					exitGracefully(errors.New(fmt.Sprintf("need a Select filter, use\n\t%s config --suggest\nto create one", own_name)))
+					exitGracefully(fmt.Errorf("need a Select filter, use\n\t%s config --suggest\nto create one", own_name))
 				}
 				InitParser()
 				line := []byte(config.SeriesFilter)
