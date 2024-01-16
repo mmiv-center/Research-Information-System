@@ -18,21 +18,21 @@ ARG conda_env=workflow_ai_test
 
 LABEL "com.ror.vendor"="MMIV.no" \
     version="1.0" \
-    com.ror.conda.env.name="$conda_env" \
+    com.ror.conda.env.name="${conda_env}" \
     description="Example docker container for workflow AI on the research information system at MMIV.no."
 
 # Make RUN commands use the new environment:
-RUN echo "conda activate $conda_env" >> ~/.bashrc
+RUN echo "conda activate ${conda_env}" >> ~/.bashrc
 SHELL ["/bin/bash", "--login", "-c"]
 
 # Demonstrate the environment is activated:
 RUN echo "Make sure fastMONAI is installed:"
 RUN python -c "import fastMONAI"
 
-RUN apt-get update -qq && apt-get install -yq build-essentials \
+RUN apt-get update -qq && apt-get install -yq build-essential \
     cmake git wget libboost-filesystem1.74-dev libboost-timer1.74-dev \
     libtbb-dev libfreetype-dev libboost-program-options1.74-dev \
-    libxml2-dev zlib1q-dev libzip-dev zipcmp zipmerge ziptool
+    libxml2-dev zlib1g-dev libzip-dev zipcmp zipmerge ziptool
 
 # install itk
 RUN cd /tmp/ && wget https://github.com/InsightSoftwareConsortium/ITK/releases/download/v5.3.0/InsightToolkit-5.3.0.tar.gz \
