@@ -1,5 +1,5 @@
 # To ensure app dependencies are ported from your conda virtual environment, run 'conda env export --name "name" > requirements.yml' in the terminal to overwrite this file
-name: my_project
+name: workflow_ai_test
 channels:
   - conda-forge
   - bioconda
@@ -8,6 +8,6 @@ dependencies:
   - python=3.9
   - pip
   - pip:
-    - fastMONAI==0.3.0
-    - imagedata==2.1.2
+    - fastMONAI==0.4.0.2
+    - imagedata==2.1.3
     - cmake==3.27.2

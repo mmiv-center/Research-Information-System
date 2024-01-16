@@ -1,5 +1,8 @@
 FROM continuumio/miniconda3
-
+#
+# build from ror-enabled directory as (replace name of conda_env with name used in requirements.yml):
+#    docker build --no-cache --build-arg conda_env="workflow_ai_test"  -f .ror/virt/Dockerfile .
+#
 WORKDIR /app
 COPY . /app
 
@@ -7,12 +10,13 @@ COPY . /app
 COPY .ror/virt/requirements.yml .
 RUN conda env create -f requirements.yml
 
-# set this value to the name of your conda environment in requirements.yml
-# provide it to docker build as an environment variable
-ARG conda_env=placeholder
+# Set value to the name of your conda environment in requirements.yml.
+# Optional: provide it to docker build as a variable
+#    --build-arg conda_env="workflow_ai_test"
+ARG conda_env=workflow_ai_test
 
 # Make RUN commands use the new environment:
-RUN echo "conda activate workflow_train" >> ~/.bashrc
+RUN echo "conda activate $conda_env" >> ~/.bashrc
 SHELL ["/bin/bash", "--login", "-c"]
 
 # Demonstrate the environment is activated:
