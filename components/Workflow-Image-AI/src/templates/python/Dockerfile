@@ -43,7 +43,7 @@ RUN cd /tmp/ && wget https://github.com/InsightSoftwareConsortium/ITK/releases/d
 RUN cd / && git clone https://github.com/DCMTK/dcmtk.git && cd dcmtk && cmake . && make -j4
 
 # install pr2mask
-RUN mkdir /pr2mask && cd /pr2mask && git clone https:/github.com/mmiv-center/pr2mask.git \
+RUN mkdir /pr2mask && cd /pr2mask && git clone https://github.com/mmiv-center/pr2mask.git . \
     && cmake . && make -j 4
 
 ENV REPORT_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
