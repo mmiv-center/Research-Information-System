@@ -21,7 +21,7 @@ SHELL ["/bin/bash", "--login", "-c"]
 
 # Demonstrate the environment is activated:
 RUN echo "Make sure fastMONAI is installed:"
-RUN python3 -c "import fastMONAI"
+RUN python -c "import fastMONAI"
 
 RUN apt-get update -qq && apt-get install -yq build-essentials \
     cmake git wget libboost-filesystem1.74-dev libboost-timer1.74-dev \
