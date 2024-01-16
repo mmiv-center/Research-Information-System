@@ -43,9 +43,9 @@ if [ "$output_report_mode" -eq 1 ]; then
     # only if we have access to pr2mask features we can do the following
     imageAndMask2Report /data/input "${output2}" -u >> "${log_file}" 2>&1
     json2SR "${output2}"/*.json >> "${log_file}" 2>&1
-    cp -R "${output2}/fused" "${output}"
-    cp -R "${output2}/labels" "${output}"
-    cp -R "${output2}/report" "${output}"
+    cp -R "${output2}"/fused "${output}"
+    cp -R "${output2}"/labels "${output}"
+    cp -R "${output2}"/report "${output}"
     cp -R "${output2}"/redcap/*/output.json "${output}"
     cp -R "${output2}"/*.dcm "${output}"
     chmod -R 777 /output

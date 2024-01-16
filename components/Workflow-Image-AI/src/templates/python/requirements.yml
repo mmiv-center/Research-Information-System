@@ -1,1 +1,13 @@
 # To ensure app dependencies are ported from your conda virtual environment, run 'conda env export --name "name" > requirements.yml' in the terminal to overwrite this file
+name: my_project
+channels:
+ - conda-forge
+ - bioconda
+ - defaults
+dependencies:
+ - python=3.9
+ - pip
+ - pip:
+  - fastMONAI==0.3.0
+  - imagedata==2.1.2
+  - cmake==3.27.2
