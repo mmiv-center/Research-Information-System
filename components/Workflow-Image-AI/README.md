@@ -72,7 +72,8 @@ chmod +x /usr/local/bin/ror
 This project depends on go, goyacc, and make. Install goyacc with
 
 ```bash
-go get -u golang.org/x/tools/cmd/goyacc
+go install golang.org/x/tools/cmd/goyacc@master
+# echo "\nexport PATH=\"${PATH}:~/go/bin\n\"" >> ~/.bashrc
 ```
 
 Use the provided Makefile to build ror for all three platforms.
