@@ -172,3 +172,10 @@ The data dictionary of the AutoID project is:
 
  - [components/DataMigration/AutoID.csv](components/DataMigration/AutoID.csv)
 
+
+## Education
+
+In order to help users with learning concepts of hospital workflows we provide two components.
+
+ - 'ror' a tool to translate out-of-hospital workflows into (docker-)containers that can be run by FIONA
+ - NekoMed software to run workshops on image AI systems 
