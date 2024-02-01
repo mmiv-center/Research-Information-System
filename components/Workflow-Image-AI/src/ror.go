@@ -87,6 +87,9 @@ var requirements_yml string
 //go:embed templates/python/Dockerfile
 var dockerfile string
 
+//go:embed templates/python/DockerfileMain
+var dockerfile_main string
+
 //go:embed templates/bash/Dockerfile_bash
 var dockerfile_bash string
 
@@ -3545,6 +3548,8 @@ func main() {
 				createStub(dockerfile_path2, dockerfile_bash)
 			} else if data.ProjectType == "python" || data.ProjectType == "notebook" {
 				createStub(dockerfile_path2, dockerfile)
+				dockerfile_main_path2 := filepath.Join(virt_path, "DockerfileMain")
+				createStub(dockerfile_main_path2, dockerfile_main)
 			} else if data.ProjectType == "webapp" {
 				createStub(dockerfile_path2, webapp_dockerfile)
 			}
