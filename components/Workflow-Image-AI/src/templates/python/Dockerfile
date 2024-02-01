@@ -1,7 +1,7 @@
 FROM continuumio/miniconda3
 #
 # build from ror-enabled directory as (replace name of conda_env with name used in requirements.yml):
-#    docker build --no-cache --build-arg conda_env="workflow_ai_test"  ---f .ror/virt/Dockerfile .
+#    docker build --no-cache --build-arg conda_env="workflow_ai_test" -f .ror/virt/Dockerfile -t fiona-component-python .
 #
 
 WORKDIR /app
@@ -37,7 +37,7 @@ RUN apt-get update -qq && apt-get install -yq build-essential \
 # install itk
 RUN cd /tmp/ && wget https://github.com/InsightSoftwareConsortium/ITK/releases/download/v5.3.0/InsightToolkit-5.3.0.tar.gz \
     && cd /opt/ && tar xzvf /tmp/InsightToolkit-5.3.0.tar.gz && cd /opt/InsightToolkit-5.3.0 \
-    && mkdir bin && cd bin && cmake .. && make -j 4
+    && mkdir bin && cd bin && cmake .. && make -j 4 && rm /tmp/InsightToolkit-5.3.0.tar.gz
 
 # install dcmtk
 RUN cd / && git clone https://github.com/DCMTK/dcmtk.git && cd dcmtk && cmake . && make -j4
