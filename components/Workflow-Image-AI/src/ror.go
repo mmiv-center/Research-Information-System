@@ -3432,7 +3432,7 @@ func main() {
 					Name:  author_name,
 					Email: author_email,
 				},
-				CallString:       "python ./stub.py {input} {output}",
+				CallString:       "python ./stub.py {}", // {} points to the main folder, we need also the {output} here
 				SeriesFilter:     ".*",
 				SeriesFilterType: "glob",
 				ProjectType:      init_type,
