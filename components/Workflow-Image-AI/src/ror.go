@@ -2850,7 +2850,8 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	// cmd := exec.Command("python", "stub.py", dir)
 	var cmd *exec.Cmd
 	var cmd_string []string
-	var output_path = fmt.Sprintf("%s_output:/output", strings.Replace(dir, " ", "\\ ", -1))
+	var output_path = fmt.Sprintf("%s_output", strings.Replace(dir, " ", "\\ ", -1))
+	var output_mount = fmt.Sprintf("%s_output:/output", strings.Replace(dir, " ", "\\ ", -1))
 	if trigger_container != "" {
 		// we would run this potentially as a different user (www-data), we need to specify the full path /usr/bin/docker(?)
 		arr2 := []string{"/usr/bin/docker", "run", "--rm"}
@@ -2861,7 +2862,7 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 			arr2 = append(arr2, fmt.Sprintf("--cpus=\"%s\"", trigger_cpus))
 		}
 		arr2 = append(arr2, "-v", fmt.Sprintf("%s:/data:ro", strings.Replace(dir, " ", "\\ ", -1)))
-		arr2 = append(arr2, "-v", output_path)
+		arr2 = append(arr2, "-v", output_mount)
 		arr2 = append(arr2, trigger_container)
 		arr2 = append(arr2, arr...)
 		fmt.Println(strings.Join(arr2, " "))
