@@ -3432,7 +3432,7 @@ func main() {
 					Name:  author_name,
 					Email: author_email,
 				},
-				CallString:       "python3 ./stub.py {}",
+				CallString:       "python ./stub.py {input} {output}",
 				SeriesFilter:     ".*",
 				SeriesFilterType: "glob",
 				ProjectType:      init_type,
@@ -3544,11 +3544,11 @@ func main() {
 			createStub(dockerignore_path2, dockerignore)
 
 			dockerfile_path2 := filepath.Join(virt_path, "Dockerfile")
+			dockerfile_main_path2 := filepath.Join(virt_path, "DockerfileMain")
 			if data.ProjectType == "bash" {
 				createStub(dockerfile_path2, dockerfile_bash)
 			} else if data.ProjectType == "python" || data.ProjectType == "notebook" {
 				createStub(dockerfile_path2, dockerfile)
-				dockerfile_main_path2 := filepath.Join(virt_path, "DockerfileMain")
 				createStub(dockerfile_main_path2, dockerfile_main)
 			} else if data.ProjectType == "webapp" {
 				createStub(dockerfile_path2, webapp_dockerfile)

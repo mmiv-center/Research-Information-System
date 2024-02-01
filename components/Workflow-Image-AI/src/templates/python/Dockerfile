@@ -1,4 +1,4 @@
-FROM haukebartsch/fiona-component-ai
+FROM haukebartsch/fiona-component-python
 #
 # build from ror-enabled directory as (replace name of conda_env with name used in requirements.yml):
 #    docker build --no-cache --build-arg conda_env="workflow_ai_test" -f .ror/virt/Dockerfile -t fiona-component-python .
@@ -6,10 +6,6 @@ FROM haukebartsch/fiona-component-ai
 
 WORKDIR /app
 COPY . /app
-
-#
-# A derived container should do the following
-#
 
 # Create the environment:
 COPY .ror/virt/requirements.yml .
@@ -38,4 +34,4 @@ ENV DCMDICTPATH=/dcmtk/dcmdata/data/dicom.dicom
 
 # The code to run when container is started:
 RUN ["chmod", "+x", "/app/entrypoint.sh"]
-ENTRYPOINT ["/app/entrypoint.sh $conda_env"]
+ENTRYPOINT [ "/app/entrypoint.sh", "$conda_env" ]
