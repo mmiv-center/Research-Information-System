@@ -2847,6 +2847,7 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	// cmd := exec.Command("python", "stub.py", dir)
 	var cmd *exec.Cmd
 	var cmd_string []string
+	var output_path = fmt.Sprintf("%s_output:/output", strings.Replace(dir, " ", "\\ ", -1))
 	if trigger_container != "" {
 		// we would run this potentially as a different user (www-data), we need to specify the full path /usr/bin/docker(?)
 		arr2 := []string{"/usr/bin/docker", "run", "--rm"}
@@ -2857,7 +2858,7 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 			arr2 = append(arr2, fmt.Sprintf("--cpus=\"%s\"", trigger_cpus))
 		}
 		arr2 = append(arr2, "-v", fmt.Sprintf("%s:/data:ro", strings.Replace(dir, " ", "\\ ", -1)))
-		arr2 = append(arr2, "-v", fmt.Sprintf("%s_output:/output", strings.Replace(dir, " ", "\\ ", -1)))
+		arr2 = append(arr2, "-v", output_path)
 		arr2 = append(arr2, trigger_container)
 		arr2 = append(arr2, arr...)
 		fmt.Println(strings.Join(arr2, " "))
@@ -2866,9 +2867,9 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 		cmd_str := config.CallString
 		cmd_str = strings.Replace(cmd_str, "{}", dir, -1)
 		cmd_str = strings.Replace(cmd_str, "{input}", filepath.Join(dir, "input"), -1)
-		cmd_str = strings.Replace(cmd_str, "{output}", filepath.Join(dir, "output"), -1)
+		cmd_str = strings.Replace(cmd_str, "{output}", output_path, -1)
 		cmd_str = strings.Replace(cmd_str, "{descr}", filepath.Join(dir, "descr.json"), -1)
-		cmd_str = strings.Replace(cmd_str, "{output_json}", filepath.Join(dir, "output.json"), -1)
+		cmd_str = strings.Replace(cmd_str, "{output_json}", filepath.Join(output_path, "output.json"), -1)
 		// now we should split the string to an array
 		r := csv.NewReader(strings.NewReader(cmd_str))
 		r.Comma = ' ' // space
@@ -2890,13 +2891,13 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 		exitGracefully(fmt.Errorf("could not run trigger command\n\t%s\nError code: %s\n\t%s", strings.Join(arr[:], " "), exitCode.Error(), errb.String()))
 	}
 	// store stdout and stderr as log files
-	if _, err := os.Stat(dir + "/log"); err != nil && os.IsNotExist(err) {
-		if err := os.Mkdir(dir+"/log", 0755); os.IsExist(err) {
+	if _, err := os.Stat(output_path + "/log"); err != nil && os.IsNotExist(err) {
+		if err := os.Mkdir(output_path+"/log", 0755); os.IsExist(err) {
 			exitGracefully(errors.New("directory exist already"))
 		}
 	}
 	// write the log files
-	var stdout_log string = fmt.Sprintf("%s/log/stdout.log", dir)
+	var stdout_log string = fmt.Sprintf("%s/log/stdout.log", output_path)
 	f_log_stdout, err := os.OpenFile(stdout_log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		exitGracefully(errors.New("could not open file " + stdout_log))
@@ -2907,7 +2908,7 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 		// log.Println(err)
 	}
 
-	var stderr_log string = fmt.Sprintf("%s/log/stderr.log", dir)
+	var stderr_log string = fmt.Sprintf("%s/log/stderr.log", output_path)
 	f_log_stderr, err := os.OpenFile(stderr_log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		exitGracefully(errors.New("could not open " + stderr_log))
