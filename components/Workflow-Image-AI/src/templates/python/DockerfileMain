@@ -61,7 +61,7 @@ RUN mkdir /pr2mask && cd /pr2mask && git clone https://github.com/mmiv-center/pr
     && cmake . && make -j 4
 
 ENV REPORT_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
-ENV DCMDICTPATH=/dcmtk/dcmdata/data/dicom.dicom
+ENV DCMDICTPATH=/dcmtk/dcmdata/data/dicom.dic
 
 # The code to run when container is started:
 RUN ["chmod", "+x", "/app/entrypoint.sh"]
