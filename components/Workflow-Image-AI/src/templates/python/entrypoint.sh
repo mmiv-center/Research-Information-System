@@ -2,10 +2,11 @@
 # The --login ensures the bash configuration is loaded.
 
 # Expect one argument (the name of the conda environment)
-conda-env=""
-if [ "$#" -eq 1 ]; then
-    conda-env="$1"
-else
+if [ ! -z "$CONDA_DEFAULT_ENV" ]; then
+  conda_env="$CONDA_DEFAULT_ENV"
+fi
+
+if [ -z "$conda_env" ]; then
     echo "Usage: <conda-env>"
     exit -1
 fi
@@ -15,18 +16,20 @@ export PATH="/pr2mask:$PATH"
 
 # if we find imageAndMask2Report and json2SR in this container
 auto_report_mode=0
-output2="${output}"
-if [ command -v imageAndMask2Report ] && [ command -v json2SR ]; then
+output2="/output"
+if [ -f imageAndMask2Report ]; then
     # enable the automatic report generation
     auto_report_mode=1
     if [ ! -d "${output2}" ]; then
         mkdir "${output2}"
     fi
+else
+    output2="${output}"
 fi
 
 # Temporarily disable strict mode and activate conda:
 set +euo pipefail
-conda activate $1
+conda activate "${conda_env}"
 if [ $? -ne 0 ]; then
    echo "Error: activating conda environment \"$1\" failed."
    exit -1
@@ -37,7 +40,9 @@ set -euo pipefail
 #   directory that is mounted on /data
 #   directory that is mounted on /output
 log_file="${output}"/stub_command.log
-exec python stub.py /data "${output2}" >> "${log_file}" 2>&1
+cmd="$@ ${output2}"
+echo "run now: $cmd"
+eval $cmd
 
 if [ "$output_report_mode" -eq 1 ]; then
     # only if we have access to pr2mask features we can do the following

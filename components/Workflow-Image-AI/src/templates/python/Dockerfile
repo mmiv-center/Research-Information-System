@@ -1,4 +1,4 @@
-FROM haukebartsch/fiona-component-python
+FROM haukebartsch/fiona-component-python:latest
 #
 # build from ror-enabled directory as (replace name of conda_env with name used in requirements.yml):
 #    docker build --no-cache --build-arg conda_env="workflow_ai_test" -f .ror/virt/Dockerfile -t fiona-component-python .
@@ -16,6 +16,9 @@ RUN conda env create -f requirements.yml
 #    --build-arg conda_env="workflow_ai_test"
 ARG conda_env=workflow_ai_test
 
+ARG VERSION=mar272024
+ENV VERSION=$VERSION
+
 LABEL "com.ror.vendor"="MMIV.no" \
     version="1.0" \
     com.ror.conda.env.name="${conda_env}" \
@@ -30,8 +33,8 @@ RUN echo "Make sure fastMONAI is installed:"
 RUN python -c "import fastMONAI"
 
 ENV REPORT_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
-ENV DCMDICTPATH=/dcmtk/dcmdata/data/dicom.dicom
+ENV DCMDICTPATH=/dcmtk/dcmdata/data/dicom.dic
 
 # The code to run when container is started:
 RUN ["chmod", "+x", "/app/entrypoint.sh"]
-ENTRYPOINT [ "/app/entrypoint.sh", "$conda_env" ]
+ENTRYPOINT [ "/app/entrypoint.sh" ]
