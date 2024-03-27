@@ -1138,7 +1138,8 @@ func copyFiles(SelectedSeriesInstanceUID string, SelectedStudyInstanceUID string
 									exitGracefully(fmt.Errorf("could not create symlink data directory %s", symOrderPatientDatePath))
 								}
 							}
-							symOrderPatientDateSeriesNumber := filepath.Join(symOrderPatientDatePath, SeriesNumber+"_"+SeriesDescription)
+							d_name := strings.Replace(SeriesNumber+"_"+SeriesDescription, "/", "_", -1)
+							symOrderPatientDateSeriesNumber := filepath.Join(symOrderPatientDatePath, d_name)
 							if _, err := os.Stat(symOrderPatientDateSeriesNumber); os.IsNotExist(err) {
 								err := os.Mkdir(symOrderPatientDateSeriesNumber, 0755)
 								if err != nil {
@@ -1161,7 +1162,7 @@ func copyFiles(SelectedSeriesInstanceUID string, SelectedStudyInstanceUID string
 							}
 
 							if err = os.Symlink(relativeDataPath, symlink); err != nil {
-								fmt.Println("Warning: could not create symlink %s", symlink)
+								fmt.Printf("Warning: could not create symlink %s\n", symlink)
 							}
 						}
 					}
