@@ -1121,28 +1121,28 @@ func copyFiles(SelectedSeriesInstanceUID string, SelectedStudyInstanceUID string
 							if _, err := os.Stat(symOrderPath); os.IsNotExist(err) {
 								err := os.Mkdir(symOrderPath, 0755)
 								if err != nil {
-									exitGracefully(errors.New("could not create symlink data directory"))
+									exitGracefully(fmt.Errorf("could not create symlink data directory %s", symOrderPath))
 								}
 							}
 							symOrderPatientPath := filepath.Join(symOrderPath, PatientID+"_"+PatientName)
 							if _, err := os.Stat(symOrderPatientPath); os.IsNotExist(err) {
 								err := os.Mkdir(symOrderPatientPath, 0755)
 								if err != nil {
-									exitGracefully(errors.New("could not create symlink data directory"))
+									exitGracefully(fmt.Errorf("could not create symlink data directory %s", symOrderPatientPath))
 								}
 							}
 							symOrderPatientDatePath := filepath.Join(symOrderPatientPath, StudyDate+"_"+StudyTime)
 							if _, err := os.Stat(symOrderPatientDatePath); os.IsNotExist(err) {
 								err := os.Mkdir(symOrderPatientDatePath, 0755)
 								if err != nil {
-									exitGracefully(errors.New("could not create symlink data directory"))
+									exitGracefully(fmt.Errorf("could not create symlink data directory %s", symOrderPatientDatePath))
 								}
 							}
 							symOrderPatientDateSeriesNumber := filepath.Join(symOrderPatientDatePath, SeriesNumber+"_"+SeriesDescription)
 							if _, err := os.Stat(symOrderPatientDateSeriesNumber); os.IsNotExist(err) {
 								err := os.Mkdir(symOrderPatientDateSeriesNumber, 0755)
 								if err != nil {
-									exitGracefully(errors.New("could not create symlink data directory"))
+									exitGracefully(fmt.Errorf("could not create symlink data directory %s", symOrderPatientDateSeriesNumber))
 								}
 							}
 							if r, err := filepath.Rel(dest_path, symOrderPatientDateSeriesNumber); err == nil {
@@ -1161,7 +1161,7 @@ func copyFiles(SelectedSeriesInstanceUID string, SelectedStudyInstanceUID string
 							}
 
 							if err = os.Symlink(relativeDataPath, symlink); err != nil {
-								fmt.Println("Warning: could not create symlink")
+								fmt.Println("Warning: could not create symlink %s", symlink)
 							}
 						}
 					}
