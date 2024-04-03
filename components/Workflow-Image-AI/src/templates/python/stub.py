@@ -7,15 +7,22 @@ import json
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
+if len(sys.argv) != 3:
+    print("Error: wrong number of arguments (%d), should be 2 (input and output folder)." % (len(sys.argv)-1))
+    sys.exit(-1)
+
 datafolder = sys.argv[1]
 outputfolder = sys.argv[2]
 
 description = {}
-with open(os.path.join(datafolder, "descr.json")) as f:
-    description = json.load(f)[0]
+descr_path = os.path.join(datafolder, "descr.json")
+if os.path.exists(descr_path): 
+    with open(descr_path) as f:
+        description = json.load(f)[0]
 
 if not(os.path.exists(outputfolder)):
     try:
+        print("Info: create output folder \"%s\"" % (outputfolder))
         os.mkdir(outputfolder,0o777)
     except OSError as error:
         (error)
