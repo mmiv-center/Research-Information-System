@@ -51,7 +51,7 @@ if [ "$auto_report_mode" -eq 1 ]; then
     /pr2mask/json2SR "${output2}"/*.json >> "${log_file}" 2>&1
     cp -R "${output2}"/fused "${output}"
     cp -R "${output2}"/labels "${output}"
-    cp -R "${output2}"/report "${output}"
+    cp -R "${output2}"/reports "${output}"
     cp -R "${output2}"/redcap "${output}"
     cp -R "${output2}"/*.dcm "${output}"
     chmod -R 777 /output
