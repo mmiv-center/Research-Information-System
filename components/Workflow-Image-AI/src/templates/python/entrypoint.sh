@@ -45,7 +45,7 @@ cmd="$@ ${output2}"
 echo "run now: $cmd"
 eval $cmd
 
-if [ "$output_report_mode" -eq 1 ]; then
+if [ "$auto_report_mode" -eq 1 ]; then
     # only if we have access to pr2mask features we can do the following
     /pr2mask/imageAndMask2Report /data/input "${output2}/mask" -u -i "$VERSION" >> "${log_file}" 2>&1
     /pr2mask/json2SR "${output2}"/*.json >> "${log_file}" 2>&1
