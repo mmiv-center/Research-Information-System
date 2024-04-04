@@ -5,11 +5,6 @@ FROM haukebartsch/fiona-component-python:latest
 #
 
 WORKDIR /app
-COPY . /app
-
-# Create the environment:
-COPY .ror/virt/requirements.yml .
-RUN conda env create -f requirements.yml
 
 # Set value to the name of your conda environment in requirements.yml.
 # Optional: provide it to docker build as a variable
@@ -24,6 +19,13 @@ LABEL "com.ror.vendor"="MMIV.no" \
     com.ror.conda.env.name="${conda_env}" \
     description="Example docker container for workflow AI on the research information system at MMIV.no."
 
+ENV REPORT_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+ENV DCMDICTPATH=/dcmtk/dcmdata/data/dicom.dic
+
+# Create the environment:
+COPY .ror/virt/requirements.yml .
+RUN conda env create -f requirements.yml
+
 # Make RUN commands use the new environment:
 RUN echo "conda activate ${conda_env}" >> ~/.bashrc
 SHELL ["/bin/bash", "--login", "-c"]
@@ -32,8 +34,7 @@ SHELL ["/bin/bash", "--login", "-c"]
 RUN echo "Make sure fastMONAI is installed:"
 RUN python -c "import fastMONAI"
 
-ENV REPORT_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
-ENV DCMDICTPATH=/dcmtk/dcmdata/data/dicom.dic
+COPY . /app
 
 # The code to run when container is started:
 RUN ["chmod", "+x", "/app/entrypoint.sh"]
