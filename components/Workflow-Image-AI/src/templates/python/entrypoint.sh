@@ -47,7 +47,7 @@ eval $cmd
 
 if [ "$auto_report_mode" -eq 1 ]; then
     # only if we have access to pr2mask features we can do the following
-    /pr2mask/imageAndMask2Report /data/input "${output2}/mask" -u -i "$VERSION" >> "${log_file}" 2>&1
+    /pr2mask/imageAndMask2Report /data/input "${output2}/mask" "${output2}" -u -i "$VERSION" --reporttype mosaic >> "${log_file}" 2>&1
     /pr2mask/json2SR "${output2}"/*.json >> "${log_file}" 2>&1
     cp -R "${output2}"/fused "${output}"
     cp -R "${output2}"/labels "${output}"
