@@ -16,8 +16,9 @@ export PATH="/pr2mask:$PATH"
 
 # if we find imageAndMask2Report and json2SR in this container
 auto_report_mode=0
-output2="/output"
-if [ -f imageAndMask2Report ]; then
+output="/output"
+output2="/tmp/output"
+if [ -f /pr2mask/imageAndMask2Report ]; then
     # enable the automatic report generation
     auto_report_mode=1
     if [ ! -d "${output2}" ]; then
@@ -31,7 +32,7 @@ fi
 set +euo pipefail
 conda activate "${conda_env}"
 if [ $? -ne 0 ]; then
-   echo "Error: activating conda environment \"$1\" failed."
+   echo "Error: activating conda environment \"$conda_env\" failed."
    exit -1
 fi
 set -euo pipefail
@@ -46,12 +47,12 @@ eval $cmd
 
 if [ "$output_report_mode" -eq 1 ]; then
     # only if we have access to pr2mask features we can do the following
-    imageAndMask2Report /data/input "${output2}" -u >> "${log_file}" 2>&1
-    json2SR "${output2}"/*.json >> "${log_file}" 2>&1
+    /pr2mask/imageAndMask2Report /data/input "${output2}/mask" -u -i "$VERSION" >> "${log_file}" 2>&1
+    /pr2mask/json2SR "${output2}"/*.json >> "${log_file}" 2>&1
     cp -R "${output2}"/fused "${output}"
     cp -R "${output2}"/labels "${output}"
     cp -R "${output2}"/report "${output}"
-    cp -R "${output2}"/redcap/*/output.json "${output}"
+    cp -R "${output2}"/redcap "${output}"
     cp -R "${output2}"/*.dcm "${output}"
     chmod -R 777 /output
 fi
