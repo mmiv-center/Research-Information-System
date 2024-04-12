@@ -2819,7 +2819,7 @@ func ast2Select(ast AST) string {
 	return stm
 }
 
-func callProgram(config Config, triggerWaitTime string, trigger_container string, dir string, trigger_memory string, trigger_cpus string) {
+func callProgram(config Config, triggerWaitTime string, trigger_container string, trigger_cont_options string, dir string, trigger_memory string, trigger_cpus string) {
 	if config.CallString == "" {
 		exitGracefully(fmt.Errorf("could not run trigger command, no CallString defined\n\n\t%s config --call \"python3 ./stub.py\"", own_name))
 	}
@@ -2861,6 +2861,9 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 		}
 		if trigger_cpus != "" {
 			arr2 = append(arr2, fmt.Sprintf("--cpus=\"%s\"", trigger_cpus))
+		}
+		if trigger_cont_options != "" {
+			arr2 = append(arr2, fmt.Sprintf("--env ROR_CONT_OPTIONS=\"%s\"", trigger_cont_options))
 		}
 		arr2 = append(arr2, "-v", fmt.Sprintf("%s:/data:ro", strings.Replace(dir, " ", "\\ ", -1)))
 		arr2 = append(arr2, "-v", output_mount)
@@ -3203,6 +3206,8 @@ func main() {
 	triggerCommand.StringVar(&trigger_job, "job", "", "Trigger a specific job. Specify a number based on the order of jobs returned by status --jobs.")
 	var trigger_job_folder string
 	triggerCommand.StringVar(&trigger_job_folder, "folder", "", "Specify the directory name where the data folder should be placed. The folder will still be placed into the specified temp directory.")
+	var trigger_cont_options string
+	triggerCommand.StringVar(&trigger_cont_options, "envs", "", "Specify a string provided as an environment variable ROR_CONT_OPTIONS inside the container. The string could be a json formatted dictionary for example.")
 
 	// allow to specify the ror directory when you do status
 	statusCommand.StringVar(&input_dir, "working_directory", ".", defaultInputDir)
@@ -4106,7 +4111,7 @@ func main() {
 				if _, err := os.Stat(folder); os.IsNotExist(err) {
 					exitGracefully(fmt.Errorf("%s could not be found. Create one with 'ror trigger --keep'", folder))
 				}
-				callProgram(config, triggerWaitTime, trigger_container, folder, trigger_memory, trigger_cpus)
+				callProgram(config, triggerWaitTime, trigger_container, trigger_cont_options, folder, trigger_memory, trigger_cpus)
 			}
 
 			// make sure we have updated classifyRules.json loaded here ... just in case if the user
@@ -4354,7 +4359,7 @@ func main() {
 				_ = ioutil.WriteFile(dir+"/descr.json", file, 0644)
 				if !trigger_test {
 					// check if the call string is empty
-					callProgram(config, triggerWaitTime, trigger_container, dir, trigger_memory, trigger_cpus)
+					callProgram(config, triggerWaitTime, trigger_container, trigger_cont_options, dir, trigger_memory, trigger_cpus)
 
 					// In case we where running the program we can check the output folder
 					// for data that we can use. That would be structures in output/output.json
