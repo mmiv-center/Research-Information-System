@@ -2863,7 +2863,7 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 			arr2 = append(arr2, fmt.Sprintf("--cpus=\"%s\"", trigger_cpus))
 		}
 		if trigger_cont_options != "" {
-			arr2 = append(arr2, "--env", fmt.Sprintf("ROR_CONT_OPTIONS=\"%s\"", trigger_cont_options))
+			arr2 = append(arr2, "--env", fmt.Sprintf("ROR_CONT_OPTIONS='%s'", trigger_cont_options))
 		}
 		arr2 = append(arr2, "-v", fmt.Sprintf("%s:/data:ro", strings.Replace(dir, " ", "\\ ", -1)))
 		arr2 = append(arr2, "-v", output_mount)
