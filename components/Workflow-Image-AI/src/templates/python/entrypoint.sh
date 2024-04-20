@@ -11,6 +11,15 @@ if [ -z "$conda_env" ]; then
     exit -1
 fi
 
+# Handle environment variables provided to ror as --envs "ROR_CONT_OPTIONS={\"a\":1}"
+options=""
+if [ ! -z "$ROR_CONT_OPTIONS" ]; then
+    for key in $(echo "$ROR_CONT_OPTIONS" | jq -r "keys[]"); do
+        value=$(echo "$ROR_CONT_OPTIONS" | jq '."'$key'"')
+        options="${options}$key $value "
+    done
+fi
+
 # where is pr2mask?
 export PATH="/pr2mask:$PATH"
 
@@ -47,7 +56,7 @@ eval $cmd
 
 if [ "$auto_report_mode" -eq 1 ]; then
     # only if we have access to pr2mask features we can do the following
-    /pr2mask/imageAndMask2Report /data/input "${output2}/mask" "${output2}" -u -i "$VERSION" --reporttype mosaic >> "${log_file}" 2>&1
+    /pr2mask/imageAndMask2Report /data/input "${output2}/mask" "${output2}" -u -i "$VERSION" --reporttype mosaic $options >> "${log_file}" 2>&1
     /pr2mask/json2SR "${output2}"/*.json >> "${log_file}" 2>&1
     cp -R "${output2}"/fused "${output}"
     cp -R "${output2}"/labels "${output}"

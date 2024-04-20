@@ -2854,8 +2854,19 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	var output_path = fmt.Sprintf("%s_output", strings.Replace(dir, " ", "\\ ", -1))
 	var output_mount = fmt.Sprintf("%s_output:/output", strings.Replace(dir, " ", "\\ ", -1))
 	if trigger_container != "" {
+		// docker may be in two places /usr/bin/docker or /usr/local/bin/docker, find out which
+		docker_exec := "/usr/local/bin/docker"
+		fname, err := exec.LookPath("docker")
+		if err == nil {
+			docker_exec, err = filepath.Abs(fname)
+		}
+		if err != nil {
+			log.Fatal(err)
+			exitGracefully(fmt.Errorf("no docker executable in /usr/bin/docker or /usr/local/bin/docker"))
+		}
+
 		// we would run this potentially as a different user (www-data), we need to specify the full path /usr/bin/docker(?)
-		arr2 := []string{"/usr/bin/docker", "run", "--rm"}
+		arr2 := []string{docker_exec, "run", "--rm"}
 		if trigger_memory != "" {
 			arr2 = append(arr2, "-m", trigger_memory)
 		}
@@ -2863,13 +2874,23 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 			arr2 = append(arr2, fmt.Sprintf("--cpus=\"%s\"", trigger_cpus))
 		}
 		if trigger_cont_options != "" {
-			arr2 = append(arr2, "--env", fmt.Sprintf("ROR_CONT_OPTIONS='%s'", trigger_cont_options))
+			arr2 = append(arr2, "--env", fmt.Sprintf("ROR_CONT_OPTIONS=%s", trigger_cont_options))
 		}
 		arr2 = append(arr2, "-v", fmt.Sprintf("%s:/data:ro", strings.Replace(dir, " ", "\\ ", -1)))
 		arr2 = append(arr2, "-v", output_mount)
 		arr2 = append(arr2, trigger_container)
 		arr2 = append(arr2, arr...)
-		fmt.Println(strings.Join(arr2, " "))
+		fmt.Println("#")
+		for idx, value := range arr2 {
+			if idx > 0 {
+				fmt.Printf("\t%s \\\n", value)
+			} else {
+				fmt.Printf("# %s \\\n", value)
+			}
+		}
+		//fmt.Printf("# %s\n", strings.Join(arr2, " "))
+		fmt.Println("#")
+		cmd_string = arr2
 		cmd = exec.Command(arr2[0], arr2[1:]...)
 	} else {
 		cmd_str := config.CallString
@@ -2896,16 +2917,19 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	cmd.Stderr = &errb
 	exitCode := cmd.Run()
 	if exitCode != nil {
-		exitGracefully(fmt.Errorf("could not run trigger command\n\t%s\nError code: %s\n\t%s", strings.Join(arr[:], " "), exitCode.Error(), errb.String()))
+		fmt.Println(fmt.Errorf("could not run trigger command\n\t%s\nError code: %s\n\t%s", strings.Join(arr[:], " "), exitCode.Error(), errb.String()))
 	}
+
 	// store stdout and stderr as log files
 	if _, err := os.Stat(output_path + "/log"); err != nil && os.IsNotExist(err) {
 		if err := os.Mkdir(output_path+"/log", 0755); os.IsExist(err) {
 			exitGracefully(errors.New("directory exist already"))
 		}
 	}
+
 	// write the log files
 	var stdout_log string = fmt.Sprintf("%s/log/stdout.log", output_path)
+	fmt.Printf("Write stdout to %s\n", stdout_log)
 	f_log_stdout, err := os.OpenFile(stdout_log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		exitGracefully(errors.New("could not open file " + stdout_log))
@@ -2917,6 +2941,7 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	}
 
 	var stderr_log string = fmt.Sprintf("%s/log/stderr.log", output_path)
+	fmt.Printf("Write stderr to %s\n", stderr_log)
 	f_log_stderr, err := os.OpenFile(stderr_log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		exitGracefully(errors.New("could not open " + stderr_log))
@@ -3207,7 +3232,7 @@ func main() {
 	var trigger_job_folder string
 	triggerCommand.StringVar(&trigger_job_folder, "folder", "", "Specify the directory name where the data folder should be placed. The folder will still be placed into the specified temp directory.")
 	var trigger_cont_options string
-	triggerCommand.StringVar(&trigger_cont_options, "envs", "", "Specify a string provided as an environment variable ROR_CONT_OPTIONS inside the container. The string could be a json formatted dictionary for example.")
+	triggerCommand.StringVar(&trigger_cont_options, "envs", "", "Specify an environment variable set inside the docker container. Inside the container the value will be assigned to $ROR_CONT_OPTIONS ('{\"-z\":1}').")
 
 	// allow to specify the ror directory when you do status
 	statusCommand.StringVar(&input_dir, "working_directory", ".", defaultInputDir)
