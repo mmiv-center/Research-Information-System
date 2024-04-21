@@ -53,7 +53,7 @@ import (
 	"github.com/rivo/tview"
 )
 
-const version string = "0.0.4"
+const version string = "0.0.5"
 
 // The string below will be replaced during build time using
 // -ldflags "-X main.compileDate=`date -u +.%Y%m%d.%H%M%S"`"
@@ -808,7 +808,7 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 		// we can try to convert the image here based on the pixel representation
 		var img image.Image
 		var convertHere bool = true
-		if convertHere && PixelRepresentation == 1 {
+		if convertHere && PixelRepresentation == 0 {
 			native_img, _ := fr.GetNativeFrame()
 			if PixelPaddingValue != 0 { // this is for modality CT
 				// if we have such a value we cannot assume it will actually work,
@@ -1195,7 +1195,7 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 		}
 	}
 	if config.Data.Path == "" {
-		return datasets, fmt.Errorf("no data path for example data has been specified. Use\n\tror config --data \"path-to-data\" to set such a directory of DICOM data")
+		return datasets, fmt.Errorf("\033[1mWhat's next?\033[0m\nNo data path for example data has been specified. Use\n\tror config --data \"path-to-data\" to set such a directory of DICOM data")
 	}
 	var input_path_list []string
 	if _, err := os.Stat(config.Data.Path); err != nil && os.IsNotExist(err) {
@@ -1660,7 +1660,7 @@ func generateAST(datasets map[string]map[string]SeriesInfo) (AST, float64) {
 					variables[key] = new(base.CategoricalAttribute)
 					cats = append(cats, key)
 				} else {
-					fmt.Println("SHould never happen, wrong Type")
+					fmt.Println("Should never happen, wrong Type")
 				}
 			}
 			rowCount = rowCount + 1
@@ -3422,12 +3422,16 @@ func main() {
 			repo_url := ""
 			if init_type == "" {
 				reader := bufio.NewReader(os.Stdin)
-				fmt.Printf("Project type (python, notebook, bash, webapp, repo-url): ")
+				fmt.Printf("Project type (python, notebook, bash, webapp, repo-url) [python]: ")
 				init_type, err = reader.ReadString('\n')
 				if err != nil {
 					init_type = "notebook"
 				}
 				init_type = strings.TrimSuffix(init_type, "\n")
+				if init_type == "" {
+					init_type = "python"
+				}
+
 				if isGitHubURL(init_type) {
 					repo_url = init_type // remember the actual url to use
 					init_type = "repo-url"
@@ -3586,14 +3590,15 @@ func main() {
 				createStub(dockerfile_path2, webapp_dockerfile)
 			}
 
-			fmt.Printf("\nInit new project folder \"%s\" done.\n", input_dir)
-			fmt.Printf("You might want to add a data folder with DICOM files to get started\n\n\tcd \"%s\"\n\t%s config --data <data folder>\n\n", input_dir, own_name)
+			fmt.Printf("\nInit new project folder \"%s\" done.\n\n", input_dir)
+			fmt.Printf("\033[1mWhat's next?\033[0m\nAdd a data folder with DICOM files to get started:\n  cd \"%s\"\n  %s config --data <data folder>\n\n", input_dir, own_name)
 			fmt.Println(
-				"For testing you may download publicly available DICOM data by\n" +
-					" mkdir data; cd data;\n" +
-					" git clone https://github.com/ImagingInformatics/hackathon-dataset.git\n" +
-					" cd hackathon-dataset\n" +
-					" git submodule update --init --recursive")
+				"No DICOM data? Download some publicly available DICOM files from:\n" +
+					"  mkdir data; cd data;\n" +
+					"  git clone https://github.com/ImagingInformatics/hackathon-dataset.git\n" +
+					"  cd hackathon-dataset\n" +
+					"  git submodule update --init --recursive")
+			fmt.Println("")
 		}
 	case "config":
 		if len(os.Args[2:]) == 0 {
@@ -3694,7 +3699,7 @@ func main() {
 				config.Data.DataInfo = studies
 				config.Data.Path = data_path
 				if config_temp_directory == "" {
-					fmt.Printf("For testing a workflow you might next want to set the temp directory\n\n\t"+
+					fmt.Printf("\033[1mWhat's next?\033[0m\nFor testing a workflow you might next want to set the temp directory\n\n\t"+
 						"%s config --temp_directory \"<folder>\"\n\nExample trigger data folders will appear there.\n",
 						own_name)
 				}
@@ -3812,7 +3817,7 @@ func main() {
 					exitGracefully(errors.New("this temp_directory path does not exist"))
 				}
 				config.TempDirectory = config_temp_directory
-				fmt.Printf("You can trigger a workflow now. Use\n\n\t%s trigger --keep\n\nto leave the data folder in the temp directory for inspection.\n", own_name)
+				fmt.Printf("\033[1mWhat's next?\033[0m\nYou can trigger a workflow now. Use\n\n\t%s trigger --keep\n\nto leave the data folder in the temp directory for inspection.\n", own_name)
 			}
 			if config_suggest {
 				if config.Data.DataInfo == nil {
@@ -4446,7 +4451,7 @@ func main() {
 			projectName = strings.Replace(projectName, " ", "_", -1)
 			projectName = strings.ToLower(projectName)
 			fmt.Println("\nWe will assume a python/pip based workflow and fall back to using conda.")
-			fmt.Println("There is no automated build yet, please follow these instructions.")
+			fmt.Println("There is no automated build, please follow these instructions.")
 			fmt.Println("\nThere are only two steps that need to be done, create a list of")
 			fmt.Println("requirements and build a container. Run pip freeze to update the")
 			fmt.Println("list of python packages (requires pip):")
