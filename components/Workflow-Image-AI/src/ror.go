@@ -3156,7 +3156,7 @@ func main() {
 	const (
 		defaultInputDir    = "Specify where you want to setup shop"
 		defaultTriggerTime = "A wait time in seconds or minutes before the computation is triggered"
-		errorConfigFile    = "the current directory is not an ror directory. Change to the correct directory first or create a new folder by running\n\n\tror init project01\n "
+		errorConfigFile    = "The current directory is not a ror directory. Change to the correct directory first or create a new directory with\n\n\tror init project01\n "
 	)
 
 	initCommand := flag.NewFlagSet("init", flag.ContinueOnError)
