@@ -15,7 +15,7 @@ fi
 options=""
 if [ ! -z "$ROR_CONT_OPTIONS" ]; then
     for key in $(echo "$ROR_CONT_OPTIONS" | jq -r "keys[]"); do
-        value=$(echo "$ROR_CONT_OPTIONS" | jq '."'$key'"')
+        value=$(echo "$ROR_CONT_OPTIONS" | jq -r '."'$key'"')
         options="${options}$key $value "
     done
 fi
