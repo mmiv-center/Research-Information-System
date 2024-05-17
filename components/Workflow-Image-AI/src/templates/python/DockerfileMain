@@ -65,4 +65,3 @@ ENV DCMDICTPATH=/dcmtk/dcmdata/data/dicom.dic
 
 # The code to run when container is started:
 RUN ["chmod", "+x", "/app/entrypoint.sh"]
-#ENTRYPOINT [ "/app/entrypoint.sh", "$conda_env" ]
