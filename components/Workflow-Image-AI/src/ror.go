@@ -1861,7 +1861,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 	}
 
 	targetType := func(s string) string {
-		if s == "NumImages" || s == "SeriesNumber" {
+		if s == "NumImages" || s == "SeriesNumber" || s == "0x0020,0x0011" {
 			return "numeric"
 		}
 		return "text"
@@ -2003,9 +2003,13 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			operatorIdx := rand.Intn((len(operators) - 0) + 0)
 			op = operators[operatorIdx]
 		}
+		var ts []string = []string{t}
+		if strings.Contains(t, ",") {
+			ts = strings.Split(t, ",")
+		}
 
 		r := Rule{
-			Tag:      []string{t},
+			Tag:      ts,
 			Value:    val,
 			Operator: op,
 		}
@@ -2058,33 +2062,60 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 
 	// changeRules adjust the rules once using Metropolis-Hastings
 	changeRules := func(ast AST, targetValues map[string][]string) bool {
-		// pick a random rule
-		var rulesetIdx int = -1
-		if len(ast.Rules) > 0 {
-			rulesetIdx = rand.Intn((len(ast.Rules) - 0) + 0)
+		//
+		// pick a random existing rule from the tree (traverse the tree and make list of leafs)
+		//
+		var traverse func(rs RuleSetL) []*Rule
+		traverse = func(rs RuleSetL) []*Rule {
+			var res []*Rule = make([]*Rule, 0)
+			if rs.Rs1 == nil {
+				// we have a left leaf
+				if rs.Leaf1 != nil {
+					res = append(res, &(*rs.Leaf1))
+				}
+			} else {
+				erg := traverse(*rs.Rs1)
+				res = append(res, erg...)
+			}
+			if rs.Rs2 == nil {
+				if rs.Leaf2 != nil {
+					res = append(res, &(*rs.Leaf2))
+				}
+			} else {
+				erg := traverse(*rs.Rs2)
+				res = append(res, erg...)
+			}
+
+			return res
 		}
+		var treeIdx int = -1
+		if len(ast.RulesTree) > 0 {
+			treeIdx = rand.Intn((len(ast.RulesTree) - 0) + 0)
+		}
+		if treeIdx == -1 {
+			return false
+		}
+
+		all_rules := traverse(ast.RulesTree[treeIdx].Rs)
+		var rulesetIdx int = -1
+		if len(all_rules) > 0 {
+			rulesetIdx = rand.Intn((len(all_rules) - 0) + 0)
+		}
+
 		if rulesetIdx == -1 {
 			return false
 		}
-		var ruleIdx int = -1
-		if len(ast.Rules[rulesetIdx].Rs) > 0 {
-			ruleIdx = rand.Intn((len(ast.Rules[rulesetIdx].Rs) - 0) + 0)
-		}
-		if ruleIdx > -1 {
-			ok := changeRule(&ast.Rules[rulesetIdx].Rs[ruleIdx], targetValues)
-			// or add a new rule
+		ok := changeRule(all_rules[rulesetIdx], targetValues)
+		// or add a new rule
+		if !ok {
+			ok = addRule(&ast.Rules[rulesetIdx], targetValues)
 			if !ok {
-				ok = addRule(&ast.Rules[rulesetIdx], targetValues)
+				ok = addRules(&ast.Rules, targetValues)
 				if !ok {
-					ok = addRules(&ast.Rules, targetValues)
-					if !ok {
-						fmt.Println("We failed with changing anything.")
-						return false
-					}
+					fmt.Println("We failed with changing anything.")
+					return false
 				}
 			}
-		} else {
-			return false
 		}
 		return true
 	}
