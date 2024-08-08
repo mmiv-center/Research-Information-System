@@ -2045,7 +2045,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 	}
 
 	// addRules: add a new complete rule set
-	addRules := func(rules *[]RuleSet, targetValues map[string][]string) bool {
+	/*addRules := func(rules *[]RuleSet, targetValues map[string][]string) bool {
 		// get a new rule
 		var rr RuleSet = RuleSet{
 			Name: "",
@@ -2058,7 +2058,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			return false
 		}
 		return true
-	}
+	}*/
 
 	// changeRules adjust the rules once using Metropolis-Hastings
 	changeRules := func(ast AST, targetValues map[string][]string) bool {
@@ -2108,14 +2108,17 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		ok := changeRule(all_rules[rulesetIdx], targetValues)
 		// or add a new rule
 		if !ok {
-			ok = addRule(&ast.Rules[rulesetIdx], targetValues)
+			// this does not work... we need to add a rule into the tree instead
+			fmt.Println("Warning: could not change a rule, TODO: addRule into a RuleTree")
+
+			/*ok = addRule(&ast.Rules[rulesetIdx], targetValues)
 			if !ok {
 				ok = addRules(&ast.Rules, targetValues)
 				if !ok {
 					fmt.Println("We failed with changing anything.")
 					return false
 				}
-			}
+			}*/
 		}
 		return true
 	}
