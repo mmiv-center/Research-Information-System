@@ -5,7 +5,7 @@ FROM continuumio/miniconda3
 #
 
 WORKDIR /app
-COPY . /app
+COPY src/templates/python/entrypoint.sh /app
 
 #
 # A derived container should do the following
@@ -19,10 +19,12 @@ COPY . /app
 # Optional: provide it to docker build as a variable
 #    --build-arg conda_env="workflow_ai_test"
 #ARG conda_env=workflow_ai_test
+ARG conda_env
+ENV DEFAULT_CONDA_ENV=$conda_env
 
 LABEL "com.ror.vendor"="MMIV.no" \
-    version="1.0" \
-    com.ror.conda.env.name="${conda_env}" \
+    version="1.1" \
+    com.ror.conda.env.name="${DEFAULT_CONDA_ENV}" \
     description="Example docker container for workflow AI on the research information system at MMIV.no."
 
 # Make RUN commands use the new environment:
