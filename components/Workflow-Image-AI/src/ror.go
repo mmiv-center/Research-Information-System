@@ -2105,6 +2105,8 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		if rulesetIdx == -1 {
 			return false
 		}
+		// we should have options here, either change an existing rule or add a new rule into the tree
+
 		ok := changeRule(all_rules[rulesetIdx], targetValues)
 		// or add a new rule
 		if !ok {
