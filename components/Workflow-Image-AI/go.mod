@@ -1,17 +1,17 @@
 module github.com/mmiv-center/Research-Information-System/Workflow-Image-AI
 
-go 1.21
+go 1.22.0
 
-toolchain go1.22.6
+toolchain go1.23.4
 
 require (
 	github.com/gdamore/tcell/v2 v2.7.4
 	github.com/mkmik/argsort v1.1.0
-	github.com/rivo/tview v0.0.0-20240807205129-e4c497cc59ed
+	github.com/rivo/tview v0.0.0-20241103174730-c76f7879f592
 	github.com/sjwhitworth/golearn v0.0.0-20221228163002-74ae077eafb2
 	github.com/suyashkumar/dicom v1.0.7
-	golang.org/x/image v0.19.0
-	golang.org/x/text v0.17.0
+	golang.org/x/image v0.23.0
+	golang.org/x/text v0.21.0
 )
 
 require (
@@ -113,7 +113,7 @@ require (
 	github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1 // indirect
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
-	github.com/guptarohit/asciigraph v0.7.2 // indirect
+	github.com/guptarohit/asciigraph v0.7.3 // indirect
 	github.com/hashicorp/go-uuid v0.0.0-20180228145832-27454136f036 // indirect
 	github.com/hashicorp/golang-lru v0.5.1 // indirect
 	github.com/hpcloud/tail v1.0.0 // indirect
@@ -205,23 +205,23 @@ require (
 	go.opencensus.io v0.22.3 // indirect
 	go4.org v0.0.0-20180809161055-417644f6feb5 // indirect
 	golang.org/x/build v0.0.0-20200402160453-61705b562fc9 // indirect
-	golang.org/x/crypto v0.26.0 // indirect
-	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa // indirect
+	golang.org/x/crypto v0.30.0 // indirect
+	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67 // indirect
 	golang.org/x/exp/shiny v0.0.0-20230801115018-d63ba01acd4b // indirect
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
 	golang.org/x/mobile v0.0.0-20201217150744-e6ae53a27f4f // indirect
-	golang.org/x/mod v0.20.0 // indirect
-	golang.org/x/net v0.28.0 // indirect
+	golang.org/x/mod v0.22.0 // indirect
+	golang.org/x/net v0.32.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/perf v0.0.0-20180704124530-6e6d33e29852 // indirect
-	golang.org/x/sync v0.8.0 // indirect
-	golang.org/x/sys v0.24.0 // indirect
+	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/telemetry v0.0.0-20240521205824-bda55230c457 // indirect
-	golang.org/x/term v0.23.0 // indirect
+	golang.org/x/term v0.27.0 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
-	golang.org/x/tools v0.24.0 // indirect
+	golang.org/x/tools v0.28.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
-	gonum.org/v1/gonum v0.15.0 // indirect
+	gonum.org/v1/gonum v0.15.1 // indirect
 	gonum.org/v1/netlib v0.0.0-20190313105609-8cb42192e0e0 // indirect
 	gonum.org/v1/plot v0.14.0 // indirect
 	google.golang.org/api v0.22.0 // indirect
