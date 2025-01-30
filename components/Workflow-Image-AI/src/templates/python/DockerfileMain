@@ -1,7 +1,7 @@
 FROM continuumio/miniconda3 AS build
 #
 # build from ror-enabled directory as (replace name of conda_env with name used in requirements.yml):
-#    docker build --no-cache --build-arg conda_env="workflow_ai_test" -f .ror/virt/Dockerfile -t haukebartsch/fiona-component-python:latest .
+#    docker build --no-cache --build-arg conda_env="workflow_ai_test" -f src/templates/python/DockerfileMain -t haukebartsch/fiona-component-python:latest .
 #
 
 WORKDIR /app
