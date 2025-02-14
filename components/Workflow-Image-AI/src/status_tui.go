@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -27,6 +28,7 @@ type StatusTUI struct {
 	selectedSeriesInformation SeriesInfo
 	config                    Config
 	stopAnimation             bool
+	lastSelectedSeries        string
 }
 
 func findSeriesInfo(dataSets map[string]map[string]SeriesInfo, SeriesInstanceUID string) (SeriesInfo, error) {
@@ -60,7 +62,7 @@ func addDataset(statusTUI *StatusTUI, dataset dicom.Dataset) {
 }
 
 func (statusTUI *StatusTUI) Init() {
-	if statusTUI.dataSets == nil || len(statusTUI.dataSets) == 0 {
+	if len(statusTUI.dataSets) == 0 {
 		fmt.Println("Warning: there are no datasets to visualize")
 	}
 	if len(statusTUI.ast.Rules) == 0 {
@@ -114,12 +116,41 @@ func (statusTUI *StatusTUI) Init() {
 		if firstSeries.NumImages == 1 {
 			s = ""
 		}
-	    for _, entry2 := range entry {
+		// sort the entries in the list by SeriesNumber + SeriesDescription
+		type OneStudy struct {
+			SeriesNumber      int
+			SeriesDescription string
+			SeriesInstanceUID string
+			NumImages         int
+			Name              string
+		}
+		var AllSeries []OneStudy = make([]OneStudy, 0)
+		for _, entry2 := range entry {
 			firstSeries, err := findSeriesInfo(statusTUI.dataSets, entry2.SeriesInstanceUID)
 			if err != nil {
 				continue
 			}
-			node2 := tview.NewTreeNode(fmt.Sprintf("%s series %d \"%s\" [gray]%s[-] %d image%s", entry2.Name, firstSeries.SeriesNumber, firstSeries.SeriesDescription, entry2.SeriesInstanceUID, firstSeries.NumImages, s)).
+			AllSeries = append(AllSeries, OneStudy{
+				SeriesNumber:      firstSeries.SeriesNumber,
+				SeriesDescription: firstSeries.SeriesDescription,
+				SeriesInstanceUID: entry2.SeriesInstanceUID,
+				NumImages:         firstSeries.NumImages,
+				Name:              entry2.Name,
+			})
+		}
+		// sort AllSeries now
+		sort.Slice(AllSeries[:], func(i, j int) bool {
+			if AllSeries[i].SeriesNumber < AllSeries[j].SeriesNumber {
+				return true
+			}
+			if (AllSeries[i].SeriesNumber == AllSeries[j].SeriesNumber) && (AllSeries[i].SeriesDescription < AllSeries[j].SeriesDescription) {
+				return true
+			}
+			return false
+		})
+		// what is an appropriate number of decimal places for the SeriesNumber to line up?
+		for _, entry2 := range AllSeries {
+			node2 := tview.NewTreeNode(fmt.Sprintf("%s series %03d \"%s\" [gray]%s[-] %d image%s", entry2.Name, entry2.SeriesNumber, entry2.SeriesDescription, entry2.SeriesInstanceUID, entry2.NumImages, s)).
 				SetReference(entry2.SeriesInstanceUID).
 				SetSelectable(true)
 			node.AddChild(node2)
@@ -127,7 +158,17 @@ func (statusTUI *StatusTUI) Init() {
 	}
 
 	statusTUI.selection.SetSelectedFunc(func(node *tview.TreeNode) {
+		// calling this function twice for the same node should disable the function again
 		SeriesInstanceUID := node.GetReference().(string)
+		// is the SeriesInstanceUID the same as the one before? Switch off in that case?
+		if statusTUI.lastSelectedSeries == SeriesInstanceUID {
+			statusTUI.stopAnimation = true
+			statusTUI.lastSelectedSeries = "" // set to empty so we can start it again after the next select
+			return
+		}
+		statusTUI.stopAnimation = false
+		statusTUI.lastSelectedSeries = SeriesInstanceUID
+
 		if len(SeriesInstanceUID) == 0 {
 			return
 		}
@@ -214,7 +255,7 @@ func showImage(statusTUI *StatusTUI, idx int) {
 
 }
 
-//nextImage displays one image from the currently selected image series in the viewer
+// nextImage displays one image from the currently selected image series in the viewer
 func nextImage(statusTUI *StatusTUI, t time.Time) {
 	if statusTUI.stopAnimation {
 		return

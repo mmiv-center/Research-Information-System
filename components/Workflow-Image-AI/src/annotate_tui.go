@@ -51,7 +51,7 @@ func (annotateTUI *AnnotateTUI) addDataset(dataset dicom.Dataset) {
 }
 
 func (annotateTUI *AnnotateTUI) Init() {
-	if annotateTUI.dataSets == nil || len(annotateTUI.dataSets) == 0 {
+	if len(annotateTUI.dataSets) == 0 {
 		fmt.Println("Warning: there are no datasets to visualize")
 	}
 	if len(annotateTUI.ast.Rules) == 0 {
@@ -286,7 +286,7 @@ func doEveryAnnotate(d time.Duration, annotateTUI *AnnotateTUI, f func(*Annotate
 	}
 }
 
-//nextImage displays one image from the currently selected image series in the viewer
+// nextImage displays one image from the currently selected image series in the viewer
 func nextImageAnnotate(annotateTUI *AnnotateTUI, t time.Time) {
 	//fmt.Printf("do something %p\n", &statusTUI.selectedDatasets)
 	if len(annotateTUI.selectedDatasets) == 0 {
