@@ -123,6 +123,7 @@ func (statusTUI *StatusTUI) Init() {
 			SeriesInstanceUID string
 			NumImages         int
 			Name              string
+			SequenceName      string
 		}
 		var AllSeries []OneStudy = make([]OneStudy, 0)
 		for _, entry2 := range entry {
@@ -136,6 +137,7 @@ func (statusTUI *StatusTUI) Init() {
 				SeriesInstanceUID: entry2.SeriesInstanceUID,
 				NumImages:         firstSeries.NumImages,
 				Name:              entry2.Name,
+				SequenceName:      firstSeries.SequenceName,
 			})
 		}
 		// sort AllSeries now
@@ -150,7 +152,11 @@ func (statusTUI *StatusTUI) Init() {
 		})
 		// what is an appropriate number of decimal places for the SeriesNumber to line up?
 		for _, entry2 := range AllSeries {
-			node2 := tview.NewTreeNode(fmt.Sprintf("%s series %03d \"%s\" [gray]%s[-] %d image%s", entry2.Name, entry2.SeriesNumber, entry2.SeriesDescription, entry2.SeriesInstanceUID, entry2.NumImages, s)).
+			ss := entry2.SequenceName
+			if len(entry2.SequenceName) > 0 {
+				ss = " \"" + ss + "\""
+			}
+			node2 := tview.NewTreeNode(fmt.Sprintf("%s series %03d%s [blue]\"%s\"[-] [gray]%s[-] %d image%s", entry2.Name, entry2.SeriesNumber, ss, entry2.SeriesDescription, entry2.SeriesInstanceUID, entry2.NumImages, s)).
 				SetReference(entry2.SeriesInstanceUID).
 				SetSelectable(true)
 			node.AddChild(node2)
