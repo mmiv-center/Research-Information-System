@@ -51,9 +51,9 @@ RUN wget https://github.com/Kitware/CMake/releases/download/v3.24.1/cmake-3.24.1
       && ln -s /opt/cmake-3.24.1/bin/* /usr/local/bin
 
 # install itk
-RUN cd /tmp/ && wget https://github.com/InsightSoftwareConsortium/ITK/releases/download/v5.3.0/InsightToolkit-5.3.0.tar.gz \
-    && cd /opt/ && tar xzvf /tmp/InsightToolkit-5.3.0.tar.gz && cd /opt/InsightToolkit-5.3.0 \
-    && mkdir bin && cd bin && cmake -DModule_MorphologicalContourInterpolation:BOOL=ON .. && make -j 4 && rm /tmp/InsightToolkit-5.3.0.tar.gz
+RUN cd /tmp/ && wget https://github.com/InsightSoftwareConsortium/ITK/releases/download/v5.4.2/InsightToolkit-5.4.2.tar.gz \
+    && cd /opt/ && tar xzvf /tmp/InsightToolkit-5.4.2.tar.gz && cd /opt/InsightToolkit-5.4.2 \
+    && mkdir bin && cd bin && cmake -DModule_MorphologicalContourInterpolation:BOOL=ON .. && make -j 4 && rm /tmp/InsightToolkit-5.4.2.tar.gz
 
 # install dcmtk
 RUN cd / && git clone https://github.com/DCMTK/dcmtk.git && cd dcmtk && cmake . && make -j4
@@ -65,7 +65,7 @@ RUN mkdir /pr2mask && cd /pr2mask && git clone https://github.com/mmiv-center/pr
 
 FROM continuumio/miniconda3
 
-COPY --from=build /opt/InsightToolkit-5.3.0/bin /opt/InsightToolkit-5.3.0/bin
+COPY --from=build /opt/InsightToolkit-5.3.0/bin /opt/InsightToolkit-5.4.2/bin
 COPY --from=build /dcmtk /dcmtk
 COPY --from=build /pr2mask /pr2mask
 
