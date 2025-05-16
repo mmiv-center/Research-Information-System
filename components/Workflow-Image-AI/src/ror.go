@@ -809,7 +809,11 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 		var img image.Image
 		var convertHere bool = true
 		if convertHere && PixelRepresentation == 0 {
-			native_img, _ := fr.GetNativeFrame()
+			native_img, err := fr.GetNativeFrame()
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
 			if PixelPaddingValue != 0 { // this is for modality CT
 				// if we have such a value we cannot assume it will actually work,
 				// GE is an example where they used other values
