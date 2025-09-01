@@ -61,6 +61,9 @@ var compileDate string = ".unknown"
 
 var own_name string = "ror"
 
+// if we need an mcp server supporting http, by default use stdin/stdout
+var mcp_http string
+
 // will store the path to the config file
 var input_dir string
 
@@ -3201,6 +3204,9 @@ func main() {
 	statusCommand := flag.NewFlagSet("status", flag.ContinueOnError)
 	buildCommand := flag.NewFlagSet("build", flag.ContinueOnError)
 	annotateCommand := flag.NewFlagSet("annotate", flag.ContinueOnError)
+	mcpCommand := flag.NewFlagSet("mcp", flag.ContinueOnError)
+
+	mcpCommand.StringVar(&mcp_http, "http", "", "if set, use streamable HTTP at this address, instead of stdin/stdout")
 
 	initCommand.StringVar(&input_dir, "input_dir", ".", defaultInputDir)
 	var init_help bool
@@ -3346,6 +3352,8 @@ func main() {
 		buildCommand.PrintDefaults()
 		fmt.Printf("\nOption annotate:\n  Add annotations to datasets.\n\n")
 		annotateCommand.PrintDefaults()
+		fmt.Printf("\nOption mcp:\n  Model context protocol (MCP) for LLMs.\n\n")
+		mcpCommand.PrintDefaults()
 		fmt.Println("")
 	}
 
@@ -3381,6 +3389,10 @@ func main() {
 	}
 
 	switch os.Args[1] {
+	case "mcp":
+		// start the mcp server
+		startMCP(mcp_http)
+
 	case "init", "create":
 		if len(os.Args[2:]) == 0 {
 			initCommand.PrintDefaults()
