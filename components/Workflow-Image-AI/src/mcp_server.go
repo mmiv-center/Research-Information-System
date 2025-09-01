@@ -277,11 +277,11 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *args)
 	}
 
 	res, err := req.Session.Elicit(ctx, &mcp.ElicitParams{
-		Message: "what data path should be added",
+		Message: "Where is the data that should be added",
 		RequestedSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
-				"newdatapath": {Type: "string"},
+				"newdatapath": {Type: "string", Description: "The directory path on the local machine that contains DICOM data to import.", Examples: []any{"file://somewhere/here/"}},
 			},
 		},
 	})
@@ -376,10 +376,20 @@ func elicitingTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.C
 }
 
 func complete(ctx context.Context, req *mcp.CompleteRequest) (*mcp.CompleteResult, error) {
+	var suggestions []string
+	switch req.Params.Ref.Type {
+	case "ref/prompt":
+		suggestions = []string{"ror init", "ror trigger", "ror config"}
+	case "ref/resource":
+		suggestions = []string{"numstudies", "numseries", "numimages", "numparticipants"}
+	default:
+		return nil, fmt.Errorf("unrecognized content type %s", req.Params.Ref.Type)
+	}
+
 	return &mcp.CompleteResult{
 		Completion: mcp.CompletionResultDetails{
-			Total:  1,
-			Values: []string{req.Params.Argument.Value + "x"},
+			Total:  len(suggestions),
+			Values: suggestions,
 		},
 	}, nil
 }

@@ -3213,6 +3213,7 @@ func main() {
 	mcpCommand := flag.NewFlagSet("mcp", flag.ContinueOnError)
 
 	mcpCommand.StringVar(&mcp_http, "http", "", "if set, use streamable HTTP at this address, instead of stdin/stdout")
+	mcpCommand.StringVar(&input_dir, "working_directory", ".", defaultInputDir)
 
 	initCommand.StringVar(&input_dir, "input_dir", ".", defaultInputDir)
 	var init_help bool
