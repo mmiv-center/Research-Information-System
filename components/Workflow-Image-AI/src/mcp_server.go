@@ -29,14 +29,15 @@ func startMCP(useHttp string) {
 	// Add tools that exercise different features of the protocol.
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet", Description: "say hi"}, contentTool)
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet (structured)"}, structuredTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "ror", Description: "ROR is a set of tools to create workflows for the research PACS. The list of tool includes clear current data."}, rorTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "ping"}, pingingTool)                                                                                                                           // performs a ping
-	mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                            // performs a log
-	mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                        // performs sampling
-	mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                       // performs elicitation
-	mcp.AddTool(server, &mcp.Tool{Name: "roots"}, rootsTool)                                                                                                                            // lists roots
+	mcp.AddTool(server, &mcp.Tool{Name: "ror", Description: "ROR (helm) is a set of tools to create workflows for the research PACS. The list of tool includes clearing out current data and adding new data."}, rorTool) // returns structured output
+	mcp.AddTool(server, &mcp.Tool{Name: "ping"}, pingingTool)                                                                                                                                                             // performs a ping
+	mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                                                              // performs a log
+	mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                          // performs sampling
+	mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                                                         // performs elicitation
+	mcp.AddTool(server, &mcp.Tool{Name: "roots"}, rootsTool)                                                                                                                                                              // lists roots
 
-	mcp.AddTool(server, &mcp.Tool{Name: "clear"}, clearOutDataCacheTool) // returns structured output
+	mcp.AddTool(server, &mcp.Tool{Name: "clear", Description: "ROR tool to clear out all data folders."}, clearOutDataCacheTool) // returns structured output
+	mcp.AddTool(server, &mcp.Tool{Name: "add", Description: "ROR tool to add a new data folder."}, addDataCacheTool)             // returns structured output
 
 	// Add a basic prompt.
 	server.AddPrompt(&mcp.Prompt{Name: "greet"}, prompt)
@@ -259,6 +260,44 @@ func clearOutDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *
 
 	// return that we cleared out the data cache, return the current number of dataset as well
 	return nil, &resultDataCache{Message: "Removed all data", NumStudies: 0, NumSeries: 0, NumImages: 0}, nil
+}
+
+func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultDataCache, error) {
+	// ask the user for the directory of the data to add
+	// find out if there is data, if there is no ror folder produce an error
+	var err error
+	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+		return nil, &resultDataCache{Message: "Error could not get ror directory."}, err
+	}
+	// make the config
+	dir_path := input_dir + "/.ror/config"
+	config, err := readConfig(dir_path)
+	if err != nil {
+		return nil, &resultDataCache{Message: "Error could not read config file from ror directory."}, err
+	}
+
+	res, err := req.Session.Elicit(ctx, &mcp.ElicitParams{
+		Message: "what data path should be added",
+		RequestedSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"newdatapath": {Type: "string"},
+			},
+		},
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("eliciting failed: %v", err)
+	}
+	// use res to add the data
+	fmt.Printf("%v", res)
+
+	// this will use input_dir to write
+	if !config.writeConfig() {
+		return nil, &resultDataCache{Message: "Error could not write config file into ror directory."}, err
+	}
+
+	// return that we cleared out the data cache, return the current number of dataset as well
+	return nil, &resultDataCache{Message: "Added the data path", NumStudies: 0, NumSeries: 0, NumImages: 0}, nil
 }
 
 // structuredTool returns a structured result.
