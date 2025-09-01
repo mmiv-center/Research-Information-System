@@ -22,6 +22,10 @@ LABEL "com.ror.vendor"="MMIV.no" \
 ENV REPORT_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
 ENV DCMDICTPATH=/dcmtk/dcmdata/data/dicom.dic
 
+# In case we need a proxy to connect to the internet on the build machine
+#ENV HTTP_PROXY="http://proxy.ihelse.net:3128"
+#ENV HTTPS_PROXY="http://proxy.ihelse.net:3128"
+
 # Create the environment:
 COPY .ror/virt/requirements.yml .
 RUN conda env create -f requirements.yml
