@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -29,12 +30,13 @@ func startMCP(useHttp string) {
 	// Add tools that exercise different features of the protocol.
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet", Description: "say hi"}, contentTool)
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet (structured)"}, structuredTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "ror", Description: "ROR (helm) is a set of tools to create workflows for the research PACS. The list of tool includes clearing out current data and adding new data."}, rorTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "ping"}, pingingTool)                                                                                                                                                             // performs a ping
-	mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                                                              // performs a log
-	mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                          // performs sampling
-	mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                                                         // performs elicitation
-	mcp.AddTool(server, &mcp.Tool{Name: "roots"}, rootsTool)                                                                                                                                                              // lists roots
+	mcp.AddTool(server, &mcp.Tool{Name: "ror/info", Description: "ROR (helm) is a set of tools to create workflows for the research PACS. The list of tool includes clearing out current data and adding new data."}, rorTool) // returns structured output
+	mcp.AddTool(server, &mcp.Tool{Name: "ping"}, pingingTool)                                                                                                                                                                  // performs a ping
+	mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                                                                   // performs a log
+	mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                               // performs sampling
+	mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                                                              // performs elicitation
+	mcp.AddTool(server, &mcp.Tool{Name: "roots"}, rootsTool)                                                                                                                                                                   // lists roots
+	mcp.AddTool(server, &mcp.Tool{Name: "roots/list"}, rootsListTool)                                                                                                                                                          // lists roots
 
 	mcp.AddTool(server, &mcp.Tool{Name: "clear", Description: "ROR tool to clear out all data folders."}, clearOutDataCacheTool) // returns structured output
 	mcp.AddTool(server, &mcp.Tool{Name: "add", Description: "ROR tool to add a new data folder."}, addDataCacheTool)             // returns structured output
@@ -123,6 +125,49 @@ func getInputDir(ctx context.Context, session *mcp.ServerSession) (string, error
 	}
 	dir_path := allroots[0] // should be "./.ror/config"
 	return dir_path, nil
+}
+
+// add all fields to the embeddedResources global variable (update them)
+func fillInEmbeddedResources(ctx context.Context, session *mcp.ServerSession) (map[string]string, error) {
+	var err error
+	if input_dir, err = getInputDir(ctx, session); err != nil {
+		return nil, fmt.Errorf("failed to read config file: %v", err)
+	}
+
+	dir_path := input_dir + "/.ror/config" // should be "./.ror/config"
+	config, err := readConfig(dir_path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %v", err)
+	}
+	embeddedResources["numstudies"] = fmt.Sprintf("%d", len(config.Data.DataInfo))
+
+	var datasets = make(map[string]map[string]SeriesInfo)
+	datasets = config.Data.DataInfo
+	numSeries := 0
+	for _, v := range datasets {
+		numSeries += len(v)
+	}
+	embeddedResources["numseries"] = fmt.Sprintf("%d", numSeries)
+
+	datasets = config.Data.DataInfo
+	numImages := 0
+	for _, v := range datasets {
+		for _, vv := range v {
+			numImages += vv.NumImages
+		}
+	}
+	embeddedResources["numimages"] = fmt.Sprintf("%d", numImages)
+
+	datasets = config.Data.DataInfo
+	var participants map[string]bool = make(map[string]bool)
+	for _, v := range datasets {
+		for _, vv := range v {
+			participants[fmt.Sprintf("%s%s", vv.PatientID, vv.PatientName)] = true
+		}
+	}
+	numParticipants := len(participants)
+	embeddedResources["numparticipants"] = fmt.Sprintf("%d", numParticipants)
+	return embeddedResources, nil
 }
 
 func embeddedResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
@@ -307,7 +352,23 @@ func structuredTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (
 
 // rorTool returns a structured result.
 func rorTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *result, error) {
-	return nil, &result{Message: "ROR is a tools to create workflows for the research PACS"}, nil
+	resources, err := fillInEmbeddedResources(ctx, req.Session)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("Error, could not fill in the resource information, %v", err)},
+			},
+		}, &result{Message: "ROR is a tools to create workflows for the research PACS"}, nil
+	}
+	jsonContent, err := json.Marshal(resources)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: string(jsonContent)},
+		},
+	}, &result{Message: "ROR is a tools to create workflows for the research PACS"}, nil
 }
 
 func pingingTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
@@ -325,6 +386,22 @@ func loggingTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.Cal
 		return nil, nil, fmt.Errorf("log failed")
 	}
 	return nil, nil, nil
+}
+
+func rootsListTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
+	res, err := req.Session.ListRoots(ctx, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("listing roots failed: %v", err)
+	}
+	var allroots []string
+	for _, r := range res.Roots {
+		allroots = append(allroots, fmt.Sprintf("%s:%s", r.Name, r.URI))
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: strings.Join(allroots, ",")},
+		},
+	}, nil, nil
 }
 
 func rootsTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
