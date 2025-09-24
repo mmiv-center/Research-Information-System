@@ -11,7 +11,7 @@ WORKDIR /app
 #    --build-arg conda_env="workflow_ai_test"
 ARG conda_env=workflow_ai_test
 
-ARG VERSION=mar272024
+ARG VERSION=sep242025
 ENV VERSION=$VERSION
 
 LABEL "com.ror.vendor"="MMIV.no" \
@@ -20,7 +20,7 @@ LABEL "com.ror.vendor"="MMIV.no" \
     description="Example docker container for workflow AI on the research information system at MMIV.no."
 
 ENV REPORT_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
-ENV DCMDICTPATH=/dcmtk/dcmdata/data/dicom.dic
+ENV DCMDICTPATH=/dcmtk/dcmdata/data/dicom.dic:/dcmtk/dcmdata/data/private.dic
 
 # In case we need a proxy to connect to the internet on the build machine
 #ENV HTTP_PROXY="http://proxy.ihelse.net:3128"
