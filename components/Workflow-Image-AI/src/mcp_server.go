@@ -1,5 +1,13 @@
 package main
 
+/*
+   The following discussion worked:
+
+   Notify mcp/ror that its root should be /Users/..../bla
+
+
+*/
+
 import (
 	"context"
 	"encoding/json"
@@ -14,7 +22,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func startMCP(useHttp string) {
+func startMCP(useHttp string, rootFolder string) {
 	// if the useHttp string is empty use stdin/stdout
 	if useHttp == "" {
 		log.Println("Starting MCP server using stdin/stdout")
@@ -23,6 +31,11 @@ func startMCP(useHttp string) {
 	opts := &mcp.ServerOptions{
 		Instructions:      "Use this server with the MCP protocol in vcode or other clients.",
 		CompletionHandler: complete, // support completions by setting this handler
+		RootsListChangedHandler: func(ctx context.Context, req *mcp.RootsListChangedRequest) {
+			// notificationChans["roots"] <- 0
+			// fmt.Printf("got a root change request %v", req)
+			// should we reject a change of the root if its not in the initial root folder?
+		},
 	}
 
 	server := mcp.NewServer(&mcp.Implementation{Name: "ror", Version: version}, opts)
@@ -35,11 +48,12 @@ func startMCP(useHttp string) {
 	mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                                                                   // performs a log
 	mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                               // performs sampling
 	mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                                                              // performs elicitation
-	mcp.AddTool(server, &mcp.Tool{Name: "roots"}, rootsTool)                                                                                                                                                                   // lists roots
-	mcp.AddTool(server, &mcp.Tool{Name: "roots/list"}, rootsListTool)                                                                                                                                                          // lists roots
+	mcp.AddTool(server, &mcp.Tool{Name: "roots"}, rootsTool)                                                                                                                                                                   // does everything with the ror folder?                                                                                                                                                                // lists roots
+	//mcp.AddTool(server, &mcp.Tool{Name: "roots/list"}, rootsListTool)                                                                                                                                                          // lists roots
 
-	mcp.AddTool(server, &mcp.Tool{Name: "clear", Description: "ROR tool to clear out all data folders."}, clearOutDataCacheTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "add", Description: "ROR tool to add a new data folder."}, addDataCacheTool)             // returns structured output
+	mcp.AddTool(server, &mcp.Tool{Name: "clear", Description: "ROR tool to clear out all data folders."}, clearOutDataCacheTool)                                                                                                                                      // returns structured output
+	mcp.AddTool(server, &mcp.Tool{Name: "add/data", Description: "Add a new data folder. Adding data will require ror to parse the whole directory which takes some time. Wait for this operation to finish before querying the resources again."}, addDataCacheTool) // returns structured output
+	mcp.AddTool(server, &mcp.Tool{Name: "change/root", Description: "Change to a new ror folder."}, changeRootTool)                                                                                                                                                   // returns structured output
 
 	// Add a basic prompt.
 	server.AddPrompt(&mcp.Prompt{Name: "greet"}, prompt)
@@ -258,6 +272,10 @@ type args struct {
 	Name string `json:"name" jsonschema:"the name to say hi to"`
 }
 
+type argsPath struct {
+	Path string `json:"path" jsonschema:"the data folder with DICOM images to add"`
+}
+
 // contentTool is a tool that returns unstructured content.
 //
 // Since its output type is 'any', no output schema is created.
@@ -307,7 +325,15 @@ func clearOutDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *
 	return nil, &resultDataCache{Message: "Removed all data", NumStudies: 0, NumSeries: 0, NumImages: 0}, nil
 }
 
-func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultDataCache, error) {
+func changeRootTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultDataCache, error) {
+	//req.Session.Roots.append({uri: "file://" + args[0], name: "RootFolder"})
+	// This is not enough, the getInputDir will lookup the value from the roots again, we need to add the input_dir there.
+	// Right now the only place we can add it is from the client (MCP Inspector).
+	input_dir = args.Name
+	return nil, &resultDataCache{Message: "Changed to the new root path", NumStudies: 0, NumSeries: 0, NumImages: 0}, nil
+}
+
+func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) (*mcp.CallToolResult, *resultDataCache, error) {
 	// ask the user for the directory of the data to add
 	// find out if there is data, if there is no ror folder produce an error
 	var err error
@@ -321,20 +347,48 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *args)
 		return nil, &resultDataCache{Message: "Error could not read config file from ror directory."}, err
 	}
 
-	res, err := req.Session.Elicit(ctx, &mcp.ElicitParams{
-		Message: "Where is the data that should be added",
-		RequestedSchema: &jsonschema.Schema{
-			Type: "object",
-			Properties: map[string]*jsonschema.Schema{
-				"newdatapath": {Type: "string", Description: "The directory path on the local machine that contains DICOM data to import.", Examples: []any{"file://somewhere/here/"}},
+	// we don't need to elicit if we have already gotten this as an argument in args
+	/*
+		res, err := req.Session.Elicit(ctx, &mcp.ElicitParams{
+			Message: "Where is the data that should be added",
+			RequestedSchema: &jsonschema.Schema{
+				Type: "object",
+				Properties: map[string]*jsonschema.Schema{
+					"newdatapath": {Type: "string", Description: "The directory path on the local machine that contains DICOM data to import.", Examples: []any{"file://somewhere/here/"}},
+				},
 			},
-		},
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("eliciting failed: %v", err)
-	}
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("eliciting failed: %v", err)
+		} */
+
 	// use res to add the data
-	fmt.Printf("%v", res)
+	// fmt.Printf("%v", args)
+
+	// The following will take a while... should we report back of our progress?
+	config.Data.Path = string(args.Path)
+	studies, err := dataSets(config, config.Data.DataInfo)
+	check(err)
+	if app != nil {
+		app.Stop()
+	}
+	if len(studies) == 0 {
+		fmt.Println("We did not find any DICOM files in the folder you provided. Please check if the files are available, un-compress any zip files to make the accessible to this tool.")
+	} else {
+		postfix := "ies"
+		if len(studies) == 1 {
+			postfix = "y"
+		}
+		fmt.Printf("Found %d DICOM stud%s.\n", len(studies), postfix)
+	}
+
+	// update the config file now - the above dataSets can take a long time!
+	config, err = readConfig(dir_path)
+	if err != nil {
+		//exitGracefully(errors.New(errorConfigFile))
+	}
+	config.Data.DataInfo = studies
+	config.Data.Path = args.Path
 
 	// this will use input_dir to write
 	if !config.writeConfig() {

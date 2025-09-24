@@ -3398,7 +3398,7 @@ func main() {
 	switch os.Args[1] {
 	case "mcp":
 		// start the mcp server
-		startMCP(mcp_http)
+		startMCP(mcp_http, input_dir)
 
 	case "init", "create":
 		if len(os.Args[2:]) == 0 {

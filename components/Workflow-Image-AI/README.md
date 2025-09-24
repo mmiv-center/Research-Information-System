@@ -458,6 +458,16 @@ where 'record_id' identifies the participant name, 'event_name' identifies a tim
 
 The above structure corresponds to REDCap's data model for longitudinal event-related studies.
 
+## MCP server functionality
+
+This tool can (partially) be used from an LLM. It can work as a Model Context Protocol server (mcp server). Test using
+
+```bash
+npx @modelcontextprotocol/inspector ror mcp --working_directory <folder>
+```
+
+
+
 ## Acknowlegements
 
 This project depends on other software. It is written in golang - thanks to the developers and maintainers of that language. The project uses docker as a container environment, conda/pip to help with creating encapsulated workflows, the github.com/suyashkumar/dicom library to handle raw data and lots of inspiration from git on how to create a support tool for complex workflows.
