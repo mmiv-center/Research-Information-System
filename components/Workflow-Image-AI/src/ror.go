@@ -2245,7 +2245,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 			for idx := 0; idx < len(ast.RulesTree); idx++ {
 				ruleset := ast.RulesTree[idx]
 				//for idx, ruleset := range ast.Rules { // todo: check if this works if a ruleset matches the 2 series
-				if value2.evalRulesTree(ruleset.Rs) { // check if this ruleset fits with this series
+				if ok, failureReason := value2.evalRulesTree(ruleset.Rs); ok { // check if this ruleset fits with this series
 					matches = true
 					matchesIdx = idx // this corresponds to the ruleset but only ast.Rules_list_names contains the name for it <-  no longer true
 					// we assume here that if one rule works that none of the other rules will work as well
@@ -2255,13 +2255,18 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 							continue
 						}
 						ruleset := ast.RulesTree[idx2]
-						if value2.evalRulesTree(ruleset.Rs) {
+						if ok, failureReason := value2.evalRulesTree(ruleset.Rs); ok {
 							// error case
 							fmt.Println("Error: More than one rule matches a series. Series ", SeriesInstanceUID, " could be both \""+ast.RulesTree[matchesIdx].Name+"\" and \""+ast.RulesTree[idx2].Name+"\". This will result in a random assignment.")
 							exitGracefully(fmt.Errorf("Stop here, fix select statement"))
+						} else {
+							// when do we want to display the failure reason?
+							_ = failureReason
 						}
 					}
 					break
+				} else {
+					_ = failureReason
 				}
 			}
 
@@ -4061,6 +4066,7 @@ func main() {
 				}
 				sort.Strings(participants)
 
+				// TODO: add the reason for failure to match for each participant, study and series
 				fmt.Printf("\nData summary\n\n")
 
 				for pidx, p := range participants {
@@ -4103,6 +4109,32 @@ func main() {
 									studyDate, key, counterStudy,
 									len(config.Data.DataInfo))
 							}
+							// check if the current series is part of the selection, if not show the reason (evalRulesTree)
+							reasonNotInSelection := ""
+							if config.SeriesFilterType == "select" {
+								// set ast based on config.SeriesFilter, if we do this several times we would add more rules - does not set RulesTree to length 0
+								if len(ast.RulesTree) == 0 {
+									InitParser()
+									line := []byte(config.SeriesFilter)
+									yyParse(&exprLex{line: line})
+								}
+
+								// we have to check if this series is part of the selection
+								// need something like value2.evalRulesTree(ruleset.Rs)
+								for idx := 0; idx < len(ast.RulesTree); idx++ {
+									ruleset := ast.RulesTree[idx]
+									if inSelection, reasonNotInSelectionTmp := element2.evalRulesTree(ruleset.Rs); inSelection {
+										// make this green
+										reasonNotInSelection += "\033[32mselected for " + ruleset.Name + "\033[0m"
+									} else {
+										if reasonNotInSelection != "" {
+											reasonNotInSelection += ", "
+										}
+										reasonNotInSelection += ruleset.Name + " - " + strings.ReplaceAll(reasonNotInSelectionTmp, "\n", "")
+									}
+								}
+							}
+
 							var de string = element2.SeriesDescription
 							if de == "" {
 								de = "no series description"
@@ -4113,7 +4145,7 @@ func main() {
 							if element2.NumImages == 1 {
 								postfix = ""
 							}
-							fmt.Printf("    %s (%d/%d) %d %s image%s, series: %d, %s\n",
+							fmt.Printf("    %s (%d/%d) %d %s image%s, series: %d, %s (%s)\n",
 								key2,
 								counter2,
 								len(element),
@@ -4121,7 +4153,8 @@ func main() {
 								element2.Modality,
 								postfix,
 								element2.SeriesNumber,
-								de)
+								de,
+								reasonNotInSelection)
 						}
 					}
 					fmt.Println("")
