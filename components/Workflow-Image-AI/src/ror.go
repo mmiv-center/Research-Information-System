@@ -820,20 +820,33 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 			if PixelPaddingValue != 0 { // this is for modality CT
 				// if we have such a value we cannot assume it will actually work,
 				// GE is an example where they used other values
-				currValue := uint16(native_img.Data[0][0])
+
+				// Add type assertion to convert interface{} to []uint16, depends on BitsPerSample
+				rawData, ok := native_img.RawDataSlice().([]uint16)
+				if !ok {
+					fmt.Println("Error: Could not convert raw data to []uint16")
+					continue
+				}
+				currValue := rawData[0]
 				currValue2 := complement2(currValue)
 				PixelPaddingValue = int(32768) + int(currValue2)
 			} else {
 				PixelPaddingValue += int(32768)
 			}
-			for i := 0; i < native_img.Rows; i++ {
-				for j := 0; j < native_img.Cols; j++ {
-					currValue := uint16(native_img.Data[i*native_img.Cols+j][0])
+			rawDataSlice, ok := native_img.RawDataSlice().([]uint16)
+			if !ok {
+				fmt.Println("Error: Could not convert raw data to []uint16")
+				continue
+			}
+			for i := 0; i < native_img.Rows(); i++ {
+				for j := 0; j < native_img.Cols(); j++ {
+					currValue := uint16(rawDataSlice[i*native_img.Cols()+j])
 					currValue2 := complement2(currValue)
 					// the GetImage function will convert everything to uint16 later
 					// so any values we might have here that are negative will be gone
 					// lets shift into the positive range here (dah)
-					native_img.Data[i*native_img.Cols+j][0] = 32768 + int(currValue2)
+
+					rawDataSlice[i*native_img.Cols()+j] = (uint16)(32768 + int(currValue2))
 				}
 			}
 			img, err = native_img.GetImage()
