@@ -36,8 +36,8 @@ LABEL "com.ror.vendor"="MMIV.no" \
 #RUN python -c "import fastMONAI"
 
 RUN apt-get update -qq && apt-get install -yq build-essential \
-    cmake git wget libboost-filesystem1.74-dev libboost-timer1.74-dev \
-    libtbb-dev libfreetype-dev libboost-program-options1.74-dev \
+    cmake git wget libboost-filesystem1.81-dev libboost-timer1.81-dev libboost-date-time1.81-dev \
+    libtbb-dev libfreetype-dev libboost-regex1.81-dev libboost-program-options1.81-dev \
     libxml2-dev zlib1g-dev libzip-dev zipcmp zipmerge ziptool jq \
     && rm -rf /var/lib/apt/lists/*
 
@@ -51,9 +51,9 @@ RUN wget https://github.com/Kitware/CMake/releases/download/v3.24.1/cmake-3.24.1
       && ln -s /opt/cmake-3.24.1/bin/* /usr/local/bin
 
 # install itk
-RUN cd /tmp/ && wget https://github.com/InsightSoftwareConsortium/ITK/releases/download/v5.3.0/InsightToolkit-5.3.0.tar.gz \
-    && cd /opt/ && tar xzvf /tmp/InsightToolkit-5.3.0.tar.gz && cd /opt/InsightToolkit-5.3.0 \
-    && mkdir bin && cd bin && cmake -DModule_MorphologicalContourInterpolation:BOOL=ON .. && make -j 4 && rm /tmp/InsightToolkit-5.3.0.tar.gz
+RUN cd /tmp/ && wget https://github.com/InsightSoftwareConsortium/ITK/releases/download/v5.4.4/InsightToolkit-5.4.4.tar.gz \
+    && cd /opt/ && tar xzvf /tmp/InsightToolkit-5.4.4.tar.gz && cd /opt/InsightToolkit-5.4.4 \
+    && mkdir bin && cd bin && cmake -DModule_MorphologicalContourInterpolation:BOOL=ON .. && make -j 4 && rm /tmp/InsightToolkit-5.4.4.tar.gz
 
 # install dcmtk
 RUN cd / && git clone https://github.com/DCMTK/dcmtk.git && cd dcmtk && cmake . && make -j4
@@ -65,7 +65,7 @@ RUN mkdir /pr2mask && cd /pr2mask && git clone https://github.com/mmiv-center/pr
 
 FROM continuumio/miniconda3
 
-COPY --from=build /opt/InsightToolkit-5.3.0/bin /opt/InsightToolkit-5.3.0/bin
+COPY --from=build /opt/InsightToolkit-5.4.4/bin /opt/InsightToolkit-5.4.4/bin
 COPY --from=build /dcmtk /dcmtk
 COPY --from=build /pr2mask /pr2mask
 
@@ -80,13 +80,13 @@ LABEL "com.ror.vendor"="MMIV.no" \
 # install required libaries
 RUN --mount=type=cache,target=/var/cache/apt \
     --mount=type=cache,target=/var/lib/apt \
-    apt-get update -qq && apt-get install -yq \
-    libboost-filesystem1.74-dev libboost-timer1.74-dev \
-    libtbb-dev libfreetype-dev libboost-program-options1.74-dev \
+    apt-get update -qq && apt-get install -yq libboost-date-time1.81-dev \
+    libboost-filesystem1.81-dev libboost-timer1.81-dev libboost-regex1.81-dev \
+    libtbb-dev libfreetype-dev libboost-program-options1.81-dev \
     libxml2-dev zlib1g-dev libzip-dev zipcmp zipmerge ziptool jq
 
 ENV REPORT_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
-ENV DCMDICTPATH=/dcmtk/dcmdata/data/dicom.dic
+ENV DCMDICTPATH=/dcmtk/dcmdata/data/dicom.dic:/dcmtk/dcmdata/data/private.dic
 
 # The code to run when container is started:
 # RUN ["chmod", "+x", "/app/entrypoint.sh"]

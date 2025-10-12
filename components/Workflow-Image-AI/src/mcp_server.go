@@ -1,7 +1,16 @@
 package main
 
+/*
+   The following discussion worked:
+
+   Notify mcp/ror that its root should be /Users/..../bla
+
+
+*/
+
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,7 +22,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func startMCP(useHttp string) {
+func startMCP(useHttp string, rootFolder string) {
 	// if the useHttp string is empty use stdin/stdout
 	if useHttp == "" {
 		log.Println("Starting MCP server using stdin/stdout")
@@ -22,6 +31,11 @@ func startMCP(useHttp string) {
 	opts := &mcp.ServerOptions{
 		Instructions:      "Use this server with the MCP protocol in vcode or other clients.",
 		CompletionHandler: complete, // support completions by setting this handler
+		RootsListChangedHandler: func(ctx context.Context, req *mcp.RootsListChangedRequest) {
+			// notificationChans["roots"] <- 0
+			// fmt.Printf("got a root change request %v", req)
+			// should we reject a change of the root if its not in the initial root folder?
+		},
 	}
 
 	server := mcp.NewServer(&mcp.Implementation{Name: "ror", Version: version}, opts)
@@ -29,15 +43,17 @@ func startMCP(useHttp string) {
 	// Add tools that exercise different features of the protocol.
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet", Description: "say hi"}, contentTool)
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet (structured)"}, structuredTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "ror", Description: "ROR (helm) is a set of tools to create workflows for the research PACS. The list of tool includes clearing out current data and adding new data."}, rorTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "ping"}, pingingTool)                                                                                                                                                             // performs a ping
-	mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                                                              // performs a log
-	mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                          // performs sampling
-	mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                                                         // performs elicitation
-	mcp.AddTool(server, &mcp.Tool{Name: "roots"}, rootsTool)                                                                                                                                                              // lists roots
+	mcp.AddTool(server, &mcp.Tool{Name: "ror/info", Description: "ROR (helm) is a set of tools to create workflows for the research PACS. The list of tool includes clearing out current data and adding new data."}, rorTool) // returns structured output
+	mcp.AddTool(server, &mcp.Tool{Name: "ping"}, pingingTool)                                                                                                                                                                  // performs a ping
+	mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                                                                   // performs a log
+	mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                               // performs sampling
+	mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                                                              // performs elicitation
+	mcp.AddTool(server, &mcp.Tool{Name: "roots"}, rootsTool)                                                                                                                                                                   // does everything with the ror folder?                                                                                                                                                                // lists roots
+	//mcp.AddTool(server, &mcp.Tool{Name: "roots/list"}, rootsListTool)                                                                                                                                                          // lists roots
 
-	mcp.AddTool(server, &mcp.Tool{Name: "clear", Description: "ROR tool to clear out all data folders."}, clearOutDataCacheTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "add", Description: "ROR tool to add a new data folder."}, addDataCacheTool)             // returns structured output
+	mcp.AddTool(server, &mcp.Tool{Name: "clear", Description: "ROR tool to clear out all data folders."}, clearOutDataCacheTool)                                                                                                                                      // returns structured output
+	mcp.AddTool(server, &mcp.Tool{Name: "add/data", Description: "Add a new data folder. Adding data will require ror to parse the whole directory which takes some time. Wait for this operation to finish before querying the resources again."}, addDataCacheTool) // returns structured output
+	mcp.AddTool(server, &mcp.Tool{Name: "change/root", Description: "Change to a new ror folder."}, changeRootTool)                                                                                                                                                   // returns structured output
 
 	// Add a basic prompt.
 	server.AddPrompt(&mcp.Prompt{Name: "greet"}, prompt)
@@ -123,6 +139,49 @@ func getInputDir(ctx context.Context, session *mcp.ServerSession) (string, error
 	}
 	dir_path := allroots[0] // should be "./.ror/config"
 	return dir_path, nil
+}
+
+// add all fields to the embeddedResources global variable (update them)
+func fillInEmbeddedResources(ctx context.Context, session *mcp.ServerSession) (map[string]string, error) {
+	var err error
+	if input_dir, err = getInputDir(ctx, session); err != nil {
+		return nil, fmt.Errorf("failed to read config file: %v", err)
+	}
+
+	dir_path := input_dir + "/.ror/config" // should be "./.ror/config"
+	config, err := readConfig(dir_path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %v", err)
+	}
+	embeddedResources["numstudies"] = fmt.Sprintf("%d", len(config.Data.DataInfo))
+
+	var datasets = make(map[string]map[string]SeriesInfo)
+	datasets = config.Data.DataInfo
+	numSeries := 0
+	for _, v := range datasets {
+		numSeries += len(v)
+	}
+	embeddedResources["numseries"] = fmt.Sprintf("%d", numSeries)
+
+	datasets = config.Data.DataInfo
+	numImages := 0
+	for _, v := range datasets {
+		for _, vv := range v {
+			numImages += vv.NumImages
+		}
+	}
+	embeddedResources["numimages"] = fmt.Sprintf("%d", numImages)
+
+	datasets = config.Data.DataInfo
+	var participants map[string]bool = make(map[string]bool)
+	for _, v := range datasets {
+		for _, vv := range v {
+			participants[fmt.Sprintf("%s%s", vv.PatientID, vv.PatientName)] = true
+		}
+	}
+	numParticipants := len(participants)
+	embeddedResources["numparticipants"] = fmt.Sprintf("%d", numParticipants)
+	return embeddedResources, nil
 }
 
 func embeddedResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
@@ -213,6 +272,10 @@ type args struct {
 	Name string `json:"name" jsonschema:"the name to say hi to"`
 }
 
+type argsPath struct {
+	Path string `json:"path" jsonschema:"the data folder with DICOM images to add"`
+}
+
 // contentTool is a tool that returns unstructured content.
 //
 // Since its output type is 'any', no output schema is created.
@@ -262,7 +325,15 @@ func clearOutDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *
 	return nil, &resultDataCache{Message: "Removed all data", NumStudies: 0, NumSeries: 0, NumImages: 0}, nil
 }
 
-func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultDataCache, error) {
+func changeRootTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultDataCache, error) {
+	//req.Session.Roots.append({uri: "file://" + args[0], name: "RootFolder"})
+	// This is not enough, the getInputDir will lookup the value from the roots again, we need to add the input_dir there.
+	// Right now the only place we can add it is from the client (MCP Inspector).
+	input_dir = args.Name
+	return nil, &resultDataCache{Message: "Changed to the new root path", NumStudies: 0, NumSeries: 0, NumImages: 0}, nil
+}
+
+func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) (*mcp.CallToolResult, *resultDataCache, error) {
 	// ask the user for the directory of the data to add
 	// find out if there is data, if there is no ror folder produce an error
 	var err error
@@ -276,20 +347,48 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *args)
 		return nil, &resultDataCache{Message: "Error could not read config file from ror directory."}, err
 	}
 
-	res, err := req.Session.Elicit(ctx, &mcp.ElicitParams{
-		Message: "Where is the data that should be added",
-		RequestedSchema: &jsonschema.Schema{
-			Type: "object",
-			Properties: map[string]*jsonschema.Schema{
-				"newdatapath": {Type: "string", Description: "The directory path on the local machine that contains DICOM data to import.", Examples: []any{"file://somewhere/here/"}},
+	// we don't need to elicit if we have already gotten this as an argument in args
+	/*
+		res, err := req.Session.Elicit(ctx, &mcp.ElicitParams{
+			Message: "Where is the data that should be added",
+			RequestedSchema: &jsonschema.Schema{
+				Type: "object",
+				Properties: map[string]*jsonschema.Schema{
+					"newdatapath": {Type: "string", Description: "The directory path on the local machine that contains DICOM data to import.", Examples: []any{"file://somewhere/here/"}},
+				},
 			},
-		},
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("eliciting failed: %v", err)
-	}
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("eliciting failed: %v", err)
+		} */
+
 	// use res to add the data
-	fmt.Printf("%v", res)
+	// fmt.Printf("%v", args)
+
+	// The following will take a while... should we report back of our progress?
+	config.Data.Path = string(args.Path)
+	studies, err := dataSets(config, config.Data.DataInfo)
+	check(err)
+	if app != nil {
+		app.Stop()
+	}
+	if len(studies) == 0 {
+		fmt.Println("We did not find any DICOM files in the folder you provided. Please check if the files are available, un-compress any zip files to make the accessible to this tool.")
+	} else {
+		postfix := "ies"
+		if len(studies) == 1 {
+			postfix = "y"
+		}
+		fmt.Printf("Found %d DICOM stud%s.\n", len(studies), postfix)
+	}
+
+	// update the config file now - the above dataSets can take a long time!
+	config, err = readConfig(dir_path)
+	if err != nil {
+		//exitGracefully(errors.New(errorConfigFile))
+	}
+	config.Data.DataInfo = studies
+	config.Data.Path = args.Path
 
 	// this will use input_dir to write
 	if !config.writeConfig() {
@@ -307,7 +406,23 @@ func structuredTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (
 
 // rorTool returns a structured result.
 func rorTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *result, error) {
-	return nil, &result{Message: "ROR is a tools to create workflows for the research PACS"}, nil
+	resources, err := fillInEmbeddedResources(ctx, req.Session)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("Error, could not fill in the resource information, %v", err)},
+			},
+		}, &result{Message: "ROR is a tools to create workflows for the research PACS"}, nil
+	}
+	jsonContent, err := json.Marshal(resources)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: string(jsonContent)},
+		},
+	}, &result{Message: "ROR is a tools to create workflows for the research PACS"}, nil
 }
 
 func pingingTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
@@ -325,6 +440,22 @@ func loggingTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.Cal
 		return nil, nil, fmt.Errorf("log failed")
 	}
 	return nil, nil, nil
+}
+
+func rootsListTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
+	res, err := req.Session.ListRoots(ctx, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("listing roots failed: %v", err)
+	}
+	var allroots []string
+	for _, r := range res.Roots {
+		allroots = append(allroots, fmt.Sprintf("%s:%s", r.Name, r.URI))
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: strings.Join(allroots, ",")},
+		},
+	}, nil, nil
 }
 
 func rootsTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {

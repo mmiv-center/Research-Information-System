@@ -122,45 +122,48 @@ func (data SeriesInfo) getData(group_str string, tag_str string) (bool, []string
 	return found, dataData
 }
 
-// return the index of the rule that matched together with the error
-func (data SeriesInfo) evalRulesTree(ruleSetL RuleSetL) bool {
+// return a bool if the rule tree matches and in case of an error also an indication why it failed (first error only)
+func (data SeriesInfo) evalRulesTree(ruleSetL RuleSetL) (bool, string) {
 
 	var left = true
 	var right = true
+	var failureReasonL string = ""
+	var failureReasonR string = ""
 	// we should evaluate first the left side of the tree
 	if ruleSetL.Rs1 == nil {
 		// ruleTree.Rs1.Leaf1
 		if ruleSetL.Leaf1 != nil && ruleSetL.Leaf1.Operator != "" {
-			left = data.evalLeaf(*ruleSetL.Leaf1)
+			left, failureReasonL = data.evalLeaf(*ruleSetL.Leaf1)
 		}
 	} else {
-		left = data.evalRulesTree(*ruleSetL.Rs1)
+		left, failureReasonL = data.evalRulesTree(*ruleSetL.Rs1)
 	}
 	if ruleSetL.Rs2 == nil {
 		// ruleTree.Rs1.Leaf1
 		if ruleSetL.Leaf2 != nil && ruleSetL.Leaf2.Operator != "" {
-			right = data.evalLeaf(*ruleSetL.Leaf2)
+			right, failureReasonR = data.evalLeaf(*ruleSetL.Leaf2)
 		}
 	} else {
-		right = data.evalRulesTree(*ruleSetL.Rs2)
+		right, failureReasonR = data.evalRulesTree(*ruleSetL.Rs2)
 	}
 	if ruleSetL.Operator == "AND" {
-		return left && right
+		return left && right, failureReasonL + failureReasonR
 	} else if ruleSetL.Operator == "OR" {
-		return left || right
+		return left || right, failureReasonL + failureReasonR
 	} else if ruleSetL.Operator == "NOT" {
-		return !left
+		return !left, failureReasonL
 	} else if ruleSetL.Operator == "FIRST" {
-		return left // ignore the other branch
+		return left, failureReasonL // ignore the other branch
 	} else {
 		fmt.Printf("Error: unknown operator in rule evaluation \"%s\"\n", ruleSetL.Operator)
 	}
 
-	return false
+	return false, failureReasonL + failureReasonR
 }
 
-func (data SeriesInfo) evalLeaf(rule Rule) bool {
+func (data SeriesInfo) evalLeaf(rule Rule) (bool, string) {
 	var matches bool = true
+	var failureReason string = ""
 	foundValue := false
 	t := rule.Tag
 	o := rule.Operator
@@ -179,6 +182,7 @@ func (data SeriesInfo) evalLeaf(rule Rule) bool {
 		foundValue, dataData = data.getData(group_str, tag_str)
 		if !foundValue { // nothing can make this correct again
 			matches = false
+			failureReason = fmt.Sprintf("Could not find tag (%s,%s)\n", group_str, tag_str)
 		}
 		foundValue = false // set this to false again so we can do a test of the value as well
 	} else { // we have a single entry (really?) and treat it as the name of a variable
@@ -349,8 +353,9 @@ func (data SeriesInfo) evalLeaf(rule Rule) bool {
 	}
 	if !foundValue { // any one rule that does not match will result in false
 		matches = false
+		failureReason = fmt.Sprintf("Value check failed for operator %s with value %v\n", o, v)
 	}
-	return matches
+	return matches, failureReason
 }
 
 // return the index of the rule that matched together with the error
@@ -361,7 +366,8 @@ func (data SeriesInfo) evalRules(ruleList []Rule) bool {
 	// all rules have to match!
 	for _, val := range ruleList {
 		// in a rule list all rules have to fit
-		matches = matches && data.evalLeaf(val)
+		ok, _ := data.evalLeaf(val)
+		matches = matches && ok
 
 		/*		foundValue := false
 				t := val.Tag
