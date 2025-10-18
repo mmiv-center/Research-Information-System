@@ -3197,6 +3197,124 @@ func checkOutput(config Config, trigger_container string, dir string) string {
 	return ret
 }
 
+func getDetailedStatusInfo(config Config) string {
+
+	var statusInfo string = ""
+
+	counterStudy := 0
+	// find all patients, sort by them and print out the studies
+	var participantsMap map[string]bool = make(map[string]bool)
+	for _, element := range config.Data.DataInfo {
+		for _, element2 := range element {
+			name := element2.PatientID
+			if element2.PatientName != "" && element2.PatientName != name {
+				name = name + "-" + element2.PatientName
+			}
+			participantsMap[name] = true
+		}
+	}
+	var participants []string = make([]string, 0, len(participantsMap))
+	for k := range participantsMap {
+		participants = append(participants, k)
+	}
+	sort.Strings(participants)
+
+	// TODO: add the reason for failure to match for each participant, study and series
+	statusInfo += fmt.Sprintf("\nData summary\n\n")
+
+	for pidx, p := range participants {
+		counter3 := 0
+		for key, element := range config.Data.DataInfo {
+			counter2 := 0
+			// TODO: we should sort element by SeriesNumber
+			for key2, element2 := range element {
+				name := element2.PatientID
+				if element2.PatientName != "" && element2.PatientName != name {
+					name = name + "-" + element2.PatientName
+				}
+				studyDate := ""
+				for _, a := range element2.All {
+					t := tag.StudyDate
+					if a.Tag == t {
+						studyDate = strings.Join(a.Value, ",")
+						layout := "20060102"
+						t, err := time.Parse(layout, studyDate)
+						if err == nil {
+							studyDate = t.Format("2006/01/02")
+						}
+						break
+					}
+				}
+				// TODO: This is not correct, it might happen that the PatientName for
+				// some of the images is empty. Those would not be printed even
+				// if they are in the same study.
+				if name != p {
+					continue
+				}
+				counter2 = counter2 + 1
+				counter3 = counter3 + 1
+				if counter3 == 1 { // change in patient
+					statusInfo += fmt.Sprintf("Patient [%d/%d]: %s\n", pidx+1, len(participants), name)
+				}
+				if counter2 == 1 { // change in study
+					counterStudy = counterStudy + 1
+					statusInfo += fmt.Sprintf("  Study: %s %s (%d/%d)\n",
+						studyDate, key, counterStudy,
+						len(config.Data.DataInfo))
+				}
+				// check if the current series is part of the selection, if not show the reason (evalRulesTree)
+				reasonNotInSelection := ""
+				if config.SeriesFilterType == "select" {
+					// set ast based on config.SeriesFilter, if we do this several times we would add more rules - does not set RulesTree to length 0
+					if len(ast.RulesTree) == 0 {
+						InitParser()
+						line := []byte(config.SeriesFilter)
+						yyParse(&exprLex{line: line})
+					}
+
+					// we have to check if this series is part of the selection
+					// need something like value2.evalRulesTree(ruleset.Rs)
+					for idx := 0; idx < len(ast.RulesTree); idx++ {
+						ruleset := ast.RulesTree[idx]
+						if inSelection, reasonNotInSelectionTmp := element2.evalRulesTree(ruleset.Rs); inSelection {
+							// make this green
+							reasonNotInSelection += "\033[32mselected for " + ruleset.Name + "\033[0m"
+						} else {
+							if reasonNotInSelection != "" {
+								reasonNotInSelection += ", "
+							}
+							reasonNotInSelection += ruleset.Name + " - " + strings.ReplaceAll(reasonNotInSelectionTmp, "\n", "")
+						}
+					}
+				}
+
+				var de string = element2.SeriesDescription
+				if de == "" {
+					de = "no series description"
+				} else {
+					de = fmt.Sprintf("description \"%s\"", de)
+				}
+				postfix := "s"
+				if element2.NumImages == 1 {
+					postfix = ""
+				}
+				statusInfo += fmt.Sprintf("    %s (%d/%d) %d %s image%s, series: %d, %s (%s)\n",
+					key2,
+					counter2,
+					len(element),
+					element2.NumImages,
+					element2.Modality,
+					postfix,
+					element2.SeriesNumber,
+					de,
+					reasonNotInSelection)
+			}
+		}
+		statusInfo += fmt.Sprintln("")
+	}
+	return statusInfo
+}
+
 func isFlagPassed(name string) bool {
 	found := false
 	flag.Visit(func(f *flag.Flag) {
@@ -4062,117 +4180,8 @@ func main() {
 				fmt.Println(string(file))
 			}
 			if status_detailed {
-				counterStudy := 0
-				// find all patients, sort by them and print out the studies
-				var participantsMap map[string]bool = make(map[string]bool)
-				for _, element := range config.Data.DataInfo {
-					for _, element2 := range element {
-						name := element2.PatientID
-						if element2.PatientName != "" && element2.PatientName != name {
-							name = name + "-" + element2.PatientName
-						}
-						participantsMap[name] = true
-					}
-				}
-				var participants []string = make([]string, 0, len(participantsMap))
-				for k := range participantsMap {
-					participants = append(participants, k)
-				}
-				sort.Strings(participants)
-
-				// TODO: add the reason for failure to match for each participant, study and series
-				fmt.Printf("\nData summary\n\n")
-
-				for pidx, p := range participants {
-					counter3 := 0
-					for key, element := range config.Data.DataInfo {
-						counter2 := 0
-						// TODO: we should sort element by SeriesNumber
-						for key2, element2 := range element {
-							name := element2.PatientID
-							if element2.PatientName != "" && element2.PatientName != name {
-								name = name + "-" + element2.PatientName
-							}
-							studyDate := ""
-							for _, a := range element2.All {
-								t := tag.StudyDate
-								if a.Tag == t {
-									studyDate = strings.Join(a.Value, ",")
-									layout := "20060102"
-									t, err := time.Parse(layout, studyDate)
-									if err == nil {
-										studyDate = t.Format("2006/01/02")
-									}
-									break
-								}
-							}
-							// TODO: This is not correct, it might happen that the PatientName for
-							// some of the images is empty. Those would not be printed even
-							// if they are in the same study.
-							if name != p {
-								continue
-							}
-							counter2 = counter2 + 1
-							counter3 = counter3 + 1
-							if counter3 == 1 { // change in patient
-								fmt.Printf("Patient [%d/%d]: %s\n", pidx+1, len(participants), name)
-							}
-							if counter2 == 1 { // change in study
-								counterStudy = counterStudy + 1
-								fmt.Printf("  Study: %s %s (%d/%d)\n",
-									studyDate, key, counterStudy,
-									len(config.Data.DataInfo))
-							}
-							// check if the current series is part of the selection, if not show the reason (evalRulesTree)
-							reasonNotInSelection := ""
-							if config.SeriesFilterType == "select" {
-								// set ast based on config.SeriesFilter, if we do this several times we would add more rules - does not set RulesTree to length 0
-								if len(ast.RulesTree) == 0 {
-									InitParser()
-									line := []byte(config.SeriesFilter)
-									yyParse(&exprLex{line: line})
-								}
-
-								// we have to check if this series is part of the selection
-								// need something like value2.evalRulesTree(ruleset.Rs)
-								for idx := 0; idx < len(ast.RulesTree); idx++ {
-									ruleset := ast.RulesTree[idx]
-									if inSelection, reasonNotInSelectionTmp := element2.evalRulesTree(ruleset.Rs); inSelection {
-										// make this green
-										reasonNotInSelection += "\033[32mselected for " + ruleset.Name + "\033[0m"
-									} else {
-										if reasonNotInSelection != "" {
-											reasonNotInSelection += ", "
-										}
-										reasonNotInSelection += ruleset.Name + " - " + strings.ReplaceAll(reasonNotInSelectionTmp, "\n", "")
-									}
-								}
-							}
-
-							var de string = element2.SeriesDescription
-							if de == "" {
-								de = "no series description"
-							} else {
-								de = fmt.Sprintf("description \"%s\"", de)
-							}
-							postfix := "s"
-							if element2.NumImages == 1 {
-								postfix = ""
-							}
-							fmt.Printf("    %s (%d/%d) %d %s image%s, series: %d, %s (%s)\n",
-								key2,
-								counter2,
-								len(element),
-								element2.NumImages,
-								element2.Modality,
-								postfix,
-								element2.SeriesNumber,
-								de,
-								reasonNotInSelection)
-						}
-					}
-					fmt.Println("")
-				}
+				detailedInfo := getDetailedStatusInfo(config)
+				fmt.Println(detailedInfo)
 			} // fmt.Fprintf(os.Stderr, "This short status does not contain data information. Use the --all option to obtain all info.")
 
 			if status_detailed && config.SeriesFilterType == "select" {

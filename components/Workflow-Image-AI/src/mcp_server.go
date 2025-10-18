@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -42,6 +43,7 @@ func startMCP(useHttp string, rootFolder string) {
 
 	// configure the root directory that the server can access
 	if rootFolder != "" {
+		input_dir = rootFolder
 		// make sure the rootFolder is an absolute path
 		/*	absRoot, err := makeAbsolutePath(rootFolder)
 			if err != nil {
@@ -52,7 +54,7 @@ func startMCP(useHttp string, rootFolder string) {
 			input_dir = rootFolder
 			log.Printf("Setting the MCP root folder to %s", rootFolder) */
 	} else {
-		log.Printf("No root folder specified, please set one up using the MCP Inspector or other client.")
+		log.Printf("No root folder specified, please set one up using the MCP Inspector or other client (see --working_directory).")
 	}
 
 	// Add tools that exercise different features of the protocol.
@@ -64,11 +66,15 @@ func startMCP(useHttp string, rootFolder string) {
 	mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                               // performs sampling
 	mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                                                              // performs elicitation
 	mcp.AddTool(server, &mcp.Tool{Name: "roots"}, rootsTool)                                                                                                                                                                   // does everything with the ror folder?                                                                                                                                                                // lists roots
-	//mcp.AddTool(server, &mcp.Tool{Name: "roots/list"}, rootsListTool)                                                                                                                                                          // lists roots
+	mcp.AddTool(server, &mcp.Tool{Name: "roots/list"}, rootsListTool)                                                                                                                                                          // lists roots
 
 	mcp.AddTool(server, &mcp.Tool{Name: "clear", Description: "ROR tool to clear out all data folders."}, clearOutDataCacheTool)                                                                                                                                      // returns structured output
 	mcp.AddTool(server, &mcp.Tool{Name: "add/data", Description: "Add a new data folder. Adding data will require ror to parse the whole directory which takes some time. Wait for this operation to finish before querying the resources again."}, addDataCacheTool) // returns structured output
+	mcp.AddTool(server, &mcp.Tool{Name: "data/info", Description: "Show detailed information on the currently loaded data. Data needs to added first with add/data."}, dataInfoTool)
 	//mcp.AddTool(server, &mcp.Tool{Name: "change/root", Description: "Change to a new ror folder."}, changeRootTool)                                                                                                                                                   // returns structured output
+
+	mcp.AddTool(server, &mcp.Tool{Name: "select/list", Description: "Show the current select statement for which data should be filtered in."}, showSelectTool) // support completions
+	mcp.AddTool(server, &mcp.Tool{Name: "select/add", Description: "Set a new select statement."}, setSelectTool)                                               // support completions
 
 	// Add a basic prompt.
 	server.AddPrompt(&mcp.Prompt{Name: "greet"}, prompt)
@@ -309,6 +315,14 @@ type argsPath struct {
 	Path string `json:"path" jsonschema:"the data folder with DICOM images to add"`
 }
 
+type argsMessage struct {
+	Message string `json:"message" jsonschema:"the message to log"`
+}
+
+type setSelectMessage struct {
+	Select string `json:"select" jsonschema:"the select statement to filter in DICOM series"`
+}
+
 // contentTool is a tool that returns unstructured content.
 //
 // Since its output type is 'any', no output schema is created.
@@ -324,12 +338,18 @@ type result struct {
 	Message string `json:"message" jsonschema:"the message to convey"`
 }
 
+type resultDataInfo struct {
+	Message string `json:"message" jsonschema:"the message to convey"`
+	Data    string `json:"data" jsonschema:"a map with the individual DICOM series information"`
+}
+
 // if we clear out the data cache we need a result that reports the total numbers
 type resultDataCache struct {
-	Message    string `json:"message" jsonschema:"the message to convey"`
-	NumStudies int    `json:"numstudies" jsonschema:"the number of DICOM studies"`
-	NumSeries  int    `json:"numseries" jsonschema:"the number of DICOM image series"`
-	NumImages  int    `json:"numimages" jsonschema:"the number of DICOM images"`
+	Message         string `json:"message" jsonschema:"the message to convey"`
+	NumStudies      int    `json:"numstudies" jsonschema:"the number of DICOM studies"`
+	NumSeries       int    `json:"numseries" jsonschema:"the number of DICOM image series"`
+	NumImages       int    `json:"numimages" jsonschema:"the number of DICOM images"`
+	NumParticipants int    `json:"numparticipants" jsonschema:"the number of unique PatientID DICOM tags"`
 }
 
 // TOOL
@@ -366,6 +386,134 @@ func changeRootTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (
 	return nil, &resultDataCache{Message: "Changed to the new root path", NumStudies: 0, NumSeries: 0, NumImages: 0}, nil
 }
 
+func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelectMessage) (*mcp.CallToolResult, *argsMessage, error) {
+	var err error
+	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+		return nil, &argsMessage{Message: "Error could not get ror directory."}, err
+	}
+	// make the config
+	dir_path := input_dir + "/.ror/config"
+	config, err := readConfig(dir_path)
+	if err != nil {
+		return nil, &argsMessage{Message: "Error could not read config file from ror directory."}, err
+	}
+	config_series_filter := string(args.Select)
+
+	comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
+	series_filter_no_comments := comments.ReplaceAllString(config_series_filter, " ")
+
+	// now parse the input string
+	InitParser()
+	//yyErrorVerbose = true
+	yyDebug = 1
+
+	line := []byte(series_filter_no_comments)
+	yyParse(&exprLex{line: line})
+	msg := ""
+	if !errorOnParse {
+		//s, _ := json.MarshalIndent(ast, "", "  ")
+		ss := humanizeFilter(ast)
+		type Msg struct {
+			Messages  []string `json:"messages"`
+			Ast       AST      `json:"ast"`
+			Matches   int      `json:"matches"`
+			Complains []string `json:"complains"`
+		}
+		//fmt.Printf("Parsing series filter successful\n%s\n%s\n", string(s), strings.Join(ss[:], "\n"))
+		config.SeriesFilterType = "select"
+		// check if we have any matches - cheap for us here
+		matches, complains := findMatchingSets(ast, config.Data.DataInfo)
+		//fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
+		out := Msg{Messages: ss, Ast: ast, Matches: len(matches), Complains: complains}
+		human_enc, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			fmt.Println(err)
+		}
+		msg = fmt.Sprintln(string(human_enc))
+	} else {
+		// maybe its a simple glob expression? We should add in any case
+		//fmt.Println("We tried to parse the series filter but failed. Maybe you just want to grep?")
+		// exitGracefully(errors.New("we tried to parse the series filter but failed"))
+		config.SeriesFilterType = "glob"
+	}
+
+	if config.SeriesFilterType != "select" {
+		return nil, &argsMessage{
+			Message: "Done. This is now the new select statement: " + config.SeriesFilter + "\nNote:" + msg,
+		}, nil
+	}
+	return nil, &argsMessage{
+		Message: "Set a glob type filter because the select statement could not be parsed: " + config.SeriesFilter,
+	}, nil
+}
+
+func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *argsMessage, error) {
+	var err error
+	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+		return nil, &argsMessage{Message: "Error could not get ror directory."}, err
+	}
+	// make the config
+	dir_path := input_dir + "/.ror/config"
+	config, err := readConfig(dir_path)
+	if err != nil {
+		return nil, &argsMessage{Message: "Error could not read config file from ror directory."}, err
+	}
+
+	if len(config.Data.DataInfo) == 0 {
+		return nil, &argsMessage{Message: "No data loaded, please add data first using the add/data tool."}, nil
+	}
+
+	comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
+	series_filter_no_comments := comments.ReplaceAllString(config.SeriesFilter, " ")
+	select_str := ""
+	// now parse the input string
+	InitParser()
+	line := []byte(series_filter_no_comments)
+	yyParse(&exprLex{line: line})
+	if !errorOnParse {
+		s, _ := json.MarshalIndent(ast, "", "  ")
+		ss := humanizeFilter(ast)
+		select_str += fmt.Sprintf("Parsing series filter\n%s\n%s\n", string(s), ss)
+		config.SeriesFilterType = "select"
+		// check if we have any matches - cheap for us here
+		matches, _ := findMatchingSets(ast, config.Data.DataInfo)
+		postfix := "s"
+		if len(matches) == 1 {
+			postfix = ""
+		}
+		select_str += fmt.Sprintf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
+	}
+
+	// return that we cleared out the data cache, return the current number of dataset as well
+	return nil, &argsMessage{
+		Message: select_str, // shouldn't this be structured information instead?
+	}, nil
+}
+
+func dataInfoTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *resultDataInfo, error) {
+	// find out if there is data, if there is no ror folder produce an error
+	var err error
+	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+		return nil, &resultDataInfo{Message: "Error could not get ror directory."}, err
+	}
+	// make the config
+	dir_path := input_dir + "/.ror/config"
+	config, err := readConfig(dir_path)
+	if err != nil {
+		return nil, &resultDataInfo{Message: "Error could not read config file from ror directory."}, err
+	}
+
+	if len(config.Data.DataInfo) == 0 {
+		return nil, &resultDataInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
+	}
+
+	// return that we cleared out the data cache, return the current number of dataset as well
+	return nil, &resultDataInfo{
+		Message: "Here the info loaded from the data path " + config.Data.Path,
+		Data:    getDetailedStatusInfo(config), // shouldn't this be structured information instead?
+	}, nil
+}
+
 func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) (*mcp.CallToolResult, *resultDataCache, error) {
 	// ask the user for the directory of the data to add
 	// find out if there is data, if there is no ror folder produce an error
@@ -380,24 +528,6 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 		return nil, &resultDataCache{Message: "Error could not read config file from ror directory."}, err
 	}
 
-	// we don't need to elicit if we have already gotten this as an argument in args
-	/*
-		res, err := req.Session.Elicit(ctx, &mcp.ElicitParams{
-			Message: "Where is the data that should be added",
-			RequestedSchema: &jsonschema.Schema{
-				Type: "object",
-				Properties: map[string]*jsonschema.Schema{
-					"newdatapath": {Type: "string", Description: "The directory path on the local machine that contains DICOM data to import.", Examples: []any{"file://somewhere/here/"}},
-				},
-			},
-		})
-		if err != nil {
-			return nil, nil, fmt.Errorf("eliciting failed: %v", err)
-		} */
-
-	// use res to add the data
-	// fmt.Printf("%v", args)
-
 	// The following will take a while... should we report back of our progress?
 	config.Data.Path = string(args.Path)
 	studies, err := dataSets(config, config.Data.DataInfo) // TODO: can we make this create no output on stdout?
@@ -408,13 +538,7 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 	if len(studies) == 0 {
 		return nil, &resultDataCache{Message: "Error we did not find any DICOM files in the folder specified."}, err
 		// fmt.Println("We did not find any DICOM files in the folder you provided. Please check if the files are available, un-compress any zip files to make the accessible to this tool.")
-	} //else {
-	//	postfix := "ies"
-	//		if len(studies) == 1 {
-	//			postfix = "y"
-	//		}
-	// fmt.Printf("Found %d DICOM stud%s.\n", len(studies), postfix)
-	//	}
+	}
 
 	// update the config file now - the above dataSets can take a long time!
 	config, err = readConfig(dir_path)
@@ -428,9 +552,31 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 	if !config.writeConfig() {
 		return nil, &resultDataCache{Message: "Error could not write config file into ror directory."}, err
 	}
+	numSeries := 0
+	for _, v := range studies {
+		numSeries += len(v)
+	}
+	numImages := 0
+	for _, v := range studies {
+		for _, vv := range v {
+			numImages += vv.NumImages
+		}
+	}
+	var participants map[string]bool = make(map[string]bool)
+	for _, v := range studies {
+		for _, vv := range v {
+			participants[fmt.Sprintf("%s%s", vv.PatientID, vv.PatientName)] = true
+		}
+	}
+	numParticipants := len(participants)
 
 	// return that we cleared out the data cache, return the current number of dataset as well
-	return nil, &resultDataCache{Message: "Added the data path", NumStudies: 0, NumSeries: 0, NumImages: 0}, nil
+	return nil, &resultDataCache{
+		Message:         "Added the data path " + config.Data.Path,
+		NumStudies:      len(studies),
+		NumSeries:       numSeries,
+		NumImages:       numImages,
+		NumParticipants: numParticipants}, nil
 }
 
 // structuredTool returns a structured result.
@@ -446,7 +592,7 @@ func rorTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.Ca
 			Content: []mcp.Content{
 				&mcp.TextContent{Text: fmt.Sprintf("Error, could not fill in the resource information, %v", err)},
 			},
-		}, &result{Message: "ROR is a tools to create workflows for the research PACS"}, nil
+		}, &result{Message: "ROR is a tool to create workflows for the research PACS"}, nil
 	}
 	jsonContent, err := json.Marshal(resources)
 	if err != nil {
@@ -456,7 +602,7 @@ func rorTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.Ca
 		Content: []mcp.Content{
 			&mcp.TextContent{Text: string(jsonContent)},
 		},
-	}, &result{Message: "ROR is a tools to create workflows for the research PACS"}, nil
+	}, &result{Message: "ROR is a tool to create workflows for the research PACS"}, nil
 }
 
 func pingingTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
@@ -479,6 +625,13 @@ func loggingTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.Cal
 func rootsListTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
 	res, err := req.Session.ListRoots(ctx, nil)
 	if err != nil {
+		if input_dir != "" {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: "file://" + input_dir}, // do we need to add file:// ?
+				},
+			}, nil, nil
+		}
 		return nil, nil, fmt.Errorf("listing roots failed: %v", err)
 	}
 	var allroots []string
@@ -495,6 +648,13 @@ func rootsListTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.C
 func rootsTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
 	res, err := req.Session.ListRoots(ctx, nil)
 	if err != nil {
+		if input_dir != "" {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: input_dir}, // do we need to add file:// ?
+				},
+			}, nil, nil
+		}
 		return nil, nil, fmt.Errorf("listing roots failed: %v", err)
 	}
 	var allroots []string
@@ -544,7 +704,7 @@ func complete(ctx context.Context, req *mcp.CompleteRequest) (*mcp.CompleteResul
 	var suggestions []string
 	switch req.Params.Ref.Type {
 	case "ref/prompt":
-		suggestions = []string{"ror init", "ror trigger", "ror config"}
+		suggestions = []string{"ror init", "ror trigger", "ror config", "ror status", "ror mcp"}
 	case "ref/resource":
 		suggestions = []string{"numstudies", "numseries", "numimages", "numparticipants"}
 	default:
