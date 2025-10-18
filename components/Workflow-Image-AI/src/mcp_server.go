@@ -40,6 +40,21 @@ func startMCP(useHttp string, rootFolder string) {
 
 	server := mcp.NewServer(&mcp.Implementation{Name: "ror", Version: version}, opts)
 
+	// configure the root directory that the server can access
+	if rootFolder != "" {
+		// make sure the rootFolder is an absolute path
+		/*	absRoot, err := makeAbsolutePath(rootFolder)
+			if err != nil {
+				log.Fatalf("Could not make root folder absolute: %v", err)
+			}
+			rootFolder = absRoot
+			server.Roots = append(server.Roots, mcp.Root{URI: "file://" + rootFolder, Name: "RootFolder"})
+			input_dir = rootFolder
+			log.Printf("Setting the MCP root folder to %s", rootFolder) */
+	} else {
+		log.Printf("No root folder specified, please set one up using the MCP Inspector or other client.")
+	}
+
 	// Add tools that exercise different features of the protocol.
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet", Description: "say hi"}, contentTool)
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet (structured)"}, structuredTool) // returns structured output
@@ -53,7 +68,7 @@ func startMCP(useHttp string, rootFolder string) {
 
 	mcp.AddTool(server, &mcp.Tool{Name: "clear", Description: "ROR tool to clear out all data folders."}, clearOutDataCacheTool)                                                                                                                                      // returns structured output
 	mcp.AddTool(server, &mcp.Tool{Name: "add/data", Description: "Add a new data folder. Adding data will require ror to parse the whole directory which takes some time. Wait for this operation to finish before querying the resources again."}, addDataCacheTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "change/root", Description: "Change to a new ror folder."}, changeRootTool)                                                                                                                                                   // returns structured output
+	//mcp.AddTool(server, &mcp.Tool{Name: "change/root", Description: "Change to a new ror folder."}, changeRootTool)                                                                                                                                                   // returns structured output
 
 	// Add a basic prompt.
 	server.AddPrompt(&mcp.Prompt{Name: "greet"}, prompt)
@@ -65,8 +80,9 @@ func startMCP(useHttp string, rootFolder string) {
 		URI:      "embedded:info",
 	}, embeddedResource)
 	server.AddResource(&mcp.Resource{
-		Name:     "data",
-		MIMEType: "text/plain",
+		Name: "data",
+		//MIMEType: "text/plain",
+		MIMEType: "application/json",
 		URI:      "embedded:data",
 	}, embeddedResource)
 	server.AddResource(&mcp.Resource{
@@ -130,12 +146,19 @@ var embeddedResources = map[string]string{
 func getInputDir(ctx context.Context, session *mcp.ServerSession) (string, error) {
 	res, err := session.ListRoots(ctx, nil)
 	if err != nil {
+		// if that is the case just use the globally defined input_dir
+		if input_dir != "" {
+			return input_dir, nil
+		}
 		return "", fmt.Errorf("listing roots failed: %v", err)
 	}
 	var allroots []string
 	for _, r := range res.Roots {
 		uri_temp := strings.TrimPrefix(r.URI, "file://")
 		allroots = append(allroots, uri_temp)
+	}
+	if len(allroots) == 0 {
+		return "", fmt.Errorf("no roots defined, setup a root first")
 	}
 	dir_path := allroots[0] // should be "./.ror/config"
 	return dir_path, nil
@@ -219,7 +242,17 @@ func embeddedResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.R
 		return nil, fmt.Errorf("failed to read config file: %v", err)
 	}
 	if key == "data" {
-		text = config.Data.Path // this is relative to the ror directory
+		// instead of a simple string try to return a json object with the path inside
+		var obj = map[string]string{"path": config.Data.Path} // this is relative to the ror directory
+		var obj_json []byte
+		if obj_json, err = json.MarshalIndent(obj, "", " "); err != nil {
+			return nil, fmt.Errorf("failed to marshal json: %v", err)
+		}
+		return &mcp.ReadResourceResult{
+			Contents: []*mcp.ResourceContents{
+				{URI: req.Params.URI, MIMEType: "application/json", Text: string(obj_json)},
+			},
+		}, nil
 	}
 	if key == "numstudies" {
 		text = fmt.Sprintf("%d", len(config.Data.DataInfo))
@@ -367,20 +400,21 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 
 	// The following will take a while... should we report back of our progress?
 	config.Data.Path = string(args.Path)
-	studies, err := dataSets(config, config.Data.DataInfo)
+	studies, err := dataSets(config, config.Data.DataInfo) // TODO: can we make this create no output on stdout?
 	check(err)
 	if app != nil {
 		app.Stop()
 	}
 	if len(studies) == 0 {
-		fmt.Println("We did not find any DICOM files in the folder you provided. Please check if the files are available, un-compress any zip files to make the accessible to this tool.")
-	} else {
-		postfix := "ies"
-		if len(studies) == 1 {
-			postfix = "y"
-		}
-		fmt.Printf("Found %d DICOM stud%s.\n", len(studies), postfix)
-	}
+		return nil, &resultDataCache{Message: "Error we did not find any DICOM files in the folder specified."}, err
+		// fmt.Println("We did not find any DICOM files in the folder you provided. Please check if the files are available, un-compress any zip files to make the accessible to this tool.")
+	} //else {
+	//	postfix := "ies"
+	//		if len(studies) == 1 {
+	//			postfix = "y"
+	//		}
+	// fmt.Printf("Found %d DICOM stud%s.\n", len(studies), postfix)
+	//	}
 
 	// update the config file now - the above dataSets can take a long time!
 	config, err = readConfig(dir_path)

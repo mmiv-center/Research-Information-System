@@ -64,7 +64,7 @@ var own_name string = "ror"
 // if we need an mcp server supporting http, by default use stdin/stdout
 var mcp_http string
 
-// will store the path to the config file
+// will store the path to the config file (folder containing .ror/config)
 var input_dir string
 
 //go:generate goyacc -o select_group.go select_group.y
@@ -3415,9 +3415,10 @@ func main() {
 
 	switch os.Args[1] {
 	case "mcp":
-		// start the mcp server
-		startMCP(mcp_http, input_dir)
-
+		if err := mcpCommand.Parse(os.Args[2:]); err == nil {
+			// start the mcp server
+			startMCP(mcp_http, input_dir)
+		}
 	case "init", "create":
 		if len(os.Args[2:]) == 0 {
 			initCommand.PrintDefaults()
