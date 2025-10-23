@@ -3220,7 +3220,7 @@ func getDetailedStatusInfo(config Config) string {
 	sort.Strings(participants)
 
 	// TODO: add the reason for failure to match for each participant, study and series
-	statusInfo += fmt.Sprintf("\nData summary\n\n")
+	statusInfo += "\nData summary\n\n"
 
 	for pidx, p := range participants {
 		counter3 := 0
