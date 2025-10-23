@@ -6,9 +6,9 @@ toolchain go1.24.5
 
 require (
 	github.com/gdamore/tcell/v2 v2.7.4
-	github.com/google/jsonschema-go v0.2.1-0.20250825175020-748c325cec76
+	github.com/google/jsonschema-go v0.3.0
 	github.com/mkmik/argsort v1.1.0
-	github.com/modelcontextprotocol/go-sdk v0.3.1
+	github.com/modelcontextprotocol/go-sdk v1.0.0
 	github.com/rivo/tview v0.0.0-20241103174730-c76f7879f592
 	github.com/sjwhitworth/golearn v0.0.0-20221228163002-74ae077eafb2
 	github.com/suyashkumar/dicom v1.1.0
