@@ -18,9 +18,11 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/suyashkumar/dicom/pkg/tag"
 )
 
 func startMCP(useHttp string, rootFolder string) {
@@ -60,17 +62,22 @@ func startMCP(useHttp string, rootFolder string) {
 	// Add tools that exercise different features of the protocol.
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet", Description: "say hi"}, contentTool)
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet (structured)"}, structuredTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "ror/info", Description: "ROR (helm) is a set of tools to create workflows for the research PACS. The list of tool includes clearing out current data and adding new data."}, rorTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "ping"}, pingingTool)                                                                                                                                                                  // performs a ping
-	mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                                                                   // performs a log
-	mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                               // performs sampling
-	mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                                                              // performs elicitation
-	mcp.AddTool(server, &mcp.Tool{Name: "roots"}, rootsTool)                                                                                                                                                                   // does everything with the ror folder?                                                                                                                                                                // lists roots
-	mcp.AddTool(server, &mcp.Tool{Name: "roots/list"}, rootsListTool)                                                                                                                                                          // lists roots
+	mcp.AddTool(server, &mcp.Tool{Name: "ror/info", Description: "ROR (helm) is a set of workflow tools for research PACS. There are tools for clearing out current data and adding new DICOM data."}, rorTool) // returns structured output
+	mcp.AddTool(server, &mcp.Tool{Name: "ping"}, pingingTool)                                                                                                                                                   // performs a ping
+	mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                                                    // performs a log
+	mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                // performs sampling
+	mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                                               // performs elicitation
+	mcp.AddTool(server, &mcp.Tool{Name: "roots"}, rootsTool)                                                                                                                                                    // does everything with the ror folder?                                                                                                                                                                // lists roots
+	mcp.AddTool(server, &mcp.Tool{Name: "roots/list"}, rootsListTool)                                                                                                                                           // lists roots
 
 	mcp.AddTool(server, &mcp.Tool{Name: "data/clear", Description: "Delete all imported data folders references from the ror project. No actual data is going to be deleted."}, clearOutDataCacheTool)                                                                // returns structured output
 	mcp.AddTool(server, &mcp.Tool{Name: "data/add", Description: "Add a new data folder. Adding data will require ror to parse the whole directory which takes some time. Wait for this operation to finish before querying the resources again."}, addDataCacheTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "data/list", Description: "Show detailed information on the currently loaded data. Data needs to added first with add/data."}, dataInfoTool)
+	mcp.AddTool(server, &mcp.Tool{Name: "data/list", Description: "Show detailed information on the currently loaded data. Patients have studies that have series that have images. Data needs to added first with add/data."}, dataInfoTool)
+	mcp.AddTool(server, &mcp.Tool{Name: "data/list/patients", Description: "Show list of patients from the currently loaded data. Data needs to added first with add/data."}, dataListPatients)
+	mcp.AddTool(server, &mcp.Tool{Name: "data/list/studies", Description: "Show list of studies from the currently loaded data. Data needs to added first with add/data."}, dataListStudies)
+	mcp.AddTool(server, &mcp.Tool{Name: "data/list/series", Description: "Show list of series for a given study. Data needs to added first with add/data. Get a study name (study instance uid) from data/list/studies."}, dataListSeries)
+	mcp.AddTool(server, &mcp.Tool{Name: "data/list/series/tags", Description: "Show list of tags for a given series. Data needs to added first with add/data. Get a series name (series instance uid) from data/list/series."}, dataListTags)
+
 	//mcp.AddTool(server, &mcp.Tool{Name: "change/root", Description: "Change to a new ror folder."}, changeRootTool)                                                                                                                                                   // returns structured output
 
 	mcp.AddTool(server, &mcp.Tool{Name: "select/list", Description: "Show the current select statement for which data should be filtered in."}, showSelectTool) // support completions
@@ -323,6 +330,12 @@ type setSelectMessage struct {
 	Select string `json:"select" jsonschema:"the select statement to filter in DICOM series"`
 }
 
+type argsData struct {
+	Patient string `json:"patient" jsonschema:"If string is not empty list information from this patient"`
+	Study   string `json:"study" jsonschema:"If string is not empty list information from this study"`
+	Series  string `json:"series" jsonschema:"If string is not empty list information from this series"`
+}
+
 // contentTool is a tool that returns unstructured content.
 //
 // Since its output type is 'any', no output schema is created.
@@ -490,7 +503,222 @@ func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.
 	}, nil
 }
 
-func dataInfoTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *resultDataInfo, error) {
+func dataListPatients(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *resultDataInfo, error) {
+	var err error
+	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+		return nil, &resultDataInfo{Message: "Error could not get ror directory."}, err
+	}
+	// make the config
+	dir_path := input_dir + "/.ror/config"
+	config, err := readConfig(dir_path)
+	if err != nil {
+		return nil, &resultDataInfo{Message: "Error could not read config file from ror directory."}, err
+	}
+
+	if len(config.Data.DataInfo) == 0 {
+		return nil, &resultDataInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
+	}
+
+	var participantsMap map[string]bool = make(map[string]bool)
+	for _, element := range config.Data.DataInfo {
+		for _, element2 := range element {
+			name := element2.PatientID
+			if element2.PatientName != "" && element2.PatientName != name {
+				name = name + "-" + element2.PatientName
+			}
+			participantsMap[name] = true
+		}
+	}
+	var participants []string = make([]string, 0, len(participantsMap))
+	for k := range participantsMap {
+		participants = append(participants, k)
+	}
+	return nil, &resultDataInfo{
+		Message: "List of accessible patient ids from " + config.Data.Path + ". Each patient will have associated studies that in turn have series with tag information.",
+		Data:    strings.Join(participants, ", "), // shouldn't this be structured information instead?
+	}, nil
+}
+
+// name could be a part of a patient name.
+func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultDataInfo, error) {
+	var err error
+	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+		return nil, &resultDataInfo{Message: "Error could not get ror directory."}, err
+	}
+	// make the config
+	dir_path := input_dir + "/.ror/config"
+	config, err := readConfig(dir_path)
+	if err != nil {
+		return nil, &resultDataInfo{Message: "Error could not read config file from ror directory."}, err
+	}
+
+	if len(config.Data.DataInfo) == 0 {
+		return nil, &resultDataInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
+	}
+	type studyInfo struct {
+		PatientID   string
+		PatientName string
+		StudyDate   string
+	}
+
+	var studyAndDate map[string]studyInfo = make(map[string]studyInfo, 0)
+	for key, element := range config.Data.DataInfo { // study
+		for _, element2 := range element { // series
+			name := element2.PatientID
+			if element2.PatientName != "" && element2.PatientName != name {
+				name = name + "-" + element2.PatientName
+			}
+
+			studyDate := ""
+			for _, a := range element2.All {
+				t := tag.StudyDate
+				if a.Tag == t {
+					studyDate = strings.Join(a.Value, ",")
+					layout := "20060102"
+					t, err := time.Parse(layout, studyDate)
+					if err == nil {
+						studyDate = t.Format("2006/01/02")
+					}
+					break
+				}
+			}
+			if args.Name != "" {
+				if !strings.Contains(name, args.Name) {
+					continue
+				}
+			}
+			studyAndDate[key] = studyInfo{
+				PatientID:   element2.PatientID,
+				PatientName: element2.PatientName,
+				StudyDate:   studyDate,
+			}
+			break
+			// data += fmt.Sprintf("Patient: %s, Study %s (Date: %s) Series %s: %d images\n", name, key, studyDate, key2, element2.NumImages)
+		}
+	}
+	// convert structure to string
+	if byteData, err := json.Marshal(studyAndDate); err == nil {
+		return nil, &resultDataInfo{
+			Message: "List of accessible studies from " + config.Data.Path,
+			Data:    string(byteData), // shouldn't this be structured information instead?
+		}, nil
+	}
+	return nil, &resultDataInfo{Message: "Error could not create json for data."}, err
+}
+
+type argsSeries struct {
+	StudyInstanceUID string `json:"study_instance_uid" jsonschema:"the study instance uid to list series for"`
+}
+
+func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSeries) (*mcp.CallToolResult, *resultDataInfo, error) {
+	var err error
+	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+		return nil, &resultDataInfo{Message: "Error could not get ror directory."}, err
+	}
+	// make the config
+	dir_path := input_dir + "/.ror/config"
+	config, err := readConfig(dir_path)
+	if err != nil {
+		return nil, &resultDataInfo{Message: "Error could not read config file from ror directory."}, err
+	}
+
+	if len(config.Data.DataInfo) == 0 {
+		return nil, &resultDataInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
+	}
+
+	type seriesInfo struct {
+		PatientID         string
+		PatientName       string
+		StudyDate         string
+		SeriesDescription string
+		Modality          string
+		NumberOfImages    int
+	}
+
+	var data map[string]seriesInfo = make(map[string]seriesInfo, 0)
+
+	for key, element := range config.Data.DataInfo { // study
+		for key2, element2 := range element { // series
+			if args.StudyInstanceUID != "" {
+				if !strings.Contains(key, args.StudyInstanceUID) {
+					continue
+				}
+			}
+			studyDate := ""
+			for _, a := range element2.All {
+				t := tag.StudyDate
+				if a.Tag == t {
+					studyDate = strings.Join(a.Value, ",")
+					layout := "20060102"
+					t, err := time.Parse(layout, studyDate)
+					if err == nil {
+						studyDate = t.Format("2006/01/02")
+					}
+					break
+				}
+			}
+
+			data[key2] = seriesInfo{
+				PatientID:         element2.PatientID,
+				PatientName:       element2.PatientName,
+				StudyDate:         studyDate,
+				SeriesDescription: element2.SeriesDescription,
+				Modality:          element2.Modality,
+				NumberOfImages:    element2.NumImages,
+			}
+		}
+	}
+	if byteInfo, err := json.Marshal(data); err == nil {
+		return nil, &resultDataInfo{
+			Message: "Series information from data path " + config.Data.Path,
+			Data:    string(byteInfo), // shouldn't this be structured information instead?
+		}, nil
+	}
+	return nil, &resultDataInfo{Message: "Error could not convert output to JSON format."}, err
+}
+
+type argsTags struct {
+	SeriesInstanceUID string `json:"series_instance_uid" jsonschema:"the series instance uid to list tags for"`
+}
+
+func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTags) (*mcp.CallToolResult, *resultDataInfo, error) {
+	var err error
+	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+		return nil, &resultDataInfo{Message: "Error could not get ror directory."}, err
+	}
+	// make the config
+	dir_path := input_dir + "/.ror/config"
+	config, err := readConfig(dir_path)
+	if err != nil {
+		return nil, &resultDataInfo{Message: "Error could not read config file from ror directory."}, err
+	}
+
+	if len(config.Data.DataInfo) == 0 {
+		return nil, &resultDataInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
+	}
+
+	var data map[string][]TagAndValue = make(map[string][]TagAndValue, 0)
+
+	for _, element := range config.Data.DataInfo { // study
+		for key2, element2 := range element { // series
+			if args.SeriesInstanceUID != "" {
+				if !strings.Contains(key2, args.SeriesInstanceUID) {
+					continue
+				}
+			}
+			data[key2] = element2.All
+		}
+	}
+	if byteInfo, err := json.Marshal(data); err == nil {
+		return nil, &resultDataInfo{
+			Message: "Tag information from data path " + config.Data.Path,
+			Data:    string(byteInfo), // shouldn't this be structured information instead?
+		}, nil
+	}
+	return nil, &resultDataInfo{Message: "Error could not convert output to JSON format."}, err
+}
+
+func dataInfoTool(ctx context.Context, req *mcp.CallToolRequest, args *argsData) (*mcp.CallToolResult, *resultDataInfo, error) {
 	// find out if there is data, if there is no ror folder produce an error
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
@@ -507,10 +735,106 @@ func dataInfoTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.Ca
 		return nil, &resultDataInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
 	}
 
+	data := ""
+	if args.Patient != "" {
+		var participantsMap map[string]bool = make(map[string]bool)
+		for _, element := range config.Data.DataInfo {
+			for _, element2 := range element {
+				name := element2.PatientID
+				if element2.PatientName != "" && element2.PatientName != name {
+					name = name + "-" + element2.PatientName
+				}
+				participantsMap[name] = true
+			}
+		}
+		var participantFound bool = false
+		var participantFoundName string = ""
+		var participants []string = make([]string, 0, len(participantsMap))
+		for k := range participantsMap {
+			participants = append(participants, k)
+			if k == args.Patient {
+				participantFound = true
+				participantFoundName = k
+			} else if strings.Contains(strings.ToLower(k), strings.ToLower(args.Patient)) {
+				participantFound = true
+				participantFoundName = k
+			}
+		}
+		if !participantFound {
+			return nil, &resultDataInfo{Message: "Participant not found, here is the list of known participant ids: " + strings.Join(participants, ", ")}, nil
+		}
+		data += fmt.Sprintf("Found patient %s in the loaded data.\n", args.Patient)
+		// create the list of studies for that patient
+		for key, element := range config.Data.DataInfo {
+			for key2, element2 := range element {
+				name := element2.PatientID
+				if element2.PatientName != "" && element2.PatientName != name {
+					name = name + "-" + element2.PatientName
+				}
+				studyDate := ""
+				for _, a := range element2.All {
+					t := tag.StudyDate
+					if a.Tag == t {
+						studyDate = strings.Join(a.Value, ",")
+						layout := "20060102"
+						t, err := time.Parse(layout, studyDate)
+						if err == nil {
+							studyDate = t.Format("2006/01/02")
+						}
+						break
+					}
+				}
+				if name == participantFoundName {
+					data += fmt.Sprintf("Study %s (Date: %s) Series %s: %d images\n", key, studyDate, key2, element2.NumImages)
+				}
+			}
+		}
+	} else if args.Study != "" {
+		data += fmt.Sprintf("Listing information for study %s\n", args.Study)
+		for key, element := range config.Data.DataInfo { // study
+			for key2, element2 := range element { // series
+				name := element2.PatientID
+				if element2.PatientName != "" && element2.PatientName != name {
+					name = name + "-" + element2.PatientName
+				}
+				studyDate := ""
+				for _, a := range element2.All {
+					t := tag.StudyDate
+					if a.Tag == t {
+						studyDate = strings.Join(a.Value, ",")
+						layout := "20060102"
+						t, err := time.Parse(layout, studyDate)
+						if err == nil {
+							studyDate = t.Format("2006/01/02")
+						}
+						break
+					}
+				}
+				if key == args.Study {
+					data += fmt.Sprintf("Patient: %s, Study %s (Date: %s) Series %s: %d images\n", name, key, studyDate, key2, element2.NumImages)
+				}
+			}
+		}
+	} else if args.Series != "" {
+		data += fmt.Sprintf("Listing information for series %s\n", args.Series)
+		for _, element := range config.Data.DataInfo { // study
+			for key2, element2 := range element { // series
+				if key2 != args.Series {
+					continue
+				}
+				for _, a := range element2.All {
+					data += fmt.Sprintf("Tag: (0x%04x,0x%04x) Value: %s\n", a.Tag.Group, a.Tag.Element, strings.Join(a.Value, ","))
+				}
+			}
+		}
+	} else {
+		data = getDetailedStatusInfo(config)
+	}
+
 	// return that we cleared out the data cache, return the current number of dataset as well
 	return nil, &resultDataInfo{
 		Message: "Here the info loaded from the data path " + config.Data.Path,
-		Data:    getDetailedStatusInfo(config), // shouldn't this be structured information instead?
+		Data:    data, // shouldn't this be structured information instead?
 	}, nil
 }
 
