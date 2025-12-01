@@ -70,6 +70,8 @@ func startMCP(useHttp string, rootFolder string) {
 	mcp.AddTool(server, &mcp.Tool{Name: "roots"}, rootsTool)                                                                                                                                                    // does everything with the ror folder?                                                                                                                                                                // lists roots
 	mcp.AddTool(server, &mcp.Tool{Name: "roots/list"}, rootsListTool)                                                                                                                                           // lists roots
 
+	mcp.AddTool(server, &mcp.Tool{Name: "project/init", Description: "A ror project is a roots folder needed for adding data."}, projectTool)
+
 	mcp.AddTool(server, &mcp.Tool{Name: "data/clear", Description: "Delete all imported data folders references from the ror project. No actual data is going to be deleted."}, clearOutDataCacheTool)                                                                // returns structured output
 	mcp.AddTool(server, &mcp.Tool{Name: "data/add", Description: "Add a new data folder. Adding data will require ror to parse the whole directory which takes some time. Wait for this operation to finish before querying the resources again."}, addDataCacheTool) // returns structured output
 	mcp.AddTool(server, &mcp.Tool{Name: "data/list", Description: "Show detailed information on the currently loaded data. Patients have studies that have series that have images. Data needs to added first with add/data."}, dataInfoTool)
@@ -356,6 +358,16 @@ type resultDataInfo struct {
 	Data    string `json:"data" jsonschema:"a map with the individual DICOM series information"`
 }
 
+type resultStudyInfo struct {
+	Message string `json:"message" jsonschema:"the message to convey"`
+	Data    string `json:"data" jsonschema:"an array with the DICOM study information, each study entry has properties such as PatientID, PatientName, StudyDate"`
+}
+
+type resultSeriesInfo struct {
+	Message string `json:"message" jsonschema:"the message to convey"`
+	Data    string `json:"data" jsonschema:"an array with the DICOM series information, each series entry has properties such as PatientID, PatientName, StudyDate, SeriesDescription, Modality and number of images"`
+}
+
 // if we clear out the data cache we need a result that reports the total numbers
 type resultDataCache struct {
 	Message         string `json:"message" jsonschema:"the message to convey"`
@@ -363,6 +375,28 @@ type resultDataCache struct {
 	NumSeries       int    `json:"numseries" jsonschema:"the number of DICOM image series"`
 	NumImages       int    `json:"numimages" jsonschema:"the number of DICOM images"`
 	NumParticipants int    `json:"numparticipants" jsonschema:"the number of unique PatientID DICOM tags"`
+}
+
+// TOOL
+func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) (*mcp.CallToolResult, *result, error) {
+	// only init if a directory already exists and its not yet a ror folder
+
+	var err error
+	if input_dir, err = getInputDir(ctx, req.Session); err == nil {
+		return nil, &result{Message: "Error, a ror directory was already specified. Restart the mcp server with the new project location folder working_directory."}, err
+	}
+	if input_dir != args.Path {
+		return nil, &result{Message: "Error, the requested directory is different from the working_directory specified when the mcp_server was started."}, err
+	}
+
+	// read the config
+	dir_path := args.Path + "/.ror/config"
+	_, err = readConfig(dir_path)
+	if err == nil {
+		return nil, &result{Message: "Error, a config file exists already at that location. Remove .ror/ or use a different directory."}, err
+	}
+
+	return nil, &result{Message: "Error, not yet implemented."}, err
 }
 
 // TOOL
@@ -533,27 +567,31 @@ func dataListPatients(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mc
 	for k := range participantsMap {
 		participants = append(participants, k)
 	}
-	return nil, &resultDataInfo{
-		Message: "List of accessible patient ids from " + config.Data.Path + ". Each patient will have associated studies that in turn have series with tag information.",
-		Data:    strings.Join(participants, ", "), // shouldn't this be structured information instead?
-	}, nil
+	if byteData, err := json.Marshal(participants); err == nil {
+		return nil, &resultDataInfo{
+			Message: "List of accessible patient ids from " + config.Data.Path + ". Each patient will have associated studies that in turn have series with tag information.",
+			Data:    string(byteData), // shouldn't this be structured information instead?
+		}, nil
+	} else {
+		return nil, &resultDataInfo{Message: "Error could not create json for list of participants."}, err
+	}
 }
 
 // name could be a part of a patient name.
-func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultDataInfo, error) {
+func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultStudyInfo, error) {
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
-		return nil, &resultDataInfo{Message: "Error could not get ror directory."}, err
+		return nil, &resultStudyInfo{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &resultDataInfo{Message: "Error could not read config file from ror directory."}, err
+		return nil, &resultStudyInfo{Message: "Error could not read config file from ror directory."}, err
 	}
 
 	if len(config.Data.DataInfo) == 0 {
-		return nil, &resultDataInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
+		return nil, &resultStudyInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
 	}
 	type studyInfo struct {
 		PatientID   string
@@ -598,32 +636,32 @@ func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) 
 	}
 	// convert structure to string
 	if byteData, err := json.Marshal(studyAndDate); err == nil {
-		return nil, &resultDataInfo{
+		return nil, &resultStudyInfo{
 			Message: "List of accessible studies from " + config.Data.Path,
 			Data:    string(byteData), // shouldn't this be structured information instead?
 		}, nil
 	}
-	return nil, &resultDataInfo{Message: "Error could not create json for data."}, err
+	return nil, &resultStudyInfo{Message: "Error could not create json for data."}, err
 }
 
 type argsSeries struct {
 	StudyInstanceUID string `json:"study_instance_uid" jsonschema:"the study instance uid to list series for"`
 }
 
-func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSeries) (*mcp.CallToolResult, *resultDataInfo, error) {
+func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSeries) (*mcp.CallToolResult, *resultSeriesInfo, error) {
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
-		return nil, &resultDataInfo{Message: "Error could not get ror directory."}, err
+		return nil, &resultSeriesInfo{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &resultDataInfo{Message: "Error could not read config file from ror directory."}, err
+		return nil, &resultSeriesInfo{Message: "Error could not read config file from ror directory."}, err
 	}
 
 	if len(config.Data.DataInfo) == 0 {
-		return nil, &resultDataInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
+		return nil, &resultSeriesInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
 	}
 
 	type seriesInfo struct {
@@ -633,9 +671,11 @@ func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSer
 		SeriesDescription string
 		Modality          string
 		NumberOfImages    int
+		SeriesInstanceUID string
+		StudyInstanceUID  string
 	}
 
-	var data map[string]seriesInfo = make(map[string]seriesInfo, 0)
+	var data []seriesInfo = make([]seriesInfo, 0)
 
 	for key, element := range config.Data.DataInfo { // study
 		for key2, element2 := range element { // series
@@ -658,23 +698,25 @@ func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSer
 				}
 			}
 
-			data[key2] = seriesInfo{
+			data = append(data, seriesInfo{
 				PatientID:         element2.PatientID,
 				PatientName:       element2.PatientName,
 				StudyDate:         studyDate,
 				SeriesDescription: element2.SeriesDescription,
 				Modality:          element2.Modality,
 				NumberOfImages:    element2.NumImages,
-			}
+				StudyInstanceUID:  key,
+				SeriesInstanceUID: key2,
+			})
 		}
 	}
 	if byteInfo, err := json.Marshal(data); err == nil {
-		return nil, &resultDataInfo{
+		return nil, &resultSeriesInfo{
 			Message: "Series information from data path " + config.Data.Path,
 			Data:    string(byteInfo), // shouldn't this be structured information instead?
 		}, nil
 	}
-	return nil, &resultDataInfo{Message: "Error could not convert output to JSON format."}, err
+	return nil, &resultSeriesInfo{Message: "Error could not convert output to JSON format."}, err
 }
 
 type argsTags struct {
@@ -697,7 +739,8 @@ func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTags)
 		return nil, &resultDataInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
 	}
 
-	var data map[string][]TagAndValue = make(map[string][]TagAndValue, 0)
+	// the returned data can only be very easy to understand, so here we can generate a list of strings with tag and value
+	var data []string = make([]string, 0)
 
 	for _, element := range config.Data.DataInfo { // study
 		for key2, element2 := range element { // series
@@ -706,7 +749,9 @@ func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTags)
 					continue
 				}
 			}
-			data[key2] = element2.All
+			for _, a := range element2.All {
+				data = append(data, fmt.Sprintf("Tag: [%04X,%04X] value: %s", a.Tag.Group, a.Tag.Element, strings.Join(a.Value, ",")))
+			}
 		}
 	}
 	if byteInfo, err := json.Marshal(data); err == nil {
