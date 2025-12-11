@@ -75,9 +75,25 @@ func startMCP(useHttp string, rootFolder string) {
 	mcp.AddTool(server, &mcp.Tool{Name: "data/clear", Description: "Delete all imported data folders references from the ror project. No actual data is going to be deleted."}, clearOutDataCacheTool)                                                                // returns structured output
 	mcp.AddTool(server, &mcp.Tool{Name: "data/add", Description: "Add a new data folder. Adding data will require ror to parse the whole directory which takes some time. Wait for this operation to finish before querying the resources again."}, addDataCacheTool) // returns structured output
 	mcp.AddTool(server, &mcp.Tool{Name: "data/list", Description: "Show detailed information on the currently loaded data. Patients have studies that have series that have images. Data needs to added first with add/data."}, dataInfoTool)
-	mcp.AddTool(server, &mcp.Tool{Name: "data/list/patients", Description: "Show list of patients from the currently loaded data. Data needs to added first with add/data."}, dataListPatients)
-	mcp.AddTool(server, &mcp.Tool{Name: "data/list/studies", Description: "Show list of studies from the currently loaded data. Data needs to added first with add/data."}, dataListStudies)
-	mcp.AddTool(server, &mcp.Tool{Name: "data/list/series", Description: "Show list of series for a given study. Data needs to added first with add/data. Get a study name (study instance uid) from data/list/studies."}, dataListSeries)
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "get_patients_info",
+		Description: "Get detailed information about the list of patients.\n" +
+			"\nReturns a list of patients.",
+	}, dataListPatients)
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "get_study_info",
+		Description: "Get detailed information about the list of studies for a given patient or participant.\n" +
+			"\nParameters:\n" +
+			"- Name: The patient or participant name to query. If the value is an empty string studies for all are returned.\n" +
+			"\nReturns an array of studies with properties such as PatientID, PatientName, StudyDate.",
+	}, dataListStudies)
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "get_series_info",
+		Description: "Get detailed information about the list of image series.\n" +
+			"\nParameters:\n" +
+			"- StudyInstanceUID: The StudyInstanceUID information for the study to query.\n" +
+			"\nReturns an array of series with properties such as PatientID, PatientName, StudyDate, SeriesDescription, Modality and number of images.",
+	}, dataListSeries)
 	mcp.AddTool(server, &mcp.Tool{Name: "data/list/series/tags", Description: "Show list of tags for a given series. Data needs to added first with add/data. Get a series name (series instance uid) from data/list/series."}, dataListTags)
 
 	//mcp.AddTool(server, &mcp.Tool{Name: "change/root", Description: "Change to a new ror folder."}, changeRootTool)                                                                                                                                                   // returns structured output
@@ -316,8 +332,9 @@ func embeddedResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.R
 	}, nil
 }
 
+// for dataListStudies
 type args struct {
-	Name string `json:"name" jsonschema:"the name to say hi to"`
+	Name string `json:"name" jsonschema:"The patient or participant name to query"`
 }
 
 type argsPath struct {
@@ -645,7 +662,7 @@ func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) 
 }
 
 type argsSeries struct {
-	StudyInstanceUID string `json:"study_instance_uid" jsonschema:"the study instance uid to list series for"`
+	StudyInstanceUID string `json:"study_instance_uid" jsonschema:"The StudyInstanceUID for the study to query."`
 }
 
 func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSeries) (*mcp.CallToolResult, *resultSeriesInfo, error) {
