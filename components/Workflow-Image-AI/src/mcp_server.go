@@ -72,13 +72,33 @@ func startMCP(useHttp string, rootFolder string) {
 
 	mcp.AddTool(server, &mcp.Tool{Name: "project/init", Description: "A ror project is a roots folder needed for adding data."}, projectTool)
 
-	mcp.AddTool(server, &mcp.Tool{Name: "data/clear", Description: "Delete all imported data folders references from the ror project. No actual data is going to be deleted."}, clearOutDataCacheTool)                                                                // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "data/add", Description: "Add a new data folder. Adding data will require ror to parse the whole directory which takes some time. Wait for this operation to finish before querying the resources again."}, addDataCacheTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "data/list", Description: "Show detailed information on the currently loaded data. Patients have studies that have series that have images. Data needs to added first with add/data."}, dataInfoTool)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "data/clear",
+		Description: "Delete all imported data folders references from the ror project.",
+	}, clearOutDataCacheTool) // returns structured output
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "data/add",
+		Description: "Add a new data folder. Adding data will require ror to parse the whole directory which takes some time. " +
+			"Wait for this operation to finish before querying the resources again.",
+	}, addDataCacheTool) // returns structured output
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "data/list",
+		Description: "Get detailed information on the currently loaded data.",
+	}, dataInfoTool)
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_patients_info",
 		Description: "Get detailed information about the list of patients.\n" +
-			"\nReturns a list of patients.",
+			"\nReturns an object with a 'patients' property containing an array of patient identifiers.",
+		OutputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"message": {Type: "string"},
+				"patients": {
+					Type:  "array",
+					Items: &jsonschema.Schema{Type: "string"},
+				},
+			},
+		},
 	}, dataListPatients)
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_study_info",
@@ -94,12 +114,21 @@ func startMCP(useHttp string, rootFolder string) {
 			"- StudyInstanceUID: The StudyInstanceUID information for the study to query.\n" +
 			"\nReturns an array of series with properties such as PatientID, PatientName, StudyDate, SeriesDescription, Modality and number of images.",
 	}, dataListSeries)
-	mcp.AddTool(server, &mcp.Tool{Name: "data/list/series/tags", Description: "Show list of tags for a given series. Data needs to added first with add/data. Get a series name (series instance uid) from data/list/series."}, dataListTags)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "data/list/series/tags",
+		Description: "Get a list of tags for a given series. Data needs to added first with add/data. Get a series name (series instance uid) from data/list/series.",
+	}, dataListTags)
 
 	//mcp.AddTool(server, &mcp.Tool{Name: "change/root", Description: "Change to a new ror folder."}, changeRootTool)                                                                                                                                                   // returns structured output
 
-	mcp.AddTool(server, &mcp.Tool{Name: "select/list", Description: "Show the current select statement for which data should be filtered in."}, showSelectTool) // support completions
-	mcp.AddTool(server, &mcp.Tool{Name: "select/add", Description: "Set a new select statement."}, setSelectTool)                                               // support completions
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "select/list",
+		Description: "Get the current select statement for which data should be filtered in.",
+	}, showSelectTool) // support completions
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "select/add",
+		Description: "Set a new select statement.",
+	}, setSelectTool) // support completions
 
 	// Add a basic prompt.
 	server.AddPrompt(&mcp.Prompt{Name: "greet"}, prompt)
@@ -375,6 +404,11 @@ type resultDataInfo struct {
 	Data    string `json:"data" jsonschema:"a map with the individual DICOM series information"`
 }
 
+type resultPatients struct {
+	Message  string   `json:"message"`
+	Patients []string `json:"patients"`
+}
+
 type resultStudyInfo struct {
 	Message string `json:"message" jsonschema:"the message to convey"`
 	Data    string `json:"data" jsonschema:"an array with the DICOM study information, each study entry has properties such as PatientID, PatientName, StudyDate"`
@@ -554,20 +588,20 @@ func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.
 	}, nil
 }
 
-func dataListPatients(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *resultDataInfo, error) {
+func dataListPatients(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *resultPatients, error) {
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
-		return nil, &resultDataInfo{Message: "Error could not get ror directory."}, err
+		return nil, &resultPatients{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &resultDataInfo{Message: "Error could not read config file from ror directory."}, err
+		return nil, &resultPatients{Message: "Error could not read config file from ror directory."}, err
 	}
 
 	if len(config.Data.DataInfo) == 0 {
-		return nil, &resultDataInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
+		return nil, &resultPatients{Message: "No data loaded, please add data first using the add/data tool."}, nil
 	}
 
 	var participantsMap map[string]bool = make(map[string]bool)
@@ -584,14 +618,10 @@ func dataListPatients(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mc
 	for k := range participantsMap {
 		participants = append(participants, k)
 	}
-	if byteData, err := json.Marshal(participants); err == nil {
-		return nil, &resultDataInfo{
-			Message: "List of accessible patient ids from " + config.Data.Path + ". Each patient will have associated studies that in turn have series with tag information.",
-			Data:    string(byteData), // shouldn't this be structured information instead?
-		}, nil
-	} else {
-		return nil, &resultDataInfo{Message: "Error could not create json for list of participants."}, err
-	}
+	return nil, &resultPatients{
+		Message:  "List of accessible patient ids from " + config.Data.Path + ". Each patient will have associated studies that in turn have series with tag information.",
+		Patients: participants,
+	}, nil
 }
 
 // name could be a part of a patient name.
