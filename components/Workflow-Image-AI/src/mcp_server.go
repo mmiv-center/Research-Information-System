@@ -1016,8 +1016,9 @@ func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTags)
 		}
 	}
 	return nil, &resultTags{
-		Message: "Tag information from data path " + config.Data.Path,
-		Tags:    data,
+		Message: "Tag information from data path " + config.Data.Path +
+			". Each tag entry has a group, element pair and a value.",
+		Tags: data,
 	}, nil
 }
 
