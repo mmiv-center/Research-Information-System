@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -105,7 +106,24 @@ func startMCP(useHttp string, rootFolder string) {
 		Description: "Get detailed information about the list of studies for a given patient or participant.\n" +
 			"\nParameters:\n" +
 			"- Name: The patient or participant name to query. If the value is an empty string studies for all are returned.\n" +
-			"\nReturns an array of studies with properties such as PatientID, PatientName, StudyDate.",
+			"\nReturns an object with 'studies' property containing a map of study IDs to study information.",
+		OutputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"message": {Type: "string"},
+				"studies": {
+					Type: "object",
+					AdditionalProperties: &jsonschema.Schema{
+						Type: "object",
+						Properties: map[string]*jsonschema.Schema{
+							"patient_id":   {Type: "string"},
+							"patient_name": {Type: "string"},
+							"study_date":   {Type: "string"},
+						},
+					},
+				},
+			},
+		},
 	}, dataListStudies)
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_series_info",
@@ -113,25 +131,99 @@ func startMCP(useHttp string, rootFolder string) {
 			"\nParameters:\n" +
 			"- StudyInstanceUID: The StudyInstanceUID information for the study to query.\n" +
 			"\nReturns an array of series with properties such as PatientID, PatientName, StudyDate, SeriesDescription, Modality and number of images.",
+		OutputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"message": {Type: "string"},
+				"series": {
+					Type: "array",
+					Items: &jsonschema.Schema{
+						Type: "object",
+						Properties: map[string]*jsonschema.Schema{
+							"patient_id":          {Type: "string"},
+							"patient_name":        {Type: "string"},
+							"study_date":          {Type: "string"},
+							"series_description":  {Type: "string"},
+							"modality":            {Type: "string"},
+							"number_of_images":    {Type: "integer"},
+							"series_instance_uid": {Type: "string"},
+							"study_instance_uid":  {Type: "string"},
+						},
+					},
+				},
+			},
+		},
 	}, dataListSeries)
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "data/list/series/tags",
-		Description: "Get a list of tags for a given series. Data needs to added first with add/data. Get a series name (series instance uid) from data/list/series.",
+		Name:        "get_series_tags",
+		Description: "Get a list of tags for a DICOM series.",
+		OutputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"message": {Type: "string"},
+				"tags": {
+					Type:  "array",
+					Items: &jsonschema.Schema{Type: "string"},
+				},
+			},
+		},
 	}, dataListTags)
 
 	//mcp.AddTool(server, &mcp.Tool{Name: "change/root", Description: "Change to a new ror folder."}, changeRootTool)                                                                                                                                                   // returns structured output
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "select/list",
-		Description: "Get the current select statement for which data should be filtered in.",
+		Name:        "get_current_select_statement",
+		Description: "Get the current select statement used to filter the DICOM studies and series.",
+		OutputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"message": {Type: "string"},
+			},
+		},
 	}, showSelectTool) // support completions
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "select/add",
+		Name:        "set_new_select_statement",
 		Description: "Set a new select statement.",
+		OutputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"message": {Type: "string"},
+			},
+		},
 	}, setSelectTool) // support completions
 
 	// Add a basic prompt.
 	server.AddPrompt(&mcp.Prompt{Name: "greet"}, prompt)
+
+	server.AddPrompt(&mcp.Prompt{Name: "ror/process_data",
+		Description: "Workflow to create a new ROR database from a folder with DICOM images.",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "directory",
+				Title:       "Data Directory",
+				Description: "Directory with DICOM images to process.",
+				Required:    true,
+			},
+			{
+				Name:        "work_folder",
+				Title:       "Work Folder",
+				Description: "Work folder to store the database in.",
+				Required:    true,
+			},
+		},
+	}, createNewRORDatabase)
+
+	server.AddPrompt(&mcp.Prompt{Name: "ror/get_test_dicom_data",
+		Description: "Workflow to download some test DICOM data using git.",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "directory",
+				Title:       "Data Directory",
+				Description: "Directory to store the DICOM images.",
+				Required:    true,
+			},
+		},
+	}, downloadDICOMData)
 
 	// Add an embedded resource.
 	server.AddResource(&mcp.Resource{
@@ -165,6 +257,18 @@ func startMCP(useHttp string, rootFolder string) {
 		MIMEType: "text/plain",
 		URI:      "embedded:numparticipants",
 	}, embeddedResource)
+	server.AddResource(&mcp.Resource{
+		Name:        "tag",
+		Description: "Get DICOM tag name from tag group/element",
+		MIMEType:    "text/plain",
+		URI:         "embedded:tag",
+	}, embeddedResource)
+	server.AddResource(&mcp.Resource{
+		Name:        "tagname",
+		Description: "Get DICOM tag group/element from tag name",
+		MIMEType:    "text/plain",
+		URI:         "embedded:tagname",
+	}, embeddedResource)
 
 	// Serve over stdio, or streamable HTTP if -http is set.
 	if useHttp != "" {
@@ -182,7 +286,46 @@ func startMCP(useHttp string, rootFolder string) {
 
 }
 
+// needs folder with data and a folder location to work in
+func createNewRORDatabase(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	return &mcp.GetPromptResult{
+		Description: "Workflow to create a new ROR working directory and add DICOM image data",
+		Messages: []*mcp.PromptMessage{
+			{
+				Role: "user",
+				Content: &mcp.TextContent{Text: "Create a new ROR database from DICOM images in directory '" +
+					req.Params.Arguments["directory"] + "' and store it in work folder '" + req.Params.Arguments["work_folder"] +
+					"'.\n\nStep by step instructions are: \n\n" +
+					"  1. Initialize a new ROR project in the work folder with\n" +
+					"     'ror init " + req.Params.Arguments["work_folder"] + "'.\n\n" +
+					"  2. Add the DICOM data from the directory with\n" +
+					"     'ror config --data " + req.Params.Arguments["directory"] + " --temp_directory " + req.Params.Arguments["directory"] + "'."},
+			},
+		},
+	}, nil
+}
+
+func downloadDICOMData(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	return &mcp.GetPromptResult{
+		Description: "Workflow to download test DICOM data using git",
+		Messages: []*mcp.PromptMessage{
+			{
+				Role: "user",
+				Content: &mcp.TextContent{Text: "Download test DICOM data using git into the directory: " + req.Params.Arguments["directory"] +
+					"\n\nStep by step instructions are: \n\n" +
+					"  1. Create a new directory and change into it with \n" +
+					"     'mkdir " + req.Params.Arguments["directory"] + "; cd " + req.Params.Arguments["directory"] + "'\n\n" +
+					"  2. Clone the hackathon dataset with\n" +
+					"     'git clone https://github.com/ImagingInformatics/hackathon-dataset.git'\n\n" +
+					"  3. Enter the new directory and update the submodules to download the DICOM images with\n" +
+					"     'cd hackathon-dataset; git submodule update --init --recursive'"},
+			},
+		},
+	}, nil
+}
+
 func prompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+
 	return &mcp.GetPromptResult{
 		Description: "Hi prompt",
 		Messages: []*mcp.PromptMessage{
@@ -204,12 +347,11 @@ var embeddedResources = map[string]string{
 }
 
 func getInputDir(ctx context.Context, session *mcp.ServerSession) (string, error) {
+	if input_dir != "" {
+		return input_dir, nil
+	}
 	res, err := session.ListRoots(ctx, nil)
 	if err != nil {
-		// if that is the case just use the globally defined input_dir
-		if input_dir != "" {
-			return input_dir, nil
-		}
 		return "", fmt.Errorf("listing roots failed: %v", err)
 	}
 	var allroots []string
@@ -221,6 +363,9 @@ func getInputDir(ctx context.Context, session *mcp.ServerSession) (string, error
 		return "", fmt.Errorf("no roots defined, setup a root first")
 	}
 	dir_path := allroots[0] // should be "./.ror/config"
+	if len(allroots) > 1 {
+		log.Printf("Warning: Multiple roots defined: %v, selecting %s", allroots, dir_path)
+	}
 	return dir_path, nil
 }
 
@@ -276,6 +421,52 @@ func embeddedResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.R
 		return nil, fmt.Errorf("wrong scheme: %q", u.Scheme)
 	}
 	key := u.Opaque
+	if strings.HasPrefix(key, "tag/") {
+		// Parse group/element from URI like embedded:tag/0008/0020
+		parts := strings.Split(key, "/")
+		if len(parts) == 3 {
+			groupStr := parts[1]
+			elementStr := parts[2]
+			group, err := strconv.ParseUint(groupStr, 16, 16)
+			if err != nil {
+				return nil, fmt.Errorf("invalid group: %s", groupStr)
+			}
+			element, err := strconv.ParseUint(elementStr, 16, 16)
+			if err != nil {
+				return nil, fmt.Errorf("invalid element: %s", elementStr)
+			}
+			t := tag.Tag{Group: uint16(group), Element: uint16(element)}
+			info, err := tag.Find(t)
+			if err != nil {
+				return nil, fmt.Errorf("tag not found: %v", err)
+			}
+			return &mcp.ReadResourceResult{
+				Contents: []*mcp.ResourceContents{
+					{URI: req.Params.URI, MIMEType: "text/plain", Text: info.Name},
+				},
+			}, nil
+		} else {
+			return nil, fmt.Errorf("invalid tag URI format, expected embedded:tag/group/element")
+		}
+	} else if strings.HasPrefix(key, "tagname/") {
+		// Parse name from URI like embedded:tagname/StudyDate
+		parts := strings.Split(key, "/")
+		if len(parts) == 2 {
+			name := parts[1]
+			info, err := tag.FindByName(name)
+			if err != nil {
+				return nil, fmt.Errorf("tag name not found: %v", err)
+			}
+			text := fmt.Sprintf("%04X,%04X", info.Tag.Group, info.Tag.Element)
+			return &mcp.ReadResourceResult{
+				Contents: []*mcp.ResourceContents{
+					{URI: req.Params.URI, MIMEType: "text/plain", Text: text},
+				},
+			}, nil
+		} else {
+			return nil, fmt.Errorf("invalid tagname URI format, expected embedded:tagname/name")
+		}
+	}
 	text, ok := embeddedResources[key]
 	if !ok {
 		return nil, fmt.Errorf("no embedded resource named %q", key)
@@ -409,14 +600,41 @@ type resultPatients struct {
 	Patients []string `json:"patients"`
 }
 
+type studyInfo struct {
+	PatientID   string `json:"patient_id"`
+	PatientName string `json:"patient_name"`
+	StudyDate   string `json:"study_date"`
+}
+
+type resultStudies struct {
+	Message string               `json:"message"`
+	Studies map[string]studyInfo `json:"studies"`
+}
+
 type resultStudyInfo struct {
 	Message string `json:"message" jsonschema:"the message to convey"`
 	Data    string `json:"data" jsonschema:"an array with the DICOM study information, each study entry has properties such as PatientID, PatientName, StudyDate"`
 }
 
+type seriesOutput struct {
+	PatientID         string `json:"patient_id" jsonschema:"the patient ID"`
+	PatientName       string `json:"patient_name" jsonschema:"the patient name"`
+	StudyDate         string `json:"study_date" jsonschema:"the study date"`
+	SeriesDescription string `json:"series_description" jsonschema:"the series description"`
+	Modality          string `json:"modality" jsonschema:"the modality"`
+	NumberOfImages    int    `json:"number_of_images" jsonschema:"the number of images"`
+	SeriesInstanceUID string `json:"series_instance_uid" jsonschema:"the series instance UID"`
+	StudyInstanceUID  string `json:"study_instance_uid" jsonschema:"the study instance UID"`
+}
+
 type resultSeriesInfo struct {
-	Message string `json:"message" jsonschema:"the message to convey"`
-	Data    string `json:"data" jsonschema:"an array with the DICOM series information, each series entry has properties such as PatientID, PatientName, StudyDate, SeriesDescription, Modality and number of images"`
+	Message string         `json:"message" jsonschema:"the message to convey"`
+	Series  []seriesOutput `json:"series" jsonschema:"an array of DICOM series information"`
+}
+
+type resultTags struct {
+	Message string   `json:"message" jsonschema:"the message to convey"`
+	Tags    []string `json:"tags" jsonschema:"an array of DICOM tag strings"`
 }
 
 // if we clear out the data cache we need a result that reports the total numbers
@@ -625,27 +843,21 @@ func dataListPatients(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mc
 }
 
 // name could be a part of a patient name.
-func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultStudyInfo, error) {
+func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultStudies, error) {
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
-		return nil, &resultStudyInfo{Message: "Error could not get ror directory."}, err
+		return nil, &resultStudies{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &resultStudyInfo{Message: "Error could not read config file from ror directory."}, err
+		return nil, &resultStudies{Message: "Error could not read config file from ror directory."}, err
 	}
 
 	if len(config.Data.DataInfo) == 0 {
-		return nil, &resultStudyInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
+		return nil, &resultStudies{Message: "No data loaded, please add data first using the add/data tool."}, nil
 	}
-	type studyInfo struct {
-		PatientID   string
-		PatientName string
-		StudyDate   string
-	}
-
 	var studyAndDate map[string]studyInfo = make(map[string]studyInfo, 0)
 	for key, element := range config.Data.DataInfo { // study
 		for _, element2 := range element { // series
@@ -681,14 +893,10 @@ func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) 
 			// data += fmt.Sprintf("Patient: %s, Study %s (Date: %s) Series %s: %d images\n", name, key, studyDate, key2, element2.NumImages)
 		}
 	}
-	// convert structure to string
-	if byteData, err := json.Marshal(studyAndDate); err == nil {
-		return nil, &resultStudyInfo{
-			Message: "List of accessible studies from " + config.Data.Path,
-			Data:    string(byteData), // shouldn't this be structured information instead?
-		}, nil
-	}
-	return nil, &resultStudyInfo{Message: "Error could not create json for data."}, err
+	return nil, &resultStudies{
+		Message: "List of accessible studies from " + config.Data.Path,
+		Studies: studyAndDate,
+	}, nil
 }
 
 type argsSeries struct {
@@ -711,18 +919,7 @@ func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSer
 		return nil, &resultSeriesInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
 	}
 
-	type seriesInfo struct {
-		PatientID         string
-		PatientName       string
-		StudyDate         string
-		SeriesDescription string
-		Modality          string
-		NumberOfImages    int
-		SeriesInstanceUID string
-		StudyInstanceUID  string
-	}
-
-	var data []seriesInfo = make([]seriesInfo, 0)
+	var series []seriesOutput = make([]seriesOutput, 0)
 
 	for key, element := range config.Data.DataInfo { // study
 		for key2, element2 := range element { // series
@@ -745,7 +942,7 @@ func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSer
 				}
 			}
 
-			data = append(data, seriesInfo{
+			series = append(series, seriesOutput{
 				PatientID:         element2.PatientID,
 				PatientName:       element2.PatientName,
 				StudyDate:         studyDate,
@@ -757,33 +954,30 @@ func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSer
 			})
 		}
 	}
-	if byteInfo, err := json.Marshal(data); err == nil {
-		return nil, &resultSeriesInfo{
-			Message: "Series information from data path " + config.Data.Path,
-			Data:    string(byteInfo), // shouldn't this be structured information instead?
-		}, nil
-	}
-	return nil, &resultSeriesInfo{Message: "Error could not convert output to JSON format."}, err
+	return nil, &resultSeriesInfo{
+		Message: "Series information from data path " + config.Data.Path,
+		Series:  series,
+	}, nil
 }
 
 type argsTags struct {
 	SeriesInstanceUID string `json:"series_instance_uid" jsonschema:"the series instance uid to list tags for"`
 }
 
-func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTags) (*mcp.CallToolResult, *resultDataInfo, error) {
+func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTags) (*mcp.CallToolResult, *resultTags, error) {
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
-		return nil, &resultDataInfo{Message: "Error could not get ror directory."}, err
+		return nil, &resultTags{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &resultDataInfo{Message: "Error could not read config file from ror directory."}, err
+		return nil, &resultTags{Message: "Error could not read config file from ror directory."}, err
 	}
 
 	if len(config.Data.DataInfo) == 0 {
-		return nil, &resultDataInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
+		return nil, &resultTags{Message: "No data loaded, please add data first using the add/data tool."}, nil
 	}
 
 	// the returned data can only be very easy to understand, so here we can generate a list of strings with tag and value
@@ -801,13 +995,10 @@ func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTags)
 			}
 		}
 	}
-	if byteInfo, err := json.Marshal(data); err == nil {
-		return nil, &resultDataInfo{
-			Message: "Tag information from data path " + config.Data.Path,
-			Data:    string(byteInfo), // shouldn't this be structured information instead?
-		}, nil
-	}
-	return nil, &resultDataInfo{Message: "Error could not convert output to JSON format."}, err
+	return nil, &resultTags{
+		Message: "Tag information from data path " + config.Data.Path,
+		Tags:    data,
+	}, nil
 }
 
 func dataInfoTool(ctx context.Context, req *mcp.CallToolRequest, args *argsData) (*mcp.CallToolResult, *resultDataInfo, error) {

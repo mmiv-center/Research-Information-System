@@ -466,7 +466,22 @@ This tool can (partially) be used from an LLM. It can work as a Model Context Pr
 npx @modelcontextprotocol/inspector ror mcp --working_directory <folder>
 ```
 
+To integrate the mcp server with Visual Studio Code add the following to your <workspace>/.vscode/mcp.json configuration file:
 
+```bash
+{
+  "servers": {
+    "ror": {
+      "command": "ror",
+      "args": [
+        "mcp",
+        "--working_directory",
+        "/tmp/bla"
+      ],
+    }
+  }
+}
+```
 
 ## Acknowlegements
 
