@@ -162,8 +162,16 @@ func startMCP(useHttp string, rootFolder string) {
 			Properties: map[string]*jsonschema.Schema{
 				"message": {Type: "string"},
 				"tags": {
-					Type:  "array",
-					Items: &jsonschema.Schema{Type: "string"},
+					Type: "array",
+					Items: &jsonschema.Schema{
+						Type: "object",
+						Properties: map[string]*jsonschema.Schema{
+							"group":   {Type: "integer"},
+							"element": {Type: "integer"},
+							"value":   {Type: "string"},
+							"vr":      {Type: "string"},
+						},
+					},
 				},
 			},
 		},
@@ -632,9 +640,16 @@ type resultSeriesInfo struct {
 	Series  []seriesOutput `json:"series" jsonschema:"an array of DICOM series information"`
 }
 
+type TagInfo struct {
+	Group   uint16 `json:"group" jsonschema:"the DICOM tag group"`
+	Element uint16 `json:"element" jsonschema:"the DICOM tag element"`
+	Value   string `json:"value" jsonschema:"the tag value"`
+	VR      string `json:"vr" jsonschema:"the value representation"`
+}
+
 type resultTags struct {
-	Message string   `json:"message" jsonschema:"the message to convey"`
-	Tags    []string `json:"tags" jsonschema:"an array of DICOM tag strings"`
+	Message string    `json:"message" jsonschema:"the message to convey"`
+	Tags    []TagInfo `json:"tags" jsonschema:"an array of DICOM tag information"`
 }
 
 // if we clear out the data cache we need a result that reports the total numbers
@@ -980,8 +995,8 @@ func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTags)
 		return nil, &resultTags{Message: "No data loaded, please add data first using the add/data tool."}, nil
 	}
 
-	// the returned data can only be very easy to understand, so here we can generate a list of strings with tag and value
-	var data []string = make([]string, 0)
+	// the returned data can only be very easy to understand, so here we can generate a list of tag structures
+	var data []TagInfo = make([]TagInfo, 0)
 
 	for _, element := range config.Data.DataInfo { // study
 		for key2, element2 := range element { // series
@@ -991,7 +1006,12 @@ func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTags)
 				}
 			}
 			for _, a := range element2.All {
-				data = append(data, fmt.Sprintf("Tag: [%04X,%04X] value: %s", a.Tag.Group, a.Tag.Element, strings.Join(a.Value, ",")))
+				data = append(data, TagInfo{
+					Group:   a.Tag.Group,
+					Element: a.Tag.Element,
+					Value:   strings.Join(a.Value, ","),
+					VR:      a.Type,
+				})
 			}
 		}
 	}
