@@ -198,9 +198,32 @@ func startMCP(useHttp string, rootFolder string) {
 		OutputSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
-				"message":          {Type: "string"},
-				"select_statement": {Type: "string"},
-				"match_count":      {Type: "integer"},
+				"message": {Type: "string"},
+				"select_statement": {
+					Type: "object",
+					Properties: map[string]*jsonschema.Schema{
+						"Output_level": {Type: "string"},
+						"Select_level": {Type: "string"},
+						"RulesTree": {
+							Type: "array",
+							Items: &jsonschema.Schema{
+								Type: "object",
+								Properties: map[string]*jsonschema.Schema{
+									"Name": {Type: "string"},
+									"Rs": {
+										Type: "object",
+										Properties: map[string]*jsonschema.Schema{
+											"Leaf1":    {Type: "string"},
+											"Operator": {Type: "string"},
+											"Leaf2":    {Type: "string"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				"match_count": {Type: "integer"},
 			},
 		},
 	}, showSelectTool) // support completions
