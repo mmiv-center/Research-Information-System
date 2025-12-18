@@ -64,31 +64,43 @@ func startMCP(useHttp string, rootFolder string) {
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet", Description: "say hi"}, contentTool)
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet (structured)"}, structuredTool) // returns structured output
 	mcp.AddTool(server, &mcp.Tool{Name: "ror/info", Description: "ROR (helm) is a set of workflow tools for research PACS. There are tools for clearing out current data and adding new DICOM data."}, rorTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "ping"}, pingingTool)                                                                                                                                                   // performs a ping
-	mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                                                    // performs a log
-	mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                // performs sampling
-	mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                                               // performs elicitation
-	mcp.AddTool(server, &mcp.Tool{Name: "roots"}, rootsTool)                                                                                                                                                    // does everything with the ror folder?                                                                                                                                                                // lists roots
-	mcp.AddTool(server, &mcp.Tool{Name: "roots/list"}, rootsListTool)                                                                                                                                           // lists roots
+	//mcp.AddTool(server, &mcp.Tool{Name: "ping"}, pingingTool)                                                                                                                                                   // performs a ping
+	//mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                                                    // performs a log
+	//mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                // performs sampling
+	//mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                                               // performs elicitation
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "roots",
+		Description: "Manage the ror roots. Use roots/list to see the currently configured roots.",
+	}, rootsTool) // does everything with the ror folder?                                                                                                                                                                // lists roots
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "roots/list",
+		Description: "List the currently configured roots.",
+	}, rootsListTool) // lists roots
 
-	mcp.AddTool(server, &mcp.Tool{Name: "project/init", Description: "A ror project is a roots folder needed for adding data."}, projectTool)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "project/init",
+		Description: "Create a ror project folder. In a later step add data and trigger workflows for matching DICOM series or studies.",
+	}, projectTool)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "data/clear",
-		Description: "Delete all imported data folders references from the ror project.",
+		Description: "Delete all imported data references from the current ror project.",
 	}, clearOutDataCacheTool) // returns structured output
+
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "data/add",
 		Description: "Add a new data folder. Adding data will require ror to parse the whole directory which takes some time. " +
 			"Wait for this operation to finish before querying the resources again.",
 	}, addDataCacheTool) // returns structured output
+
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "data/list",
 		Description: "Get detailed information on the currently loaded data.",
 	}, dataInfoTool)
+
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_patients_info",
-		Description: "Get detailed information about the list of patients.\n" +
+		Description: "Get detailed information about the list of patients or, in the context of a research study the list of participants.\n" +
 			"\nReturns an object with a 'patients' property containing an array of patient identifiers.",
 		OutputSchema: &jsonschema.Schema{
 			Type: "object",
@@ -116,9 +128,10 @@ func startMCP(useHttp string, rootFolder string) {
 					AdditionalProperties: &jsonschema.Schema{
 						Type: "object",
 						Properties: map[string]*jsonschema.Schema{
-							"patient_id":   {Type: "string"},
-							"patient_name": {Type: "string"},
-							"study_date":   {Type: "string"},
+							"patient_id":        {Type: "string"},
+							"patient_name":      {Type: "string"},
+							"study_date":        {Type: "string"},
+							"study_description": {Type: "string"},
 						},
 					},
 				},
@@ -185,7 +198,9 @@ func startMCP(useHttp string, rootFolder string) {
 		OutputSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
-				"message": {Type: "string"},
+				"message":          {Type: "string"},
+				"select_statement": {Type: "string"},
+				"match_count":      {Type: "integer"},
 			},
 		},
 	}, showSelectTool) // support completions
@@ -220,6 +235,18 @@ func startMCP(useHttp string, rootFolder string) {
 			},
 		},
 	}, createNewRORDatabase)
+
+	server.AddPrompt(&mcp.Prompt{Name: "ror/analyze_data",
+		Description: "Workflow to summarize information about DICOM data in a folder.",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "directory",
+				Title:       "Data Directory",
+				Description: "Directory with DICOM images to process.",
+				Required:    true,
+			},
+		},
+	}, analyzeDICOMData)
 
 	server.AddPrompt(&mcp.Prompt{Name: "ror/get_test_dicom_data",
 		Description: "Workflow to download some test DICOM data using git.",
@@ -308,6 +335,27 @@ func createNewRORDatabase(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.
 					"     'ror init " + req.Params.Arguments["work_folder"] + "'.\n\n" +
 					"  2. Add the DICOM data from the directory with\n" +
 					"     'ror config --data " + req.Params.Arguments["directory"] + " --temp_directory " + req.Params.Arguments["directory"] + "'."},
+			},
+		},
+	}, nil
+}
+
+func analyzeDICOMData(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	return &mcp.GetPromptResult{
+		Description: "Workflow to summarize information about a DICOM directory",
+		Messages: []*mcp.PromptMessage{
+			{
+				Role: "user",
+				Content: &mcp.TextContent{Text: "Summarize information about a folder with DICOM images in '" +
+					req.Params.Arguments["directory"] + "'.\n\nStep by step instructions are: \n\n" +
+					"  1. Create a new temporary ROR working directory and add the data.\n\n" +
+					"  2. Show the number of participants, number of DICOM studies and number of DICOM series.\n\n" +
+					"  3. Show a list of image modalities and the number of series for each.\n\n" +
+					"  4. Show a list of sequence names and the number of studies for each.\n\n" +
+					"  5. Show the date range of the studies in the data folder.\n\n" +
+					"  6. Show a summary of the StudyDescription DICOM tags.\n\n" +
+					"  7. Create up to three examples of image types (like T1, T2, FLAIR) for which the majority of studies have matching image series.",
+				},
 			},
 		},
 	}, nil
@@ -573,6 +621,12 @@ type argsMessage struct {
 	Message string `json:"message" jsonschema:"the message to log"`
 }
 
+type argsSelect struct {
+	Message    string `json:"message" jsonschema:"general message if the select statement was found"`
+	Select     AST    `json:"select_stement" jsonschema:"the select statement to filter for specific DICOM series"`
+	MatchCount int    `json:"match_count" jsonschema:"the number of matching series or studies for the select statement"`
+}
+
 type setSelectMessage struct {
 	Select string `json:"select" jsonschema:"the select statement to filter in DICOM series"`
 }
@@ -609,9 +663,10 @@ type resultPatients struct {
 }
 
 type studyInfo struct {
-	PatientID   string `json:"patient_id"`
-	PatientName string `json:"patient_name"`
-	StudyDate   string `json:"study_date"`
+	PatientID        string `json:"patient_id"`
+	PatientName      string `json:"patient_name"`
+	StudyDate        string `json:"study_date"`
+	StudyDescription string `json:"study_description"`
 }
 
 type resultStudies struct {
@@ -667,7 +722,11 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) 
 
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err == nil {
-		return nil, &result{Message: "Error, a ror directory was already specified. Restart the mcp server with the new project location folder working_directory."}, err
+		if input_dir == args.Path {
+			return nil, &result{Message: "Everything is ok, this folder is already the current working folder."}, err
+		} else {
+			return nil, &result{Message: "Error, a ror directory was already specified. Restart the mcp server with the new project location folder working_directory."}, err
+		}
 	}
 	if input_dir != args.Path {
 		return nil, &result{Message: "Error, the requested directory is different from the working_directory specified when the mcp_server was started."}, err
@@ -778,20 +837,20 @@ func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelec
 	}, nil
 }
 
-func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *argsMessage, error) {
+func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *argsSelect, error) {
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
-		return nil, &argsMessage{Message: "Error could not get ror directory."}, err
+		return nil, &argsSelect{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &argsMessage{Message: "Error could not read config file from ror directory."}, err
+		return nil, &argsSelect{Message: "Error could not read config file from ror directory."}, err
 	}
 
 	if len(config.Data.DataInfo) == 0 {
-		return nil, &argsMessage{Message: "No data loaded, please add data first using the add/data tool."}, nil
+		return nil, &argsSelect{Message: "No data loaded, please add data first using the add/data tool."}, nil
 	}
 
 	comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
@@ -801,23 +860,26 @@ func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.
 	InitParser()
 	line := []byte(series_filter_no_comments)
 	yyParse(&exprLex{line: line})
+	matches := make([][]SeriesInstanceUIDWithName, 0)
 	if !errorOnParse {
 		s, _ := json.MarshalIndent(ast, "", "  ")
-		ss := humanizeFilter(ast)
-		select_str += fmt.Sprintf("Parsing series filter\n%s\n%s\n", string(s), ss)
+		// ss := humanizeFilter(ast)
+		select_str += string(s) // strings.Join(ss, " ") // fmt.Sprintf("Parsing series filter\n%s\n%s\n", string(s), ss)
 		config.SeriesFilterType = "select"
 		// check if we have any matches - cheap for us here
-		matches, _ := findMatchingSets(ast, config.Data.DataInfo)
-		postfix := "s"
-		if len(matches) == 1 {
-			postfix = ""
-		}
-		select_str += fmt.Sprintf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
+		matches, _ = findMatchingSets(ast, config.Data.DataInfo)
+		//postfix := "s"
+		//if len(matches) == 1 {
+		//	postfix = ""
+		//}
+		//select_str += fmt.Sprintf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
 	}
 
 	// return that we cleared out the data cache, return the current number of dataset as well
-	return nil, &argsMessage{
-		Message: select_str, // shouldn't this be structured information instead?
+	return nil, &argsSelect{
+		Message:    "Success",
+		Select:     ast, // shouldn't this be structured information instead?
+		MatchCount: len(matches),
 	}, nil
 }
 
@@ -900,16 +962,17 @@ func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) 
 				}
 			}
 			studyAndDate[key] = studyInfo{
-				PatientID:   element2.PatientID,
-				PatientName: element2.PatientName,
-				StudyDate:   studyDate,
+				PatientID:        element2.PatientID,
+				PatientName:      element2.PatientName,
+				StudyDate:        studyDate,
+				StudyDescription: element2.StudyDescription,
 			}
 			break
 			// data += fmt.Sprintf("Patient: %s, Study %s (Date: %s) Series %s: %d images\n", name, key, studyDate, key2, element2.NumImages)
 		}
 	}
 	return nil, &resultStudies{
-		Message: "List of accessible studies from " + config.Data.Path,
+		Message: "Mapping of StudyInstanceUIDs and their associated PatientID, PatientName, StudyDate and StudyDescription from data path " + config.Data.Path,
 		Studies: studyAndDate,
 	}, nil
 }
@@ -1017,7 +1080,7 @@ func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTags)
 	}
 	return nil, &resultTags{
 		Message: "Tag information from data path " + config.Data.Path +
-			". Each tag entry has a group, element pair and a value.",
+			". Each tag has a group and element and a value.",
 		Tags: data,
 	}, nil
 }
