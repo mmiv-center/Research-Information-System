@@ -1355,14 +1355,14 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 
 	// The following will take a while... should we report back of our progress?
 	config.Data.Path = string(args.Path)
-	studies, err := dataSets(config, config.Data.DataInfo, func(counter int) {
+	studies, err := dataSets(config, config.Data.DataInfo, func(counter int, nonDICOM int, numStudies int, numSeries int) {
 		//fmt.Printf("Processed %d DICOM files so far...\n", counter)
 
 		if req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
 			ProgressToken: req.Params.GetProgressToken(),
 			Progress:      float64(counter),
 			Total:         0,
-			Message:       fmt.Sprintf("Completed step %d", counter),
+			Message:       fmt.Sprintf("Imported %d files (%d non-DICOM skipped, %d studies, %d series)", counter, nonDICOM, numStudies, numSeries),
 		}) != nil {
 			// cannot notify progress
 			fmt.Println("Could not notify progress")

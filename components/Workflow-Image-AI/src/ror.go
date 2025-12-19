@@ -1205,7 +1205,7 @@ func copyFiles(SelectedSeriesInstanceUID string, SelectedStudyInstanceUID string
 
 // dataSets parses the config.Data path for DICOM files.
 // It returns the detected studies and series as collections of paths.
-func dataSets(config Config, previous map[string]map[string]SeriesInfo, processCallback func(counter int)) (map[string]map[string]SeriesInfo, error) {
+func dataSets(config Config, previous map[string]map[string]SeriesInfo, processCallback func(counter int, nonDICOM int, numStudies int, numSeries int)) (map[string]map[string]SeriesInfo, error) {
 	var datasets = make(map[string]map[string]SeriesInfo)
 	var initial_list_of_seriesinstanceuids = []string{}
 
@@ -1262,7 +1262,15 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 				if app != nil {
 					app.Sync()
 				}
-				processCallback(counter)
+
+				// tell the mcp client about our progress importing data
+				numSeries := 0
+				for _, study := range datasets {
+					numSeries = numSeries + len(study)
+				}
+				if processCallback != nil {
+					processCallback(counter, nonDICOM, len(datasets), numSeries)
+				}
 
 				//file, _ := json.MarshalIndent(config2, "", " ")
 				//_ = ioutil.WriteFile(dir_path, file, 0600)
@@ -1388,6 +1396,9 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 					}
 
 					showImages := true
+					if processCallback != nil {
+						showImages = false // speed up processing in case we are called from MCP
+					}
 					if showImages {
 						// create a human readable summary line for the whole dataset
 						numStudies := len(datasets)
@@ -1441,7 +1452,9 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 							fmt.Printf(langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
 						}
 					} else {
-						fmt.Printf("%05d files\r", counter)
+						if processCallback == nil {
+							fmt.Printf("%05d files\r", counter)
+						}
 					}
 
 					counter = counter + 1
