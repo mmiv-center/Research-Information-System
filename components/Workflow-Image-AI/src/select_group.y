@@ -37,6 +37,7 @@ var currentRulesL []RuleSetL = nil  // we store the ruleSet information in this 
 var currentRules []Rule = nil       // we store one rules information here
 var currentCheckRules []Rule = nil  // for checks there is a separate list
 var errorOnParse = false
+var errorMessages []string = make([]string, 0)
 var lastGroupTag []string           // a pair of group, tag in decimal format
 var currentCheckTag1 []string       // a pair of named series '.' DICOM name
 var currentCheckTag2 []string       // a pair of named series '.' DICOM name
@@ -1126,8 +1127,10 @@ func (x *exprLex) nextButKeep() rune {
 func (x *exprLex) Error(s string) {
     errorOnParse = true
     if charpos < len(program) {
-    	fmt.Printf("parse error (before pos %d): \"%s\" program: %s\n", charpos, s, program)
+    	fmt.Printf("parse error (before pos %d): \"%s\" program: \"%s\"\n", charpos, s, program)
+        errorMessages = append(errorMessages, fmt.Sprintf("parse error (before pos %d): \"%s\" program: %s\n", charpos, s, program))
     } else {
-    	fmt.Printf("parse error (before pos %d): \"%s\" program: %s\nline: \"%v\"\n", charpos, s, program, x.line)
+    	fmt.Printf("parse error (before pos %d): \"%s\" program: \"%s\"\nline: \"%v\"\n", charpos, s, program, x.line)
+        errorMessages = append(errorMessages, fmt.Sprintf("parse error (before pos %d): \"%s\" program: %s\nline: \"%v\"\n", charpos, s, program, x.line))
     }
 }

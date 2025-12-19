@@ -224,6 +224,21 @@ func startMCP(useHttp string, rootFolder string) {
 					},
 				},
 				"match_count": {Type: "integer"},
+				"matches": {
+					Type: "array",
+					Items: &jsonschema.Schema{
+						Type: "array",
+						Items: &jsonschema.Schema{
+							Type: "object",
+							Properties: map[string]*jsonschema.Schema{
+								"patient_name":        {Type: "string"},
+								"patient_id":          {Type: "string"},
+								"study_instance_uid":  {Type: "string"},
+								"series_instance_uid": {Type: "string"},
+							},
+						},
+					},
+				},
 			},
 		},
 	}, showSelectTool) // support completions
@@ -234,6 +249,12 @@ func startMCP(useHttp string, rootFolder string) {
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
 				"message": {Type: "string"},
+			},
+		},
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"select": {Type: "string"},
 			},
 		},
 	}, setSelectTool) // support completions
@@ -645,9 +666,11 @@ type argsMessage struct {
 }
 
 type argsSelect struct {
-	Message    string `json:"message" jsonschema:"general message if the select statement was found"`
-	Select     AST    `json:"select_stement" jsonschema:"the select statement to filter for specific DICOM series"`
-	MatchCount int    `json:"match_count" jsonschema:"the number of matching series or studies for the select statement"`
+	Message    string                        `json:"message" jsonschema:"general message if the select statement was found"`
+	Select     AST                           `json:"select_stement" jsonschema:"the select statement to filter for specific DICOM series"`
+	MatchCount int                           `json:"match_count" jsonschema:"the number of matching series or studies for the select statement"`
+	Matches    [][]SeriesInstanceUIDWithName `json:"matches" jsonschema:"an array with the matching series or studies for the select statement"`
+	Complains  []string                      `json:"complains" jsonschema:"an array with complains why a series or study could did not match"`
 }
 
 type setSelectMessage struct {
@@ -799,16 +822,16 @@ func changeRootTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (
 	return nil, &resultDataCache{Message: "Changed to the new root path", NumStudies: 0, NumSeries: 0, NumImages: 0}, nil
 }
 
-func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelectMessage) (*mcp.CallToolResult, *argsMessage, error) {
+func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelectMessage) (*mcp.CallToolResult, *argsSelect, error) {
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
-		return nil, &argsMessage{Message: "Error could not get ror directory."}, err
+		return nil, &argsSelect{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &argsMessage{Message: "Error could not read config file from ror directory."}, err
+		return nil, &argsSelect{Message: "Error could not read config file from ror directory."}, err
 	}
 	config_series_filter := string(args.Select)
 
@@ -822,41 +845,50 @@ func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelec
 
 	line := []byte(series_filter_no_comments)
 	yyParse(&exprLex{line: line})
-	msg := ""
 	if !errorOnParse {
 		//s, _ := json.MarshalIndent(ast, "", "  ")
-		ss := humanizeFilter(ast)
-		type Msg struct {
-			Messages  []string `json:"messages"`
-			Ast       AST      `json:"ast"`
-			Matches   int      `json:"matches"`
-			Complains []string `json:"complains"`
-		}
+		//ss := humanizeFilter(ast)
+		//type Msg struct {
+		//	Messages  []string `json:"messages"`
+		//	Ast       AST      `json:"ast"`
+		//	Matches   int      `json:"matches"`
+		//	Complains []string `json:"complains"`
+		//}
 		//fmt.Printf("Parsing series filter successful\n%s\n%s\n", string(s), strings.Join(ss[:], "\n"))
 		config.SeriesFilterType = "select"
 		// check if we have any matches - cheap for us here
 		matches, complains := findMatchingSets(ast, config.Data.DataInfo)
 		//fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
-		out := Msg{Messages: ss, Ast: ast, Matches: len(matches), Complains: complains}
-		human_enc, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			fmt.Println(err)
-		}
-		msg = fmt.Sprintln(string(human_enc))
-	} else {
-		// maybe its a simple glob expression? We should add in any case
-		//fmt.Println("We tried to parse the series filter but failed. Maybe you just want to grep?")
-		// exitGracefully(errors.New("we tried to parse the series filter but failed"))
-		config.SeriesFilterType = "glob"
-	}
+		//out := Msg{Messages: ss, Ast: ast, Matches: len(matches), Complains: complains}
+		//human_enc, err := json.MarshalIndent(out, "", "  ")
+		//if err != nil {
+		//	fmt.Println(err)
+		//}
+		//msg = fmt.Sprintln(string(human_enc))
 
-	if config.SeriesFilterType != "select" {
-		return nil, &argsMessage{
-			Message: "Done. This is now the new select statement: " + config.SeriesFilter + "\nNote:" + msg,
+		return nil, &argsSelect{
+			Message:    "Success parsing the select statement",
+			Select:     ast, // shouldn't this be structured information instead?
+			MatchCount: len(matches),
+			Matches:    matches,
+			Complains:  complains,
 		}, nil
 	}
-	return nil, &argsMessage{
-		Message: "Set a glob type filter because the select statement could not be parsed: " + config.SeriesFilter,
+
+	// maybe its a simple glob expression? We should add in any case
+	//fmt.Println("We tried to parse the series filter but failed. Maybe you just want to grep?")
+	// exitGracefully(errors.New("we tried to parse the series filter but failed"))
+	config.SeriesFilterType = "glob"
+
+	// in case of an error we can print out the error messages collected during parsing
+	msg := ""
+	for _, msg := range errorMessages {
+		msg += msg
+	}
+	//fmt.Println("Assuming a simple glob type filter now.")
+
+	return nil, &argsSelect{
+		Message: fmt.Sprintf("Error, the select statement could not be parsed successfully (%s). Instead we will assume the search is a simpler glob type filter.", msg),
 	}, nil
 }
 
@@ -903,6 +935,7 @@ func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.
 		Message:    "Success",
 		Select:     ast, // shouldn't this be structured information instead?
 		MatchCount: len(matches),
+		Matches:    matches,
 	}, nil
 }
 
