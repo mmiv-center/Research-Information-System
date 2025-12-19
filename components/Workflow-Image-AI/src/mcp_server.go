@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -795,6 +796,47 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) 
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err == nil {
 		if input_dir == args.Path {
+			// is this a ror folder?
+			if _, err = os.Stat(input_dir + "/.ror/config"); err != nil {
+				// create a ror folder here
+				dir_path := input_dir + "/.ror"
+				if _, err := os.Stat(dir_path); !os.IsNotExist(err) {
+					return nil, &result{Message: "Error, this directory has already been initialized. Delete the .ror directory to do this again."}, err
+					// exitGracefully(errors.New("this directories has already been initialized. Delete the .ror directory to do this again"))
+				}
+				if err := os.Mkdir(dir_path, 0700); os.IsExist(err) {
+					return nil, &result{Message: "Error, directory already exists."}, err
+					//exitGracefully(errors.New("directory already exists"))
+				}
+
+				init_type := "python"
+				var annotate Annotate
+				annotate.Ontology = nil // by default we don't have an ontology available
+				data := Config{
+					Date: time.Now().String(),
+					Author: AuthorInfo{
+						Name:  "LLM User",
+						Email: "",
+					},
+					CallString:       "python ./stub.py {}", // {} points to the main folder, we need also the {output} here
+					SeriesFilter:     ".*",
+					SeriesFilterType: "glob",
+					ProjectType:      init_type,
+					SortDICOM:        true,
+					ProjectName:      path.Base(input_dir),
+					ProjectToken:     "",
+					LastDataFolder:   "",
+					Annotate:         annotate,
+				}
+				data.Viewer = Viewer{
+					TextColor: "#000000",
+					Clip:      []float32{5, 95},
+				}
+				if !data.writeConfig() {
+					return nil, &result{Message: "Error, could not write config file."}, err
+					//exitGracefully(errors.New("could not write config file"))
+				}
+			}
 			return nil, &result{Message: "Everything is ok, this folder is already the current working folder."}, err
 		} else {
 			return nil, &result{Message: "Error, a ror directory was already specified. Restart the mcp server with the new project location folder working_directory."}, err
@@ -1313,7 +1355,19 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 
 	// The following will take a while... should we report back of our progress?
 	config.Data.Path = string(args.Path)
-	studies, err := dataSets(config, config.Data.DataInfo) // TODO: can we make this create no output on stdout?
+	studies, err := dataSets(config, config.Data.DataInfo, func(counter int) {
+		//fmt.Printf("Processed %d DICOM files so far...\n", counter)
+
+		if req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+			ProgressToken: req.Params.GetProgressToken(),
+			Progress:      float64(counter),
+			Total:         0,
+			Message:       fmt.Sprintf("Completed step %d", counter),
+		}) != nil {
+			// cannot notify progress
+			fmt.Println("Could not notify progress")
+		}
+	}) // TODO: can we make this create no output on stdout?
 	check(err)
 	if app != nil {
 		app.Stop()

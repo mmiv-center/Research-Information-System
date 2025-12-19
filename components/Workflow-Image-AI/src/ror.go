@@ -1205,7 +1205,7 @@ func copyFiles(SelectedSeriesInstanceUID string, SelectedStudyInstanceUID string
 
 // dataSets parses the config.Data path for DICOM files.
 // It returns the detected studies and series as collections of paths.
-func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[string]map[string]SeriesInfo, error) {
+func dataSets(config Config, previous map[string]map[string]SeriesInfo, processCallback func(counter int)) (map[string]map[string]SeriesInfo, error) {
 	var datasets = make(map[string]map[string]SeriesInfo)
 	var initial_list_of_seriesinstanceuids = []string{}
 
@@ -1262,6 +1262,8 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo) (map[str
 				if app != nil {
 					app.Sync()
 				}
+				processCallback(counter)
+
 				//file, _ := json.MarshalIndent(config2, "", " ")
 				//_ = ioutil.WriteFile(dir_path, file, 0600)
 			}
@@ -3884,7 +3886,7 @@ func main() {
 				}*/
 
 				config.Data.Path = data_path
-				studies, err = dataSets(config, config.Data.DataInfo)
+				studies, err = dataSets(config, config.Data.DataInfo, nil)
 				check(err)
 				if app != nil {
 					app.Stop()
