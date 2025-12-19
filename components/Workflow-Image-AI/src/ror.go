@@ -132,6 +132,9 @@ var webapp_dockerfile string
 //go:embed templates/ontologies/ontology_body_parts_DICOM.json
 var ontology_body_parts_dicom string
 
+//go:embed README.md
+var readme_md_content string
+
 var structure *tview.TextView
 var viewer *tview.TextView
 var footer *tview.TextView
@@ -2764,7 +2767,12 @@ func (rule Rule) toString() string {
 		ruleValue = fmt.Sprintf("\"%v\"", rule.Value)
 	}
 	if len(rule.Tag) == 2 {
-		s = fmt.Sprintf("%s%s (\"%s\",\"%s\") %s %s", s, a, rule.Tag[0], rule.Tag[1], opstr, ruleValue)
+		t1, err := strconv.ParseInt(rule.Tag[0], 16, 64)
+		t2, err2 := strconv.ParseInt(rule.Tag[1], 16, 64)
+
+		if err == nil && err2 == nil {
+			s = fmt.Sprintf("%s%s (\"%#04x\",\"%#04x\") %s %s", s, a, t1, t2, opstr, ruleValue)
+		}
 	} else {
 		tag0 := ""
 		if len(rule.Tag) > 0 {
@@ -2873,7 +2881,15 @@ func ast2Select(ast AST) string {
 					opstr = "="
 				}
 				if len(rule.Tag) == 3 {
-					stm = fmt.Sprintf("%s%s%s %s@(%s,%s) %s %s@(%s,%s)", stm, s, a, rule.Tag[0], rule.Tag[1], rule.Tag[2], opstr, rule.Tag2[0], rule.Tag2[1], rule.Tag2[2])
+					// print the Tag[1] and Tag[2] entries as hexadecimals
+					t1, err1 := strconv.ParseInt(rule.Tag[1], 16, 64)
+					t2, err2 := strconv.ParseInt(rule.Tag[2], 16, 64)
+					t21, _ := strconv.ParseInt(rule.Tag[1], 16, 64)
+					t22, _ := strconv.ParseInt(rule.Tag[2], 16, 64)
+
+					if err1 == nil && err2 == nil {
+						stm = fmt.Sprintf("%s%s%s %s@(%#04x,%#04x) %s %s@(%#04x,%#04x)", stm, s, a, rule.Tag[0], t1, t2, opstr, rule.Tag2[0], t21, t22)
+					}
 				}
 			}
 		}

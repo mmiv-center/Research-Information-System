@@ -304,6 +304,18 @@ func startMCP(useHttp string, rootFolder string) {
 		},
 	}, downloadDICOMData)
 
+	server.AddPrompt(&mcp.Prompt{Name: "ror/design_select_statement",
+		Description: "Workflow to design a select statement for a given database.",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "directory",
+				Title:       "Working Directory",
+				Description: "Ror directory with imported DICOM files to test the select statement with.",
+				Required:    true,
+			},
+		},
+	}, designSelectStatement)
+
 	// Add an embedded resource.
 	server.AddResource(&mcp.Resource{
 		Name:     "info",
@@ -419,6 +431,20 @@ func downloadDICOMData(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.Get
 					"     'git clone https://github.com/ImagingInformatics/hackathon-dataset.git'\n\n" +
 					"  3. Enter the new directory and update the submodules to download the DICOM images with\n" +
 					"     'cd hackathon-dataset; git submodule update --init --recursive'"},
+			},
+		},
+	}, nil
+}
+
+func designSelectStatement(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	return &mcp.GetPromptResult{
+		Description: "Workflow to create a specific select statement",
+		Messages: []*mcp.PromptMessage{
+			{
+				Role: "user",
+				Content: &mcp.TextContent{Text: "We assume that you want to create a select statement for ror that matches with specific DICOM series or studies in " + req.Params.Arguments["directory"] +
+					"\n\nInstructions are: \n\n" + readme_md_content,
+				},
 			},
 		},
 	}, nil
@@ -667,7 +693,7 @@ type argsMessage struct {
 
 type argsSelect struct {
 	Message    string                        `json:"message" jsonschema:"general message if the select statement was found"`
-	Select     AST                           `json:"select_stement" jsonschema:"the select statement to filter for specific DICOM series"`
+	Select     string                        `json:"select_stement" jsonschema:"the select statement to filter for specific DICOM series"`
 	MatchCount int                           `json:"match_count" jsonschema:"the number of matching series or studies for the select statement"`
 	Matches    [][]SeriesInstanceUIDWithName `json:"matches" jsonschema:"an array with the matching series or studies for the select statement"`
 	Complains  []string                      `json:"complains" jsonschema:"an array with complains why a series or study could did not match"`
@@ -866,9 +892,19 @@ func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelec
 		//}
 		//msg = fmt.Sprintln(string(human_enc))
 
+		config.SeriesFilter = config_series_filter
+		if !config.writeConfig() {
+			return nil, &argsSelect{Message: "Error could not write config file into ror directory."}, err
+		}
+
+		msg2 := ""
+		if len(matches) == 0 {
+			msg2 = " Warning, no matching datasets found for the provided select statement."
+		}
+
 		return nil, &argsSelect{
-			Message:    "Success parsing the select statement",
-			Select:     ast, // shouldn't this be structured information instead?
+			Message:    "Success parsing the select statement" + msg2,
+			Select:     ast2Select(ast), // shouldn't this be structured information instead?
 			MatchCount: len(matches),
 			Matches:    matches,
 			Complains:  complains,
@@ -933,7 +969,7 @@ func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.
 	// return that we cleared out the data cache, return the current number of dataset as well
 	return nil, &argsSelect{
 		Message:    "Success",
-		Select:     ast, // shouldn't this be structured information instead?
+		Select:     strings.Replace(ast2Select(ast), "\n", "", -1), // shouldn't this be structured information instead?
 		MatchCount: len(matches),
 		Matches:    matches,
 	}, nil
