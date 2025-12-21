@@ -323,7 +323,7 @@ func startMCP(useHttp string, rootFolder string) {
 	}, setSelectTool) // support completions
 
 	// Add a basic prompt.
-	server.AddPrompt(&mcp.Prompt{Name: "greet"}, prompt)
+	//server.AddPrompt(&mcp.Prompt{Name: "greet"}, prompt)
 
 	server.AddPrompt(&mcp.Prompt{Name: "ror/process_data",
 		Description: "Workflow to create a new ROR database from a folder with DICOM images.",
