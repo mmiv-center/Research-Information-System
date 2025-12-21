@@ -125,6 +125,13 @@ func startMCP(useHttp string, rootFolder string) {
 		Name: "data/add",
 		Description: "Add a new data folder. Adding data will require ror to parse the whole directory which takes some time. " +
 			"Wait for this operation to finish before querying the resources again.",
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"path": {Type: "string"},
+			},
+			Required: []string{"path"},
+		},
 	}, addDataCacheTool) // returns structured output
 
 	/*mcp.AddTool(server, &mcp.Tool{
@@ -288,7 +295,29 @@ func startMCP(useHttp string, rootFolder string) {
 		InputSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
-				"select": {Type: "string"},
+				"select": {
+					Type:        "string",
+					Description: "The select statement as a string.",
+					Examples: []interface{}{
+						"SELECT series FROM study WHERE Modality = 'MR' AND SeriesDescription regexp 'T1'",
+						`Select patient
+  from study
+    where series named "T1" has
+      ClassifyType containing T1 
+    and 
+      SeriesDescription regexp "^A" 
+  also
+    where series named "DIFF" has
+      ClassifyType containing DIFFUSION
+  also
+    where series named "REST" has 
+      ClassifyType containing RESTING 
+    and 
+      NumImages > 10  
+    and 
+      not(NumImages > 200)`,
+					},
+				},
 			},
 		},
 	}, setSelectTool) // support completions
