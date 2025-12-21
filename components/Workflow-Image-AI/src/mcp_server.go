@@ -64,7 +64,10 @@ func startMCP(useHttp string, rootFolder string) {
 	// Add tools that exercise different features of the protocol.
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet", Description: "say hi"}, contentTool)
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet (structured)"}, structuredTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{Name: "ror/info", Description: "ROR (helm) is a set of workflow tools for research PACS. There are tools for clearing out current data and adding new DICOM data."}, rorTool) // returns structured output
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "ror/info",
+		Description: "ROR (helm) is a program that provides a set of workflow tools for research PACS." +
+			" There are tools for creating a project, adding data, and clearing out currently loaded data."}, rorTool) // returns structured output
 	//mcp.AddTool(server, &mcp.Tool{Name: "ping"}, pingingTool)                                                                                                                                                   // performs a ping
 	//mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                                                    // performs a log
 	//mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                // performs sampling
@@ -72,10 +75,40 @@ func startMCP(useHttp string, rootFolder string) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "roots",
 		Description: "Manage the ror roots. Use roots/list to see the currently configured roots.",
+		OutputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"roots": {
+					Type: "array",
+					Items: &jsonschema.Schema{
+						Type: "object",
+						Properties: map[string]*jsonschema.Schema{
+							"name": {Type: "string"},
+							"uri":  {Type: "string"},
+						},
+					},
+				},
+			},
+		},
 	}, rootsTool) // does everything with the ror folder?                                                                                                                                                                // lists roots
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "roots/list",
 		Description: "List the currently configured roots.",
+		OutputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"roots": {
+					Type: "array",
+					Items: &jsonschema.Schema{
+						Type: "object",
+						Properties: map[string]*jsonschema.Schema{
+							"name": {Type: "string"},
+							"uri":  {Type: "string"},
+						},
+					},
+				},
+			},
+		},
 	}, rootsListTool) // lists roots
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -1465,19 +1498,23 @@ func rootsListTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.C
 		if input_dir != "" {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{
-					&mcp.TextContent{Text: "file://" + input_dir}, // do we need to add file:// ?
+					&mcp.TextContent{Text: `{"roots":[{"name":"RootFolder","uri":"file://` + input_dir + `"}]}`}, // do we need to add file:// ?
 				},
 			}, nil, nil
 		}
 		return nil, nil, fmt.Errorf("listing roots failed: %v", err)
 	}
-	var allroots []string
+	var roots []map[string]string
 	for _, r := range res.Roots {
-		allroots = append(allroots, fmt.Sprintf("%s:%s", r.Name, r.URI))
+		roots = append(roots, map[string]string{"name": r.Name, "uri": r.URI})
+	}
+	jsonContent, err := json.Marshal(map[string]any{"roots": roots})
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not marshal roots: %v", err)
 	}
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
-			&mcp.TextContent{Text: strings.Join(allroots, ",")},
+			&mcp.TextContent{Text: string(jsonContent)},
 		},
 	}, nil, nil
 }
@@ -1488,19 +1525,25 @@ func rootsTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallT
 		if input_dir != "" {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{
-					&mcp.TextContent{Text: input_dir}, // do we need to add file:// ?
+					// fallback to a structured JSON response with the configured input dir
+					&mcp.TextContent{Text: `{"roots":[{"name":"RootFolder","uri":"file://` + input_dir + `"}]}`}, // do we need to add file:// ?
 				},
 			}, nil, nil
 		}
 		return nil, nil, fmt.Errorf("listing roots failed: %v", err)
 	}
-	var allroots []string
+	// construct a structured response matching the OutputSchema: { "roots": [ { "name": ..., "uri": ... }, ... ] }
+	var roots []map[string]string
 	for _, r := range res.Roots {
-		allroots = append(allroots, fmt.Sprintf("%s:%s", r.Name, r.URI))
+		roots = append(roots, map[string]string{"name": r.Name, "uri": r.URI})
+	}
+	jsonContent, err := json.Marshal(map[string]any{"roots": roots})
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not marshal roots: %v", err)
 	}
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
-			&mcp.TextContent{Text: strings.Join(allroots, ",")},
+			&mcp.TextContent{Text: string(jsonContent)},
 		},
 	}, nil, nil
 }
