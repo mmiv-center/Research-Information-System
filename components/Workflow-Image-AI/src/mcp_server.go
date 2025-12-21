@@ -94,10 +94,10 @@ func startMCP(useHttp string, rootFolder string) {
 			"Wait for this operation to finish before querying the resources again.",
 	}, addDataCacheTool) // returns structured output
 
-	mcp.AddTool(server, &mcp.Tool{
+	/*mcp.AddTool(server, &mcp.Tool{
 		Name:        "data/list",
 		Description: "Get detailed information on the currently loaded data.",
-	}, dataInfoTool)
+	}, dataInfoTool)*/
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_patients_info",
@@ -180,8 +180,8 @@ func startMCP(useHttp string, rootFolder string) {
 					Items: &jsonschema.Schema{
 						Type: "object",
 						Properties: map[string]*jsonschema.Schema{
-							"group":   {Type: "integer"},
-							"element": {Type: "integer"},
+							"group":   {Type: "string"},
+							"element": {Type: "string"},
 							"value":   {Type: "string"},
 							"vr":      {Type: "string"},
 						},
@@ -694,7 +694,7 @@ type argsMessage struct {
 
 type argsSelect struct {
 	Message    string                        `json:"message" jsonschema:"general message if the select statement was found"`
-	Select     string                        `json:"select_stement" jsonschema:"the select statement to filter for specific DICOM series"`
+	Select     string                        `json:"select_statement" jsonschema:"the select statement to filter for specific DICOM series"`
 	MatchCount int                           `json:"match_count" jsonschema:"the number of matching series or studies for the select statement"`
 	Matches    [][]SeriesInstanceUIDWithName `json:"matches" jsonschema:"an array with the matching series or studies for the select statement"`
 	Complains  []string                      `json:"complains" jsonschema:"an array with complains why a series or study could did not match"`
@@ -705,9 +705,9 @@ type setSelectMessage struct {
 }
 
 type argsData struct {
-	Patient string `json:"patient" jsonschema:"If string is not empty list information from this patient"`
-	Study   string `json:"study" jsonschema:"If string is not empty list information from this study"`
-	Series  string `json:"series" jsonschema:"If string is not empty list information from this series"`
+	Patient string `json:"patient,omitempty" jsonschema:"If string is not empty list information from this patient. Patient is identified by regular expression match on PatientID and PatientName."`
+	Study   string `json:"study,omitempty" jsonschema:"If string is not empty list information from this study"`
+	Series  string `json:"series,omitempty" jsonschema:"If string is not empty list information from this series"`
 }
 
 // contentTool is a tool that returns unstructured content.
@@ -769,8 +769,8 @@ type resultSeriesInfo struct {
 }
 
 type TagInfo struct {
-	Group   uint16 `json:"group" jsonschema:"the DICOM tag group"`
-	Element uint16 `json:"element" jsonschema:"the DICOM tag element"`
+	Group   string `json:"group" jsonschema:"the DICOM tag group in hexadecimal notation (like 0x0008)"`
+	Element string `json:"element" jsonschema:"the DICOM tag element in hexadecimal notation (like 0x0020)"`
 	Value   string `json:"value" jsonschema:"the tag value"`
 	VR      string `json:"vr" jsonschema:"the value representation"`
 }
@@ -1204,8 +1204,8 @@ func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTags)
 			}
 			for _, a := range element2.All {
 				data = append(data, TagInfo{
-					Group:   a.Tag.Group,
-					Element: a.Tag.Element,
+					Group:   fmt.Sprintf("%#04x", a.Tag.Group),
+					Element: fmt.Sprintf("%#04x", a.Tag.Element),
 					Value:   strings.Join(a.Value, ","),
 					VR:      a.Type,
 				})
@@ -1214,7 +1214,7 @@ func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTags)
 	}
 	return nil, &resultTags{
 		Message: "Tag information from data path " + config.Data.Path +
-			". Each tag has a group and element and a value.",
+			". Each tag has a group, element, value type and value.",
 		Tags: data,
 	}, nil
 }
@@ -1223,17 +1223,17 @@ func dataInfoTool(ctx context.Context, req *mcp.CallToolRequest, args *argsData)
 	// find out if there is data, if there is no ror folder produce an error
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
-		return nil, &resultDataInfo{Message: "Error could not get ror directory."}, err
+		return nil, &resultDataInfo{Message: "Error, could not find this ror directory."}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &resultDataInfo{Message: "Error could not read config file from ror directory."}, err
+		return nil, &resultDataInfo{Message: "Error, could not read config file from ror directory. Create a working folder and add some data first."}, err
 	}
 
 	if len(config.Data.DataInfo) == 0 {
-		return nil, &resultDataInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
+		return nil, &resultDataInfo{Message: "Error, no data loaded, please add data first using the add/data tool."}, nil
 	}
 
 	data := ""
