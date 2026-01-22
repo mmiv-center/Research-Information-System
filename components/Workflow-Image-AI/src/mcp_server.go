@@ -955,13 +955,13 @@ func changeRootTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (
 func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelectMessage) (*mcp.CallToolResult, *argsSelect, error) {
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
-		return nil, &argsSelect{Message: "Error could not get ror directory."}, err
+		return nil, &argsSelect{Message: "Error could not get ror directory. Your workspace is expected to be a ror directory (contains a .ror/config file)."}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &argsSelect{Message: "Error could not read config file from ror directory."}, err
+		return nil, &argsSelect{Message: "Error could not read config file from ror directory. Maybe this is caused by a permission issue? Make sure that the current user can read the content in the workspaces .ror/ folder."}, err
 	}
 	config_series_filter := string(args.Select)
 
