@@ -239,31 +239,32 @@ func startMCP(useHttp string, rootFolder string) {
 		OutputSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
-				"message": {Type: "string"},
-				"select_statement": {
-					Type: "object",
-					Properties: map[string]*jsonschema.Schema{
-						"Output_level": {Type: "string"},
-						"Select_level": {Type: "string"},
-						"RulesTree": {
-							Type: "array",
-							Items: &jsonschema.Schema{
+				"message":          {Type: "string"},
+				"select_statement": {Type: "string"},
+				/*				{
 								Type: "object",
 								Properties: map[string]*jsonschema.Schema{
-									"Name": {Type: "string"},
-									"Rs": {
-										Type: "object",
-										Properties: map[string]*jsonschema.Schema{
-											"Leaf1":    {Type: "string"},
-											"Operator": {Type: "string"},
-											"Leaf2":    {Type: "string"},
+									"Output_level": {Type: "string"},
+									"Select_level": {Type: "string"},
+									"RulesTree": {
+										Type: "array",
+										Items: &jsonschema.Schema{
+											Type: "object",
+											Properties: map[string]*jsonschema.Schema{
+												"Name": {Type: "string"},
+												"Rs": {
+													Type: "object",
+													Properties: map[string]*jsonschema.Schema{
+														"Leaf1":    {Type: "string"},
+														"Operator": {Type: "string"},
+														"Leaf2":    {Type: "string"},
+													},
+												},
+											},
 										},
 									},
 								},
-							},
-						},
-					},
-				},
+							}, */
 				"match_count": {Type: "integer"},
 				"matches": {
 					Type: "array",
@@ -276,6 +277,7 @@ func startMCP(useHttp string, rootFolder string) {
 								"patient_id":          {Type: "string"},
 								"study_instance_uid":  {Type: "string"},
 								"series_instance_uid": {Type: "string"},
+								"job_number":          {Type: "integer"},
 							},
 						},
 					},
@@ -289,7 +291,25 @@ func startMCP(useHttp string, rootFolder string) {
 		OutputSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
-				"message": {Type: "string"},
+				"message":          {Type: "string"},
+				"select_statement": {Type: "string"},
+				"match_count":      {Type: "integer"},
+				"matches": {
+					Type: "array",
+					Items: &jsonschema.Schema{
+						Type: "array",
+						Items: &jsonschema.Schema{
+							Type: "object",
+							Properties: map[string]*jsonschema.Schema{
+								"patient_name":        {Type: "string"},
+								"patient_id":          {Type: "string"},
+								"study_instance_uid":  {Type: "string"},
+								"series_instance_uid": {Type: "string"},
+								"job_number":          {Type: "integer"},
+							},
+						},
+					},
+				},
 			},
 		},
 		InputSchema: &jsonschema.Schema{
@@ -300,6 +320,9 @@ func startMCP(useHttp string, rootFolder string) {
 					Description: "The select statement as a string.",
 					Examples: []interface{}{
 						"SELECT series FROM study WHERE Modality = 'MR' AND SeriesDescription regexp 'T1'",
+						"SELECT series FROM study WHERE Modality regexp '(MR|CT)'",
+						"SELECT series FROM study WHERE series named \"Diffusion\" has Modality = 'MR'",
+						"SELECT series FROM study WHERE series named \"Diffusion\" has Modality = 'MR' also where series named \"T1\" has SeriesDescription regexp '^Anat'",
 						`Select patient
   from study
     where series named "T1" has
@@ -971,7 +994,7 @@ func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelec
 	// now parse the input string
 	InitParser()
 	//yyErrorVerbose = true
-	yyDebug = 1
+	yyDebug = 0
 
 	line := []byte(series_filter_no_comments)
 	yyParse(&exprLex{line: line})
@@ -1003,7 +1026,7 @@ func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelec
 
 		msg2 := ""
 		if len(matches) == 0 {
-			msg2 = " Warning, no matching datasets found for the provided select statement."
+			msg2 = ", but no matching datasets found"
 		}
 
 		return nil, &argsSelect{
@@ -1018,17 +1041,21 @@ func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelec
 	// maybe its a simple glob expression? We should add in any case
 	//fmt.Println("We tried to parse the series filter but failed. Maybe you just want to grep?")
 	// exitGracefully(errors.New("we tried to parse the series filter but failed"))
-	config.SeriesFilterType = "glob"
+	// config.SeriesFilterType = "glob"
 
 	// in case of an error we can print out the error messages collected during parsing
-	msg := ""
+	msg := ", errors:\n"
 	for _, msg := range errorMessages {
 		msg += msg
 	}
 	//fmt.Println("Assuming a simple glob type filter now.")
 
 	return nil, &argsSelect{
-		Message: fmt.Sprintf("Error, the select statement could not be parsed successfully (%s). Instead we will assume the search is a simpler glob type filter.", msg),
+		Message:    fmt.Sprintf("Error, the select statement could not be parsed successfully%s", msg),
+		Select:     "",
+		MatchCount: -1,
+		Matches:    [][]SeriesInstanceUIDWithName{},
+		Complains:  []string{},
 	}, nil
 }
 
@@ -1056,13 +1083,14 @@ func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.
 	line := []byte(series_filter_no_comments)
 	yyParse(&exprLex{line: line})
 	matches := make([][]SeriesInstanceUIDWithName, 0)
+	complains := make([]string, 0)
 	if !errorOnParse {
 		s, _ := json.MarshalIndent(ast, "", "  ")
 		// ss := humanizeFilter(ast)
 		select_str += string(s) // strings.Join(ss, " ") // fmt.Sprintf("Parsing series filter\n%s\n%s\n", string(s), ss)
-		config.SeriesFilterType = "select"
+		// config.SeriesFilterType = "select"
 		// check if we have any matches - cheap for us here
-		matches, _ = findMatchingSets(ast, config.Data.DataInfo)
+		matches, complains = findMatchingSets(ast, config.Data.DataInfo)
 		//postfix := "s"
 		//if len(matches) == 1 {
 		//	postfix = ""
@@ -1071,11 +1099,19 @@ func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.
 	}
 
 	// return that we cleared out the data cache, return the current number of dataset as well
+	var warning string = ""
+	if len(matches) == 0 {
+		warning = ", but no matching datasets found"
+	}
+
+	space := regexp.MustCompile(`\s+`)
+	//str = space.ReplaceAllString(str, " ")
 	return nil, &argsSelect{
-		Message:    "Success",
-		Select:     strings.Replace(ast2Select(ast), "\n", "", -1), // shouldn't this be structured information instead?
+		Message:    "Valid select statement" + warning,
+		Select:     space.ReplaceAllString(strings.Replace(ast2Select(ast), "\n", "", -1), " "), // shouldn't this be structured information instead?
 		MatchCount: len(matches),
 		Matches:    matches,
+		Complains:  complains,
 	}, nil
 }
 

@@ -2216,11 +2216,11 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 }
 
 type SeriesInstanceUIDWithName struct {
-	SeriesInstanceUID string
-	StudyInstanceUID  string
-	PatientName       string
-	Name              string
-	Order             int
+	SeriesInstanceUID string `json:"series_instance_uid" jsonschema:"DICOM tag SeriesInstanceUID for this series"`
+	StudyInstanceUID  string `json:"study_instance_uid" jsonschema:"DICOM tag StudyInstanceUID for this series"`
+	PatientName       string `json:"patient_name" jsonschema:"DICOM tag PatientName for this series"`
+	Name              string `json:"name" jsonschema:"name assigned to this series by the select statement"`
+	Order             int    `json:"job_number" jsonschema:"job number for this series for processing"`
 }
 
 // findMatchingSets returns all matching sets for this rule and the provided data
@@ -2288,8 +2288,9 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 						ruleset := ast.RulesTree[idx2]
 						if ok, failureReason := value2.evalRulesTree(ruleset.Rs); ok {
 							// error case
-							fmt.Println("Error: More than one rule matches a series. Series ", SeriesInstanceUID, " could be both \""+ast.RulesTree[matchesIdx].Name+"\" and \""+ast.RulesTree[idx2].Name+"\". This will result in a random assignment.")
-							exitGracefully(fmt.Errorf("Stop here, fix select statement"))
+							var str string = fmt.Sprintf("Error: More than one rule matches a series. Series %s could be both \"%s\" and \"%s\". This would result in a random assignment.", SeriesInstanceUID, ast.RulesTree[matchesIdx].Name, ast.RulesTree[idx2].Name)
+							fmt.Println(str)
+							exitGracefully(fmt.Errorf("Stop here, fix the select statement\n%s\n%s", ast2Select(ast), str))
 						} else {
 							// when do we want to display the failure reason?
 							_ = failureReason
@@ -2366,7 +2367,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 	// We should check if there is something wrong with the data, if for example
 	// the same SeriesInstanceUID is used for more than one StudyInstanceUID we should
 	// warn/refuse to process.
-	var complains []string
+	var complains []string = make([]string, 0)
 	for pid, value := range seriesByPatient {
 		for SeriesInstanceUID := range value {
 			// build a cache of SOPInstanceUIDs as a map
@@ -2716,7 +2717,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 	})
 	// fmt.Println("%v", order)
 	// we should apply the order now
-	var outSelect [][]SeriesInstanceUIDWithName
+	var outSelect [][]SeriesInstanceUIDWithName = make([][]SeriesInstanceUIDWithName, 0)
 	//var outNames [][]string
 	for i := 0; i < len(order); i++ {
 		outSelect = append(outSelect, selectFromB[order[i]])
@@ -2730,6 +2731,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 	}*/
 
 	//return selectFromB, names
+	// outSelect can be an empty list if nothing matched
 	return outSelect, complains // , outNames
 }
 
@@ -2835,11 +2837,18 @@ func ast2Select(ast AST) string {
 	stm := fmt.Sprintf("SELECT %s\n  FROM study", ast.Output_level)
 	// parse the RulesTree here
 	for idx2, rules := range ast.RulesTree {
+		var list_name string
+		if len(ast.Rule_list_names) <= idx2 {
+			list_name = fmt.Sprintf("unnamed_rule_%d", idx2)
+		} else {
+			list_name = ast.Rule_list_names[idx2]
+		}
+
 		s := rules.Rs.toString()
 		if idx2 > 0 {
-			stm = fmt.Sprintf("%s\n  ALSO\n    WHERE series NAMED \"%s\" HAS\n      %s", stm, ast.Rule_list_names[idx2], s)
+			stm = fmt.Sprintf("%s\n  ALSO\n    WHERE series NAMED \"%s\" HAS\n      %s", stm, list_name, s)
 		} else {
-			stm = fmt.Sprintf("%s\n    WHERE series NAMED \"%s\" HAS\n      %s", stm, ast.Rule_list_names[idx2], s)
+			stm = fmt.Sprintf("%s\n    WHERE series NAMED \"%s\" HAS\n      %s", stm, list_name, s)
 		}
 	}
 
@@ -3301,6 +3310,13 @@ func getDetailedStatusInfo(config Config) string {
 						InitParser()
 						line := []byte(config.SeriesFilter)
 						yyParse(&exprLex{line: line})
+						if errorOnParse {
+							msg := ""
+							for _, msg := range errorMessages {
+								msg += msg
+							}
+							exitGracefully(fmt.Errorf("could not parse select statement:\n%s\n%s", config.SeriesFilter, msg))
+						}
 					}
 
 					// we have to check if this series is part of the selection
@@ -4053,6 +4069,13 @@ func main() {
 				InitParser()
 				line := []byte("Select series from series where series has Modality containing MR")
 				yyParse(&exprLex{line: line})
+				if errorOnParse {
+					msg := ""
+					for _, msg := range errorMessages {
+						msg += msg
+					}
+					exitGracefully(fmt.Errorf("could not parse select statement:\n%s\n%s", config.SeriesFilter, msg))
+				}
 
 				//
 				// profiling to find out why something is slow
@@ -4121,6 +4144,14 @@ func main() {
 				InitParser()
 				line := []byte(config.SeriesFilter)
 				yyParse(&exprLex{line: line})
+				if errorOnParse {
+					msg := ""
+					for _, msg := range errorMessages {
+						msg += msg
+					}
+					fmt.Printf("Warning: could not parse select statement:\n%s\n%s", config.SeriesFilter, msg)
+				}
+
 				statusTui.ast = ast
 				statusTui.Init()
 			}
@@ -4701,6 +4732,13 @@ func main() {
 				InitParser()
 				line := []byte(config.SeriesFilter)
 				yyParse(&exprLex{line: line})
+				if errorOnParse {
+					msg := ""
+					for _, msg := range errorMessages {
+						msg += msg
+					}
+					fmt.Printf("could not parse select statement:\n%s\n%s", config.SeriesFilter, msg)
+				}
 				annotateTui.ast = ast
 				annotateTui.Init()
 			}

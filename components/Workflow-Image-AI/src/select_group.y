@@ -794,7 +794,17 @@ func InitParser() {
     ast.Rules = nil
     ast.Output_level = ""
     ast.Select_level = ""
+    ast.Select_level_by_rule = make([]string, 0)
+    ast.Rule_list_names = make([]string, 0)
+    ast.CheckRules = nil // make([]RuleSet, 0)
+    ast.RulesTree = nil // make([]RuleTreeSet, 0)
+    currentCheckRules = nil
+    currentRules = nil
+    currentRulesL = nil
+    //currentCheckTag1 = make([]string,0)
+    //currentCheckTag2 = make([]string,0)
     errorOnParse = false
+    errorMessages = make([]string,0)
     charpos = 0
     program = ""
 }
@@ -888,6 +898,9 @@ func (x *exprLex) Lex(yylval *yySymType) int {
         case '"':
             // read until the next delimiter (eat up spaces as well)
             return x.word(c, yylval, rune('"'))
+        case '\'':
+            // read until the next delimiter (eat up spaces as well)
+            return x.word(c, yylval, rune('\''))
 		case ' ', '\t', '\n', '\r':
             charpos = charpos + 1
 		default:
@@ -1127,10 +1140,10 @@ func (x *exprLex) nextButKeep() rune {
 func (x *exprLex) Error(s string) {
     errorOnParse = true
     if charpos < len(program) {
-    	fmt.Printf("parse error (before pos %d): \"%s\" program: \"%s\"\n", charpos, s, program)
+    	//fmt.Printf("parse error (before pos %d): \"%s\" program: \"%s\"\n", charpos, s, program)
         errorMessages = append(errorMessages, fmt.Sprintf("parse error (before pos %d): \"%s\" program: %s\n", charpos, s, program))
     } else {
-    	fmt.Printf("parse error (before pos %d): \"%s\" program: \"%s\"\nline: \"%v\"\n", charpos, s, program, x.line)
+    	//fmt.Printf("parse error (before pos %d): \"%s\" program: \"%s\"\nline: \"%v\"\n", charpos, s, program, x.line)
         errorMessages = append(errorMessages, fmt.Sprintf("parse error (before pos %d): \"%s\" program: %s\nline: \"%v\"\n", charpos, s, program, x.line))
     }
 }
