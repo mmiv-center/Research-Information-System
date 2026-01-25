@@ -210,20 +210,46 @@ func startMCP(useHttp string, rootFolder string) {
 	}, dataListSeries)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_series_tags",
-		Description: "Get a list of tags for a DICOM series.",
+		Description: "Get a list of tags for DICOM series. Accepts a list of series instance UIDs and returns tags grouped by series UID.",
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"series_instance_uids": {
+					Type:        "array",
+					Items:       &jsonschema.Schema{Type: "string"},
+					Description: "List of series instance UIDs to get tags for",
+				},
+				"subset": {
+					Type:        "string",
+					Description: "Subset of tags to return: 'all', 'patient level', 'study level', 'scanner', or 'scan parameter'",
+					Enum:        []interface{}{"all", "patient level", "study level", "scanner", "scan parameter"},
+					Default:     json.RawMessage(`"all"`),
+				},
+			},
+			Required: []string{"series_instance_uids"},
+		},
 		OutputSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
 				"message": {Type: "string"},
-				"tags": {
+				"data": {
 					Type: "array",
 					Items: &jsonschema.Schema{
 						Type: "object",
 						Properties: map[string]*jsonschema.Schema{
-							"group":   {Type: "string"},
-							"element": {Type: "string"},
-							"value":   {Type: "string"},
-							"vr":      {Type: "string"},
+							"series_instance_uid": {Type: "string"},
+							"tags": {
+								Type: "array",
+								Items: &jsonschema.Schema{
+									Type: "object",
+									Properties: map[string]*jsonschema.Schema{
+										"group":   {Type: "string"},
+										"element": {Type: "string"},
+										"value":   {Type: "string"},
+										"vr":      {Type: "string"},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -669,7 +695,7 @@ func embeddedResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.R
 			if err != nil {
 				return nil, fmt.Errorf("tag name not found: %v", err)
 			}
-			text := fmt.Sprintf("%04X,%04X", info.Tag.Group, info.Tag.Element)
+			text := fmt.Sprintf("%04x,%04x", info.Tag.Group, info.Tag.Element)
 			return &mcp.ReadResourceResult{
 				Contents: []*mcp.ResourceContents{
 					{URI: req.Params.URI, MIMEType: "text/plain", Text: text},
@@ -1270,50 +1296,167 @@ func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSer
 	}, nil
 }
 
-type argsTags struct {
-	SeriesInstanceUID string `json:"series_instance_uid" jsonschema:"the series instance uid to list tags for"`
+type argsTagsList struct {
+	SeriesInstanceUIDs []string `json:"series_instance_uids" jsonschema:"list of series instance UIDs to get tags for"`
+	Subset             string   `json:"subset" jsonschema:"subset of tags to return: 'all', 'patient level', 'study level', 'scanner', or 'scan parameter'"`
 }
 
-func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTags) (*mcp.CallToolResult, *resultTags, error) {
+type TagsBySeriesUID struct {
+	SeriesInstanceUID string    `json:"series_instance_uid" jsonschema:"the series instance UID"`
+	Tags              []TagInfo `json:"tags" jsonschema:"array of DICOM tags for this series"`
+}
+
+type resultTagsBySeriesUID struct {
+	Message string            `json:"message" jsonschema:"the message to convey"`
+	Data    []TagsBySeriesUID `json:"data" jsonschema:"tags grouped by series instance UID"`
+}
+
+// Predefined DICOM tag lists for different categories
+var patientLevelTags = map[string]bool{
+	"0x00100010": true, // PatientName
+	"0x00100020": true, // PatientID
+	"0x00100030": true, // PatientBirthDate
+	"0x00100040": true, // PatientSex
+	"0x00101000": true, // OtherPatientIDs
+	"0x00101001": true, // OtherPatientNames
+}
+
+var studyLevelTags = map[string]bool{
+	"0x00080020": true, // StudyDate
+	"0x00080030": true, // StudyTime
+	"0x0008103e": true, // SeriesDescription
+	"0x00081030": true, // StudyDescription
+	"0x0008103f": true, // SeriesComments
+	"0x00080050": true, // AccessionNumber
+	"0x00081110": true, // ReferencedStudySequence
+}
+
+var scannerTags = map[string]bool{
+	"0x00080070": true, // Manufacturer
+	"0x00080080": true, // InstitutionName
+	"0x00081040": true, // InstitutionalDepartmentName
+	"0x00081090": true, // ManufacturersModelName
+	"0x00181010": true, // SecondsAcquisitionTime
+	"0x00181020": true, // SoftwareVersions
+	"0x00181030": true, // ProtocolName
+	"0x00181040": true, // ContrastBolusAgent
+	"0x00181041": true, // ContrastBolusAgentSequence
+	"0x00181050": true, // SliceThickness
+	"0x00181060": true, // TriggerTime
+	"0x00181065": true, // FrameTimeVector
+	"0x00181070": true, // GantryDetectorTilt
+	"0x00181090": true, // DataCollectionDiameter
+}
+
+var scanParameterTags = map[string]bool{
+	"0x00180015": true, // BodyPartExamined
+	"0x00180020": true, // ScanningSequence
+	"0x00180021": true, // SequenceVariant
+	"0x00180022": true, // ScanOptions
+	"0x00180023": true, // MRAcquisitionType
+	"0x00180024": true, // SeriesNumber
+	"0x00180025": true, // AcquisitionNumber
+	"0x00180050": true, // SliceThickness
+	"0x00180080": true, // RepetitionTime
+	"0x00180081": true, // EchoTime
+	"0x00180082": true, // InversionTime
+	"0x00180083": true, // NumberOfAverages
+	"0x00180084": true, // ImagingFrequency
+	"0x00180085": true, // ImagedNucleus
+	"0x00180086": true, // EchoTrainLength
+	"0x00180087": true, // MagneticFieldStrength
+	"0x00180088": true, // SpacingBetweenSlices
+	"0x00180089": true, // NumberOfPhaseEncodingSteps
+	"0x0018008a": true, // DataCollectionDiameter
+	"0x0018008b": true, // FlipAngle
+	"0x00180091": true, // EchoTrainLength
+	"0x00180093": true, // PercentSampling
+	"0x00180094": true, // PercentPhaseFieldOfView
+}
+
+func shouldIncludeTag(tagStr string, subset string) bool {
+	if subset == "all" {
+		return true
+	}
+	switch subset {
+	case "patient level":
+		return patientLevelTags[tagStr]
+	case "study level":
+		return studyLevelTags[tagStr]
+	case "scanner":
+		return scannerTags[tagStr]
+	case "scan parameter":
+		return scanParameterTags[tagStr]
+	default:
+		return true
+	}
+}
+
+func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTagsList) (*mcp.CallToolResult, *resultTagsBySeriesUID, error) {
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
-		return nil, &resultTags{Message: "Error could not get ror directory."}, err
+		return nil, &resultTagsBySeriesUID{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &resultTags{Message: "Error could not read config file from ror directory."}, err
+		return nil, &resultTagsBySeriesUID{Message: "Error could not read config file from ror directory."}, err
 	}
 
 	if len(config.Data.DataInfo) == 0 {
-		return nil, &resultTags{Message: "No data loaded, please add data first using the add/data tool."}, nil
+		return nil, &resultTagsBySeriesUID{Message: "No data loaded, please add data first using the add/data tool."}, nil
 	}
 
-	// the returned data can only be very easy to understand, so here we can generate a list of tag structures
-	var data []TagInfo = make([]TagInfo, 0)
+	if len(args.SeriesInstanceUIDs) == 0 {
+		return nil, &resultTagsBySeriesUID{Message: "Please provide at least one series instance UID."}, nil
+	}
+
+	// Create a map of requested UIDs for fast lookup
+	requestMap := make(map[string]bool)
+	for _, uid := range args.SeriesInstanceUIDs {
+		requestMap[uid] = true
+	}
+
+	// the returned data grouped by series instance UID
+	var resultData []TagsBySeriesUID = make([]TagsBySeriesUID, 0)
 
 	for _, element := range config.Data.DataInfo { // study
 		for key2, element2 := range element { // series
-			if args.SeriesInstanceUID != "" {
-				if !strings.Contains(key2, args.SeriesInstanceUID) {
+			// Check if this series UID is in the requested list
+			if !requestMap[key2] {
+				continue
+			}
+
+			var tags []TagInfo = make([]TagInfo, 0)
+			for _, a := range element2.All {
+				tagStr := fmt.Sprintf("%#04x%04x", a.Tag.Group, a.Tag.Element)
+				// Check if this tag should be included based on subset filter
+				if !shouldIncludeTag(tagStr, args.Subset) {
 					continue
 				}
-			}
-			for _, a := range element2.All {
-				data = append(data, TagInfo{
+				tags = append(tags, TagInfo{
 					Group:   fmt.Sprintf("%#04x", a.Tag.Group),
 					Element: fmt.Sprintf("%#04x", a.Tag.Element),
 					Value:   strings.Join(a.Value, ","),
 					VR:      a.Type,
 				})
 			}
+
+			resultData = append(resultData, TagsBySeriesUID{
+				SeriesInstanceUID: key2,
+				Tags:              tags,
+			})
 		}
 	}
-	return nil, &resultTags{
+	if len(resultData) == 0 {
+		return nil, &resultTagsBySeriesUID{Message: "No matching series instance UIDs found in the loaded data. Make sure you provde a series and not a study instance uid instead."}, nil
+	}
+
+	return nil, &resultTagsBySeriesUID{
 		Message: "Tag information from data path " + config.Data.Path +
-			". Each tag has a group, element, value type and value.",
-		Tags: data,
+			". Each series contains tags with group, element, value type and value.",
+		Data: resultData,
 	}, nil
 }
 
