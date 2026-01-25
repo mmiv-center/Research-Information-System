@@ -1334,6 +1334,7 @@ var studyLevelTags = map[string]bool{
 var scannerTags = map[string]bool{
 	"0x00080070": true, // Manufacturer
 	"0x00080080": true, // InstitutionName
+	"0x00181000": true, // DeviceSerialNumber
 	"0x00081040": true, // InstitutionalDepartmentName
 	"0x00081090": true, // ManufacturersModelName
 	"0x00181010": true, // SecondsAcquisitionTime
@@ -1357,6 +1358,7 @@ var scanParameterTags = map[string]bool{
 	"0x00180024": true, // SeriesNumber
 	"0x00180025": true, // AcquisitionNumber
 	"0x00180050": true, // SliceThickness
+	"0x00180060": true, // KVP
 	"0x00180080": true, // RepetitionTime
 	"0x00180081": true, // EchoTime
 	"0x00180082": true, // InversionTime
@@ -1372,6 +1374,8 @@ var scanParameterTags = map[string]bool{
 	"0x00180091": true, // EchoTrainLength
 	"0x00180093": true, // PercentSampling
 	"0x00180094": true, // PercentPhaseFieldOfView
+	"0x00181210": true, // ConvolutionKernel
+	"0x00181074": true, // RadionuclideTotalDose
 }
 
 func shouldIncludeTag(tagStr string, subset string) bool {

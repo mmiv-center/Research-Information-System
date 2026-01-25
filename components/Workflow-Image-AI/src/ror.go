@@ -1363,9 +1363,48 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 
 						switch all_dicom[i].Value.ValueType() {
 						case dicom.Strings:
-							tav.Value = all_dicom[i].Value.GetValue().([]string)
-							tav.Type = "categorical"
+							//tav.Value = all_dicom[i].Value.GetValue().([]string)
+							//tav.Type = "categorical"
+							//all = append(all, tav)
+							// First try to parse as numeric if possible
+							strValues := all_dicom[i].Value.GetValue().([]string)
+							isNumeric := true
+
+							// Check if all values can be parsed as numbers
+							for _, val := range strValues {
+								// Skip empty strings
+								if val == "" {
+									continue
+								}
+
+								// Try to parse as float first (more general than int)
+								_, err := strconv.ParseFloat(val, 64)
+								if err != nil {
+									isNumeric = false
+									break
+								}
+							}
+
+							tav.Value = strValues
+							if isNumeric && len(strValues) > 0 {
+								// Convert to numeric representation for consistency
+								numericValues := make([]string, len(strValues))
+								for i, val := range strValues {
+									if val != "" {
+										// fval, _ := strconv.ParseFloat(val, 64)
+										// Format with reasonable precision
+										numericValues[i] = val // fmt.Sprintf("%.6g", fval) // %.6g handles both int and float nicely
+									} else {
+										numericValues[i] = ""
+									}
+								}
+								tav.Value = numericValues
+								tav.Type = "numeric"
+							} else {
+								tav.Type = "categorical"
+							}
 							all = append(all, tav)
+
 						case dicom.Ints:
 							tav.Value = []string{}
 							did := false
