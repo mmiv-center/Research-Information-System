@@ -53,7 +53,7 @@ import (
 	"github.com/rivo/tview"
 )
 
-const version string = "0.0.5"
+const version string = "0.0.6"
 
 // The string below will be replaced during build time using
 // -ldflags "-X main.compileDate=`date -u +.%Y%m%d.%H%M%S"`"
@@ -134,6 +134,9 @@ var ontology_body_parts_dicom string
 
 //go:embed README.md
 var readme_md_content string
+
+//go:embed SELECT_GRAMMAR.md
+var select_grammar_md_content string
 
 var structure *tview.TextView
 var viewer *tview.TextView
@@ -3133,7 +3136,7 @@ func checkOutput(config Config, trigger_container string, dir string) string {
 		fmt.Println(err)
 	}
 	defer jsonFile.Close()
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := io.ReadAll(jsonFile)
 	var result map[string]interface{}
 	json.Unmarshal([]byte(byteValue), &result)
 	// each valid structure would be a key with a { 'field_name', 'value', 'redcap_event_name', 'record_id' }
@@ -4507,7 +4510,11 @@ func main() {
 				}
 				for _, tmp := range selectFromB {
 					if tmp[0].Order == idx {
-						fmt.Printf("found %d matching series sets. Picked index %d, trigger series: %s\n", len(selectFromB), idx, asString(tmp))
+						var s_or_not string = "s"
+						if len(selectFromB) == 1 {
+							s_or_not = ""
+						}
+						fmt.Printf("found %d matching series set%s. Picked index %d, trigger series: %s\n", len(selectFromB), s_or_not, idx, asString(tmp))
 						break
 					}
 				}
@@ -4519,7 +4526,7 @@ func main() {
 					folder_name = strings.Replace(folder_name, ":", "_", -1)
 					folder_name = strings.Replace(folder_name, "..", "_", -1)
 				}
-				dir, err := ioutil.TempDir(config.TempDirectory, folder_name)
+				dir, err := os.MkdirTemp(config.TempDirectory, folder_name)
 				if err != nil {
 					fmt.Printf("%s", err)
 					exitGracefully(errors.New("could not create the temporary directory for the trigger"))
@@ -4598,7 +4605,7 @@ func main() {
 				}
 				// write out a description
 				file, _ := json.MarshalIndent(description, "", "  ")
-				_ = ioutil.WriteFile(dir+"/descr.json", file, 0644)
+				_ = os.WriteFile(dir+"/descr.json", file, 0644)
 				if !trigger_test {
 					// check if the call string is empty
 					callProgram(config, triggerWaitTime, trigger_container, trigger_cont_options, dir, trigger_memory, trigger_cpus)

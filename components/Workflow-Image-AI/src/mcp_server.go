@@ -472,6 +472,12 @@ func startMCP(useHttp string, rootFolder string) {
 		MIMEType:    "text/plain",
 		URI:         "embedded:tagname",
 	}, embeddedResource)
+	server.AddResource(&mcp.Resource{
+		Name:        "select-grammar",
+		Description: "Complete SELECT statement grammar and syntax documentation",
+		MIMEType:    "text/markdown",
+		URI:         "embedded:select-grammar",
+	}, embeddedResource)
 
 	// Serve over stdio, or streamable HTTP if -http is set.
 	if useHttp != "" {
@@ -704,6 +710,12 @@ func embeddedResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.R
 		} else {
 			return nil, fmt.Errorf("invalid tagname URI format, expected embedded:tagname/name")
 		}
+	} else if strings.HasPrefix(key, "select-grammar") {
+		return &mcp.ReadResourceResult{
+			Contents: []*mcp.ResourceContents{
+				{URI: req.Params.URI, MIMEType: "text/markdown", Text: select_grammar_md_content},
+			},
+		}, nil
 	}
 	text, ok := embeddedResources[key]
 	if !ok {
@@ -1328,7 +1340,9 @@ var studyLevelTags = map[string]bool{
 	"0x00081030": true, // StudyDescription
 	"0x0008103f": true, // SeriesComments
 	"0x00080050": true, // AccessionNumber
+	"0x00080090": true, // ReferringPhysicianName
 	"0x00081110": true, // ReferencedStudySequence
+	"0x00200010": true, // StudyID
 }
 
 var scannerTags = map[string]bool{
