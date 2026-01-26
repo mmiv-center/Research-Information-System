@@ -1359,7 +1359,21 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 						// special treatments for known value representations
 						if all_dicom[i].RawValueRepresentation == "TM" {
 							tav.Value = all_dicom[i].Value.GetValue().([]string)
-							tav.Type = "numeric"
+							tav.Type = "time"
+							all = append(all, tav)
+							continue // do not check more
+						}
+
+						if all_dicom[i].RawValueRepresentation == "DT" {
+							tav.Value = all_dicom[i].Value.GetValue().([]string)
+							tav.Type = "datetime"
+							all = append(all, tav)
+							continue // do not check more
+						}
+
+						if all_dicom[i].RawValueRepresentation == "UI" {
+							tav.Value = all_dicom[i].Value.GetValue().([]string)
+							tav.Type = "uid"
 							all = append(all, tav)
 							continue // do not check more
 						}
@@ -1876,7 +1890,7 @@ func generateAST(datasets map[string]map[string]SeriesInfo) (AST, float64) {
 // - We can add a new rule to a ruleset by selecting a new variable
 // - We can change an existing rule by changing the numeric value for '<' and '>'
 // - We can add a new ruleset with a random rule
-func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float64) {
+func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo, processCallback func(counter int, total int, bestL2 float64)) (AST, float64) {
 	// collect all the values in all the SeriesInfo fields
 	tmpTargetValues := make(map[string]map[string]bool)
 	tmpTargetValues["StudyDescription"] = make(map[string]bool)
@@ -1913,6 +1927,9 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 		}
 	}
 	// do the same with .All
+	if processCallback != nil {
+		processCallback(0, 100, 0.0)
+	}
 	for _, v := range datasets {
 		for _, v2 := range v {
 			for _, v3 := range v2.All {
@@ -1989,6 +2006,10 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 			targetValues[k] = append(targetValues[k], k2)
 		}
 	}
+	if processCallback != nil {
+		processCallback(0, 100, 0.0)
+	}
+
 	// we might have some entries that only have empty values, we don't like those as they
 	// always match to anything
 	for k, v := range targetValues {
@@ -2211,7 +2232,11 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 	foundBestRuleset := false
 	bestL2 := math.Inf(1)
 	for i := 0; i < 100; i++ {
-		fmt.Printf("\033[A\033[2K%d/100 %.3f\n", i+1, bestL2)
+		if processCallback != nil {
+			processCallback(i+1, 100, bestL2)
+		} else {
+			fmt.Printf("\033[A\033[2K%d/100 %.3f\n", i+1, bestL2)
+		}
 		// make a copy of the rule
 		jast, _ := json.Marshal(ast)
 		var copyRule AST
@@ -2224,7 +2249,9 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo) (AST, float
 
 		ok := changeRules(copyRule, targetValues)
 		if !ok {
-			fmt.Println("End here, no change to the rules could be implemented")
+			if processCallback == nil {
+				fmt.Println("End here, no change to the rules could be implemented")
+			}
 			return copyRule, likelihood(copyRule)
 		}
 		l2 := likelihood(copyRule)
@@ -4132,7 +4159,7 @@ func main() {
 				//				generateAST(config.Data.DataInfo)
 
 				// TODO: this uses the old style RuleSet instead of generating a RuleSetL
-				ast, _ := ast.improveAST(config.Data.DataInfo)
+				ast, _ := ast.improveAST(config.Data.DataInfo, nil)
 
 				//s, l := json.MarshalIndent(ast, "", "  ")
 				//fmt.Printf("Suggested abstract syntax tree for your data [%f]\n%s\n", l, string(s))
@@ -4319,7 +4346,7 @@ func main() {
 				line := []byte("Select series from series where series has ClassifyType containing CT")
 				yyParse(&exprLex{line: line})
 
-				ast, l := ast.improveAST(config.Data.DataInfo)
+				ast, l := ast.improveAST(config.Data.DataInfo, nil)
 
 				s, _ := json.MarshalIndent(ast, "", "  ")
 				fmt.Printf("Suggested abstract syntax tree for your data [%f]\n%s\n", l, string(s))

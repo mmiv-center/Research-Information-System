@@ -27,6 +27,9 @@ import (
 	"github.com/suyashkumar/dicom/pkg/tag"
 )
 
+// 1. Define an empty struct for tools with no parameters
+type NoInput struct{}
+
 func startMCP(useHttp string, rootFolder string) {
 	// if the useHttp string is empty use stdin/stdout
 	if useHttp == "" {
@@ -370,6 +373,47 @@ func startMCP(useHttp string, rootFolder string) {
 			},
 		},
 	}, setSelectTool) // support completions
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "validate_select_statement",
+		Description: "Validate a SELECT statement syntax without executing it. Returns detailed error messages and suggestions.",
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"select": {Type: "string"},
+			},
+			Required: []string{"select"},
+		},
+	}, validateSelectStatementTool)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "suggest_select_statement",
+		Description: "Suggest a SELECT statement for the currently loaded data.",
+		OutputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"message":          {Type: "string"},
+				"select_statement": {Type: "string"},
+				"match_count":      {Type: "integer"},
+				"matches": {
+					Type: "array",
+					Items: &jsonschema.Schema{
+						Type: "array",
+						Items: &jsonschema.Schema{
+							Type: "object",
+							Properties: map[string]*jsonschema.Schema{
+								"patient_name":        {Type: "string"},
+								"patient_id":          {Type: "string"},
+								"study_instance_uid":  {Type: "string"},
+								"series_instance_uid": {Type: "string"},
+								"job_number":          {Type: "integer"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, suggestSelectStatementTool)
 
 	// Add a basic prompt.
 	//server.AddPrompt(&mcp.Prompt{Name: "greet"}, prompt)
@@ -980,7 +1024,7 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) 
 }
 
 // TOOL
-func clearOutDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultDataCache, error) {
+func clearOutDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, input NoInput) (*mcp.CallToolResult, *resultDataCache, error) {
 	// find out if there is data, if there is no ror folder produce an error
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
@@ -1011,6 +1055,161 @@ func changeRootTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (
 	// Right now the only place we can add it is from the client (MCP Inspector).
 	input_dir = args.Name
 	return nil, &resultDataCache{Message: "Changed to the new root path", NumStudies: 0, NumSeries: 0, NumImages: 0}, nil
+}
+
+func suggestSelectStatementTool(ctx context.Context, req *mcp.CallToolRequest, input NoInput) (*mcp.CallToolResult, *argsSelect, error) {
+	var err error
+	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+		return nil, &argsSelect{Message: "Error could not get ror directory. Your workspace is expected to be a ror directory (contains a .ror/config file)."}, err
+	}
+	// make the config
+	dir_path := input_dir + "/.ror/config"
+	config, err := readConfig(dir_path)
+	if err != nil {
+		return nil, &argsSelect{Message: "Error could not read config file from ror directory. Maybe this is caused by a permission issue? Make sure that the current user can read the content in the workspaces .ror/ folder."}, err
+	}
+
+	// now suggest a select statement for the current data
+
+	if config.Data.DataInfo == nil {
+		return nil, &argsSelect{Message: "Error no data loaded."}, err
+		//		exitGracefully(fmt.Errorf("to suggest a selection we need some data first. Use\n\t%s config --data <path to DICOMs>", own_name))
+	}
+
+	// get dataset and ast from config
+	// create an ast
+	// fmt.Println("Suggested abstract syntax tree for your data:")
+	InitParser()
+	line := []byte("Select series from series where series has Modality containing MR")
+	yyParse(&exprLex{line: line})
+	if errorOnParse {
+		msg := ""
+		for _, msg := range errorMessages {
+			msg += msg
+		}
+		return nil, &argsSelect{
+			Message:    fmt.Sprintf("could not parse default select statement:\n%s\n%s", "Select series from series where series has Modality containing MR", msg),
+			Select:     "",
+			MatchCount: 0,
+			Matches:    nil,
+			Complains:  nil,
+		}, nil
+
+		// exitGracefully(fmt.Errorf("could not parse select statement:\n%s\n%s", config.SeriesFilter, msg))
+	}
+
+	// TODO: this uses the old style RuleSet instead of generating a RuleSetL
+	ast, _ := ast.improveAST(config.Data.DataInfo, func(counter int, total int, bestL2 float64) {
+		if req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+			ProgressToken: req.Params.GetProgressToken(),
+			Progress:      float64(counter),
+			Total:         float64(total),
+			Message:       fmt.Sprintf("Progress %d of %d, best L2 currently %f", counter, total, bestL2),
+		}) != nil {
+			// cannot notify progress
+			fmt.Println("Could not notify progress")
+		}
+	})
+	//fmt.Println(humanizeFilter(ast))
+
+	matches, complains := findMatchingSets(ast, config.Data.DataInfo)
+	//postfix := "s"
+	//if len(matches) == 1 {
+	//	postfix = ""
+	//}
+	//fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
+
+	return nil, &argsSelect{
+		Message:    "Success suggesting a new select statement",
+		Select:     strings.Join(humanizeFilter(ast), "\n"),
+		MatchCount: len(matches),
+		Matches:    matches,
+		Complains:  complains,
+	}, nil
+}
+
+func validateSelectStatementTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelectMessage) (*mcp.CallToolResult, *argsSelect, error) {
+	var err error
+	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+		return nil, &argsSelect{Message: "Error could not get ror directory. Your workspace is expected to be a ror directory (contains a .ror/config file)."}, err
+	}
+	// make the config
+	dir_path := input_dir + "/.ror/config"
+	config, err := readConfig(dir_path)
+	if err != nil {
+		return nil, &argsSelect{Message: "Error could not read config file from ror directory. Maybe this is caused by a permission issue? Make sure that the current user can read the content in the workspaces .ror/ folder."}, err
+	}
+	config_series_filter := string(args.Select)
+
+	comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
+	series_filter_no_comments := comments.ReplaceAllString(config_series_filter, " ")
+
+	// now parse the input string
+	InitParser()
+	//yyErrorVerbose = true
+	yyDebug = 0
+
+	line := []byte(series_filter_no_comments)
+	yyParse(&exprLex{line: line})
+	if !errorOnParse {
+		//s, _ := json.MarshalIndent(ast, "", "  ")
+		//ss := humanizeFilter(ast)
+		//type Msg struct {
+		//	Messages  []string `json:"messages"`
+		//	Ast       AST      `json:"ast"`
+		//	Matches   int      `json:"matches"`
+		//	Complains []string `json:"complains"`
+		//}
+		//fmt.Printf("Parsing series filter successful\n%s\n%s\n", string(s), strings.Join(ss[:], "\n"))
+		config.SeriesFilterType = "select"
+		// check if we have any matches - cheap for us here
+		matches, complains := findMatchingSets(ast, config.Data.DataInfo)
+		//fmt.Printf("Given our current test data we can identify %d matching dataset%s.\n", len(matches), postfix)
+		//out := Msg{Messages: ss, Ast: ast, Matches: len(matches), Complains: complains}
+		//human_enc, err := json.MarshalIndent(out, "", "  ")
+		//if err != nil {
+		//	fmt.Println(err)
+		//}
+		//msg = fmt.Sprintln(string(human_enc))
+
+		//config.SeriesFilter = config_series_filter
+		//if !config.writeConfig() {
+		//	return nil, &argsSelect{Message: "Error could not write config file into ror directory."}, err
+		//}
+
+		msg2 := ""
+		if len(matches) == 0 {
+			msg2 = ", but no matching datasets found"
+		}
+
+		return nil, &argsSelect{
+			Message:    "Success parsing the select statement" + msg2,
+			Select:     ast2Select(ast), // shouldn't this be structured information instead?
+			MatchCount: len(matches),
+			Matches:    matches,
+			Complains:  complains,
+		}, nil
+	}
+
+	// maybe its a simple glob expression? We should add in any case
+	//fmt.Println("We tried to parse the series filter but failed. Maybe you just want to grep?")
+	// exitGracefully(errors.New("we tried to parse the series filter but failed"))
+	// config.SeriesFilterType = "glob"
+
+	// in case of an error we can print out the error messages collected during parsing
+	msg := ", errors:\n"
+	for _, msg := range errorMessages {
+		msg += msg
+	}
+	//fmt.Println("Assuming a simple glob type filter now.")
+
+	return nil, &argsSelect{
+		Message:    fmt.Sprintf("Error, the select statement could not be parsed successfully%s", msg),
+		Select:     "",
+		MatchCount: -1,
+		Matches:    [][]SeriesInstanceUIDWithName{},
+		Complains:  []string{},
+	}, nil
 }
 
 func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelectMessage) (*mcp.CallToolResult, *argsSelect, error) {
