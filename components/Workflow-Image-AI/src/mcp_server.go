@@ -186,8 +186,18 @@ func startMCP(useHttp string, rootFolder string) {
 		Name: "get_series_info",
 		Description: "Get detailed information about the list of image series.\n" +
 			"\nParameters:\n" +
-			"- StudyInstanceUID: The StudyInstanceUID information for the study to query.\n" +
+			"- StudyInstanceUIDs: List of StudyInstanceUID values to query. If empty, returns series for all studies.\n" +
 			"\nReturns an array of series with properties such as PatientID, PatientName, StudyDate, SeriesDescription, Modality and number of images.",
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"study_instance_uids": {
+					Type:        "array",
+					Items:       &jsonschema.Schema{Type: "string"},
+					Description: "List of study instance UIDs to get series for. If empty, returns series for all studies.",
+				},
+			},
+		},
 		OutputSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
@@ -1447,7 +1457,7 @@ func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) 
 }
 
 type argsSeries struct {
-	StudyInstanceUID string `json:"study_instance_uid" jsonschema:"The StudyInstanceUID for the study to query."`
+	StudyInstanceUIDs []string `json:"study_instance_uids" jsonschema:"List of StudyInstanceUIDs for the studies to query. If empty, returns series for all studies."`
 }
 
 func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSeries) (*mcp.CallToolResult, *resultSeriesInfo, error) {
@@ -1466,15 +1476,23 @@ func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSer
 		return nil, &resultSeriesInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
 	}
 
+	// Create a map of requested study UIDs for fast lookup
+	requestMap := make(map[string]bool)
+	for _, uid := range args.StudyInstanceUIDs {
+		requestMap[uid] = true
+	}
+
 	var series []seriesOutput = make([]seriesOutput, 0)
 
 	for key, element := range config.Data.DataInfo { // study
-		for key2, element2 := range element { // series
-			if args.StudyInstanceUID != "" {
-				if !strings.Contains(key, args.StudyInstanceUID) {
-					continue
-				}
+		// If specific studies were requested, check if this study is in the list
+		if len(args.StudyInstanceUIDs) > 0 {
+			if !requestMap[key] {
+				continue
 			}
+		}
+
+		for key2, element2 := range element { // series
 			studyDate := ""
 			for _, a := range element2.All {
 				t := tag.StudyDate
