@@ -38,8 +38,8 @@ LABEL "com.ror.vendor"="MMIV.no" \
 ENV LC_NUMERIC="en_US.UTF-8"
 ENV LANG="en_US.UTF-8"
 RUN apt-get update -qq && apt-get install -yq build-essential locales \
-    cmake git wget libboost-filesystem1.81-dev libboost-timer1.81-dev libboost-date-time1.81-dev \
-    libtbb-dev libfreetype-dev libboost-regex1.81-dev libboost-program-options1.81-dev \
+    cmake git wget libboost-filesystem1.88-dev libboost-timer1.88-dev libboost-date-time1.88-dev \
+    libtbb-dev libfreetype-dev libboost-regex1.88-dev libboost-program-options1.88-dev \
     libxml2-dev zlib1g-dev libzip-dev zipcmp zipmerge ziptool jq \
     && rm -rf /var/lib/apt/lists/*
 
@@ -82,9 +82,9 @@ LABEL "com.ror.vendor"="MMIV.no" \
 # install required libaries
 RUN --mount=type=cache,target=/var/cache/apt \
     --mount=type=cache,target=/var/lib/apt \
-    apt-get update -qq && apt-get install -yq libboost-date-time1.81-dev \
-    libboost-filesystem1.81-dev libboost-timer1.81-dev libboost-regex1.81-dev \
-    libtbb-dev libfreetype-dev libboost-program-options1.81-dev dcmtk \
+    apt-get update -qq && apt-get install -yq libboost-date-time1.88-dev \
+    libboost-filesystem1.88-dev libboost-timer1.88-dev libboost-regex1.88-dev \
+    libtbb-dev libfreetype-dev libboost-program-options1.88-dev dcmtk \
     libxml2-dev zlib1g-dev libzip-dev zipcmp zipmerge ziptool jq
 
 ENV REPORT_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
