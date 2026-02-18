@@ -7,9 +7,10 @@ SELECT <output_level> FROM study WHERE SERIES [NAMED <named match>] HAS <conditi
 ```
 
 ### Output Levels
-- `patient` - Return all studies for the matching patients
-- `study` - Return all series for the matching studies  
-- `series` - Return matching series (default)
+- `project` - Return a single processing job for all matching image series for all patients
+- `patient` - Return all studies for the matching patients, one job per patient
+- `study` - Return all series for the matching studies, one job for each study
+- `series` - Return matching series (default), one job for each image series
 
 ## Operators
 
