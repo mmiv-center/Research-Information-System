@@ -120,13 +120,13 @@ func startMCP(useHttp string, rootFolder string) {
 	}, projectTool)
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "data/clear",
+		Name:        "project/clear/data",
 		Description: "Delete all imported data references from the current ror project.",
 	}, clearOutDataCacheTool) // returns structured output
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name: "data/add",
-		Description: "Add a new data folder. Adding data will require ror to parse the whole directory which takes some time. " +
+		Name: "project/add/data",
+		Description: "Add a new data folder with DICOM series, studies and patients. Adding data will require ror to parse the whole directory which takes some time. " +
 			"Wait for this operation to finish before querying the resources again.",
 		InputSchema: &jsonschema.Schema{
 			Type: "object",
@@ -203,18 +203,17 @@ func startMCP(useHttp string, rootFolder string) {
 			Properties: map[string]*jsonschema.Schema{
 				"message": {Type: "string"},
 				"series": {
-					Type: "array",
-					Items: &jsonschema.Schema{
+					Type: "object",
+					AdditionalProperties: &jsonschema.Schema{
 						Type: "object",
 						Properties: map[string]*jsonschema.Schema{
-							"patient_id":          {Type: "string"},
-							"patient_name":        {Type: "string"},
-							"study_date":          {Type: "string"},
-							"series_description":  {Type: "string"},
-							"modality":            {Type: "string"},
-							"number_of_images":    {Type: "integer"},
-							"series_instance_uid": {Type: "string"},
-							"study_instance_uid":  {Type: "string"},
+							"patient_id":         {Type: "string"},
+							"patient_name":       {Type: "string"},
+							"study_date":         {Type: "string"},
+							"series_description": {Type: "string"},
+							"modality":           {Type: "string"},
+							"number_of_images":   {Type: "integer"},
+							"study_instance_uid": {Type: "string"},
 						},
 					},
 				},
@@ -941,8 +940,8 @@ type seriesOutput struct {
 }
 
 type resultSeriesInfo struct {
-	Message string         `json:"message" jsonschema:"the message to convey"`
-	Series  []seriesOutput `json:"series" jsonschema:"an array of DICOM series information"`
+	Message string                  `json:"message" jsonschema:"the message to convey"`
+	Series  map[string]seriesOutput `json:"series" jsonschema:"an object with SeriesInstanceUID DICOM tag as key and DICOM series information"`
 }
 
 type TagInfo struct {
@@ -1482,7 +1481,7 @@ func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSer
 		requestMap[uid] = true
 	}
 
-	var series []seriesOutput = make([]seriesOutput, 0)
+	var series map[string]seriesOutput = make(map[string]seriesOutput)
 
 	for key, element := range config.Data.DataInfo { // study
 		// If specific studies were requested, check if this study is in the list
@@ -1507,7 +1506,7 @@ func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSer
 				}
 			}
 
-			series = append(series, seriesOutput{
+			series[key2] = seriesOutput{
 				PatientID:         element2.PatientID,
 				PatientName:       element2.PatientName,
 				StudyDate:         studyDate,
@@ -1516,11 +1515,11 @@ func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSer
 				NumberOfImages:    element2.NumImages,
 				StudyInstanceUID:  key,
 				SeriesInstanceUID: key2,
-			})
+			}
 		}
 	}
 	return nil, &resultSeriesInfo{
-		Message: "Series information from data path " + config.Data.Path,
+		Message: "Series information as DICOM tag and value from data path " + config.Data.Path,
 		Series:  series,
 	}, nil
 }
