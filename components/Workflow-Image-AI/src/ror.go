@@ -4531,7 +4531,10 @@ func main() {
 				asString := func(s []SeriesInstanceUIDWithName) string {
 					ret := ""
 					for i := 0; i < len(s); i++ {
-						ret = ret + s[i].Name + ":" + s[i].SeriesInstanceUID + " (Order:" + strconv.Itoa(s[i].Order) + ")"
+						ret = ret + s[i].Name + ": " + s[i].SeriesInstanceUID
+						if i < len(s)-1 {
+							ret = ret + ", "
+						}
 					}
 					return ret
 				}
@@ -4541,7 +4544,7 @@ func main() {
 						if len(selectFromB) == 1 {
 							s_or_not = ""
 						}
-						fmt.Printf("found %d matching series set%s. Picked index %d, trigger series: %s\n", len(selectFromB), s_or_not, idx, asString(tmp))
+						fmt.Printf("found %d matching series set%s, index %d %s\n", len(selectFromB), s_or_not, idx, asString(tmp))
 						break
 					}
 				}

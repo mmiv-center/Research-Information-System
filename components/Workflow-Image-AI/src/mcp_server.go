@@ -878,6 +878,15 @@ type argsMessage struct {
 	Message string `json:"message" jsonschema:"the message to log"`
 }
 
+type nameUriPair struct {
+	Name string `json:"name" jsonschema:"The name of the root"`
+	Uri  string `json:"uri" jsonschema:"The uniform resource locator of the root"`
+}
+
+type argsListTool struct {
+	Roots []nameUriPair `json:"roots" jsonschema:"An array of name / uri pairs"`
+}
+
 type argsSelect struct {
 	Message    string                        `json:"message" jsonschema:"general message if the select statement was found"`
 	Select     string                        `json:"select_statement" jsonschema:"the select statement to filter for specific DICOM series"`
@@ -2013,31 +2022,34 @@ func loggingTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.Cal
 	return nil, nil, nil
 }
 
-func rootsListTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
+func rootsListTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *argsListTool, error) {
 	res, err := req.Session.ListRoots(ctx, nil)
 	if err != nil {
 		if input_dir != "" {
-			return &mcp.CallToolResult{
+			return nil, &argsListTool{
+				Roots: []nameUriPair{
+					{Name: "RootFolder", Uri: "file://" + input_dir},
+				},
+			}, nil
+			/*return &mcp.CallToolResult{
 				Content: []mcp.Content{
 					&mcp.TextContent{Text: `{"roots":[{"name":"RootFolder","uri":"file://` + input_dir + `"}]}`}, // do we need to add file:// ?
 				},
-			}, nil, nil
+			}, nil, nil */
 		}
 		return nil, nil, fmt.Errorf("listing roots failed: %v", err)
 	}
-	var roots []map[string]string
+	var roots []nameUriPair
 	for _, r := range res.Roots {
-		roots = append(roots, map[string]string{"name": r.Name, "uri": r.URI})
+		roots = append(roots, nameUriPair{Name: r.Name, Uri: r.URI})
 	}
-	jsonContent, err := json.Marshal(map[string]any{"roots": roots})
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not marshal roots: %v", err)
-	}
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: string(jsonContent)},
-		},
-	}, nil, nil
+	//jsonContent, err := json.Marshal(map[string]any{"roots": roots})
+	//if err != nil {
+	//	return nil, nil, fmt.Errorf("could not marshal roots: %v", err)
+	//}
+	return nil, &argsListTool{
+		Roots: roots,
+	}, nil
 }
 
 func rootsTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
