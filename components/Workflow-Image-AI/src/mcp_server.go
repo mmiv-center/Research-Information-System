@@ -287,8 +287,11 @@ func startMCP(useHttp string, rootFolder string) {
 		OutputSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
-				"message":          {Type: "string"},
-				"select_statement": {Type: "string"},
+				"message": {Type: "string"},
+				"select_statement": {
+					Type:        "string",
+					Description: "The current select statement as a string.",
+				},
 				/*				{
 								Type: "object",
 								Properties: map[string]*jsonschema.Schema{
@@ -313,19 +316,38 @@ func startMCP(useHttp string, rootFolder string) {
 									},
 								},
 							}, */
-				"match_count": {Type: "integer"},
+				"match_count": {
+					Type:        "integer",
+					Description: "The number of matching jobs for the current select statement.",
+				},
 				"matches": {
-					Type: "array",
+					Type:        "array",
+					Description: "The list of matching jobs for the current select statement. Each job includes patient name, patient ID, study instance UID, series instance UID and job number.",
 					Items: &jsonschema.Schema{
 						Type: "array",
 						Items: &jsonschema.Schema{
 							Type: "object",
 							Properties: map[string]*jsonschema.Schema{
-								"patient_name":        {Type: "string"},
-								"patient_id":          {Type: "string"},
-								"study_instance_uid":  {Type: "string"},
-								"series_instance_uid": {Type: "string"},
-								"job_number":          {Type: "integer"},
+								"patient_name": {
+									Type:        "string",
+									Description: "The patient name (DICOM tag PatientName) associated with the matching job.",
+								},
+								"patient_id": {
+									Type:        "string",
+									Description: "The patient ID (DICOM tag PatientID) associated with the matching job.",
+								},
+								"study_instance_uid": {
+									Type:        "string",
+									Description: "The study instance UID (DICOM tag StudyInstanceUID) associated with the matching job.",
+								},
+								"series_instance_uid": {
+									Type:        "string",
+									Description: "The series instance UID (DICOM tag SeriesInstanceUID) associated with the matching job.",
+								},
+								"job_number": {
+									Type:        "integer",
+									Description: "The job number associated with the matching job.",
+								},
 							},
 						},
 					},
@@ -349,11 +371,26 @@ func startMCP(useHttp string, rootFolder string) {
 						Items: &jsonschema.Schema{
 							Type: "object",
 							Properties: map[string]*jsonschema.Schema{
-								"patient_name":        {Type: "string"},
-								"patient_id":          {Type: "string"},
-								"study_instance_uid":  {Type: "string"},
-								"series_instance_uid": {Type: "string"},
-								"job_number":          {Type: "integer"},
+								"patient_name": {
+									Type:        "string",
+									Description: "The patient name (DICOM tag PatientName) associated with the matching job.",
+								},
+								"patient_id": {
+									Type:        "string",
+									Description: "The patient ID (DICOM tag PatientID) associated with the matching job.",
+								},
+								"study_instance_uid": {
+									Type:        "string",
+									Description: "The study instance UID (DICOM tag StudyInstanceUID) associated with the matching job.",
+								},
+								"series_instance_uid": {
+									Type:        "string",
+									Description: "The series instance UID (DICOM tag SeriesInstanceUID) associated with the matching job.",
+								},
+								"job_number": {
+									Type:        "integer",
+									Description: "The job number associated with the matching job.",
+								},
 							},
 						},
 					},
@@ -411,9 +448,15 @@ func startMCP(useHttp string, rootFolder string) {
 		OutputSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
-				"message":          {Type: "string"},
-				"select_statement": {Type: "string"},
-				"match_count":      {Type: "integer"},
+				"message": {Type: "string"},
+				"select_statement": {
+					Type:        "string",
+					Description: "A suggested select statement as a string.",
+				},
+				"match_count": {
+					Type:        "integer",
+					Description: "The number of matching jobs for the suggested select statement.",
+				},
 				"matches": {
 					Type: "array",
 					Items: &jsonschema.Schema{
@@ -421,11 +464,26 @@ func startMCP(useHttp string, rootFolder string) {
 						Items: &jsonschema.Schema{
 							Type: "object",
 							Properties: map[string]*jsonschema.Schema{
-								"patient_name":        {Type: "string"},
-								"patient_id":          {Type: "string"},
-								"study_instance_uid":  {Type: "string"},
-								"series_instance_uid": {Type: "string"},
-								"job_number":          {Type: "integer"},
+								"patient_name": {
+									Type:        "string",
+									Description: "The patient name (DICOM tag PatientName) associated with the matching job.",
+								},
+								"patient_id": {
+									Type:        "string",
+									Description: "The patient ID (DICOM tag PatientID) associated with the matching job.",
+								},
+								"study_instance_uid": {
+									Type:        "string",
+									Description: "The study instance UID (DICOM tag StudyInstanceUID) associated with the matching job.",
+								},
+								"series_instance_uid": {
+									Type:        "string",
+									Description: "The series instance UID (DICOM tag SeriesInstanceUID) associated with the matching job.",
+								},
+								"job_number": {
+									Type:        "integer",
+									Description: "The job number associated with the matching job.",
+								},
 							},
 						},
 					},
