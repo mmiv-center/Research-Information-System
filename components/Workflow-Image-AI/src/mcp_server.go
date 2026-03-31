@@ -67,15 +67,17 @@ func startMCP(useHttp string, rootFolder string) {
 	// Add tools that exercise different features of the protocol.
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet", Description: "say hi"}, contentTool)
 	//mcp.AddTool(server, &mcp.Tool{Name: "greet (structured)"}, structuredTool) // returns structured output
-	mcp.AddTool(server, &mcp.Tool{
+	/*
+		mcp.AddTool(server, &mcp.Tool{
 		Name: "ror/info",
 		Description: "ROR (helm) is a program that provides a set of workflow tools for research PACS." +
 			" There are tools for creating a project, adding data, and clearing out currently loaded data."}, rorTool) // returns structured output
+	*/
 	//mcp.AddTool(server, &mcp.Tool{Name: "ping"}, pingingTool)                                                                                                                                                   // performs a ping
 	//mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                                                    // performs a log
 	//mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                // performs sampling
 	//mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                                               // performs elicitation
-	mcp.AddTool(server, &mcp.Tool{
+	/*mcp.AddTool(server, &mcp.Tool{
 		Name:        "roots",
 		Description: "Manage the ror roots. Use roots/list to see the currently configured roots.",
 		OutputSchema: &jsonschema.Schema{
@@ -94,6 +96,7 @@ func startMCP(useHttp string, rootFolder string) {
 			},
 		},
 	}, rootsTool) // does everything with the ror folder?                                                                                                                                                                // lists roots
+	*/
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "roots/list",
 		Description: "List the currently configured roots.",
@@ -122,6 +125,13 @@ func startMCP(useHttp string, rootFolder string) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "project/clear/data",
 		Description: "Delete all imported data references from the current ror project.",
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"confirm": {Type: "boolean"},
+			},
+			Required: []string{"confirm"},
+		},
 	}, clearOutDataCacheTool) // returns structured output
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -886,6 +896,10 @@ type argsData struct {
 	Series  string `json:"series,omitempty" jsonschema:"If string is not empty list information from this series"`
 }
 
+type argsConfirm struct {
+	Confirm bool `json:"confirm" jsonschema:"Set to true to confirm clearing all data"`
+}
+
 // contentTool is a tool that returns unstructured content.
 //
 // Since its output type is 'any', no output schema is created.
@@ -902,13 +916,19 @@ type result struct {
 }
 
 type resultDataInfo struct {
-	Message string `json:"message" jsonschema:"the message to convey"`
-	Data    string `json:"data" jsonschema:"a map with the individual DICOM series information"`
+	Message           string `json:"message" jsonschema:"the message to convey"`
+	Data              string `json:"data" jsonschema:"a map with the individual DICOM series information"`
+	TotalRecordsFound int    `json:"total_records_found" jsonschema:"total number of records found"`
+	ProcessingTimeMs  int64  `json:"processing_time_ms" jsonschema:"time taken to process the request in milliseconds"`
+	DataSourcePath    string `json:"data_source_path" jsonschema:"path to the data source"`
 }
 
 type resultPatients struct {
-	Message  string   `json:"message"`
-	Patients []string `json:"patients"`
+	Message           string   `json:"message"`
+	Patients          []string `json:"patients"`
+	TotalRecordsFound int      `json:"total_records_found" jsonschema:"total number of records found"`
+	ProcessingTimeMs  int64    `json:"processing_time_ms" jsonschema:"time taken to process the request in milliseconds"`
+	DataSourcePath    string   `json:"data_source_path" jsonschema:"path to the data source"`
 }
 
 type studyInfo struct {
@@ -919,8 +939,11 @@ type studyInfo struct {
 }
 
 type resultStudies struct {
-	Message string               `json:"message"`
-	Studies map[string]studyInfo `json:"studies"`
+	Message           string               `json:"message"`
+	Studies           map[string]studyInfo `json:"studies"`
+	TotalRecordsFound int                  `json:"total_records_found" jsonschema:"total number of records found"`
+	ProcessingTimeMs  int64                `json:"processing_time_ms" jsonschema:"time taken to process the request in milliseconds"`
+	DataSourcePath    string               `json:"data_source_path" jsonschema:"path to the data source"`
 }
 
 type resultStudyInfo struct {
@@ -940,8 +963,11 @@ type seriesOutput struct {
 }
 
 type resultSeriesInfo struct {
-	Message string                  `json:"message" jsonschema:"the message to convey"`
-	Series  map[string]seriesOutput `json:"series" jsonschema:"an object with SeriesInstanceUID DICOM tag as key and DICOM series information"`
+	Message           string                  `json:"message" jsonschema:"the message to convey"`
+	Series            map[string]seriesOutput `json:"series" jsonschema:"an object with SeriesInstanceUID DICOM tag as key and DICOM series information"`
+	TotalRecordsFound int                     `json:"total_records_found" jsonschema:"total number of records found"`
+	ProcessingTimeMs  int64                   `json:"processing_time_ms" jsonschema:"time taken to process the request in milliseconds"`
+	DataSourcePath    string                  `json:"data_source_path" jsonschema:"path to the data source"`
 }
 
 type TagInfo struct {
@@ -952,17 +978,23 @@ type TagInfo struct {
 }
 
 type resultTags struct {
-	Message string    `json:"message" jsonschema:"the message to convey"`
-	Tags    []TagInfo `json:"tags" jsonschema:"an array of DICOM tag information"`
+	Message           string    `json:"message" jsonschema:"the message to convey"`
+	Tags              []TagInfo `json:"tags" jsonschema:"an array of DICOM tag information"`
+	TotalRecordsFound int       `json:"total_records_found" jsonschema:"total number of records found"`
+	ProcessingTimeMs  int64     `json:"processing_time_ms" jsonschema:"time taken to process the request in milliseconds"`
+	DataSourcePath    string    `json:"data_source_path" jsonschema:"path to the data source"`
 }
 
 // if we clear out the data cache we need a result that reports the total numbers
 type resultDataCache struct {
-	Message         string `json:"message" jsonschema:"the message to convey"`
-	NumStudies      int    `json:"numstudies" jsonschema:"the number of DICOM studies"`
-	NumSeries       int    `json:"numseries" jsonschema:"the number of DICOM image series"`
-	NumImages       int    `json:"numimages" jsonschema:"the number of DICOM images"`
-	NumParticipants int    `json:"numparticipants" jsonschema:"the number of unique PatientID DICOM tags"`
+	Message           string `json:"message" jsonschema:"the message to convey"`
+	NumStudies        int    `json:"numstudies" jsonschema:"the number of DICOM studies"`
+	NumSeries         int    `json:"numseries" jsonschema:"the number of DICOM image series"`
+	NumImages         int    `json:"numimages" jsonschema:"the number of DICOM images"`
+	NumParticipants   int    `json:"numparticipants" jsonschema:"the number of unique PatientID DICOM tags"`
+	TotalRecordsFound int    `json:"total_records_found" jsonschema:"total number of records found"`
+	ProcessingTimeMs  int64  `json:"processing_time_ms" jsonschema:"time taken to process the request in milliseconds"`
+	DataSourcePath    string `json:"data_source_path" jsonschema:"path to the data source"`
 }
 
 // TOOL
@@ -1033,7 +1065,11 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) 
 }
 
 // TOOL
-func clearOutDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, input NoInput) (*mcp.CallToolResult, *resultDataCache, error) {
+func clearOutDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, input *argsConfirm) (*mcp.CallToolResult, *resultDataCache, error) {
+	start := time.Now()
+	if !input.Confirm {
+		return nil, nil, fmt.Errorf("Confirmation required: This action will delete all imported data references from the current ror project. Set 'confirm' to true to proceed.")
+	}
 	// find out if there is data, if there is no ror folder produce an error
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
@@ -1054,8 +1090,17 @@ func clearOutDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, input 
 		return nil, &resultDataCache{Message: "Error could not write config file into ror directory."}, err
 	}
 
+	elapsed := time.Since(start).Milliseconds()
 	// return that we cleared out the data cache, return the current number of dataset as well
-	return nil, &resultDataCache{Message: "Removed all data", NumStudies: 0, NumSeries: 0, NumImages: 0}, nil
+	return nil, &resultDataCache{
+		Message:           "Removed all data",
+		NumStudies:        0,
+		NumSeries:         0,
+		NumImages:         0,
+		TotalRecordsFound: 0,
+		ProcessingTimeMs:  elapsed,
+		DataSourcePath:    input_dir,
+	}, nil
 }
 
 func changeRootTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultDataCache, error) {
@@ -1362,6 +1407,7 @@ func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.
 }
 
 func dataListPatients(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *resultPatients, error) {
+	start := time.Now()
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
 		return nil, &resultPatients{Message: "Error could not get ror directory."}, err
@@ -1391,14 +1437,19 @@ func dataListPatients(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mc
 	for k := range participantsMap {
 		participants = append(participants, k)
 	}
+	elapsed := time.Since(start).Milliseconds()
 	return nil, &resultPatients{
-		Message:  "List of accessible patient ids from " + config.Data.Path + ". Each patient will have associated studies that in turn have series with tag information.",
-		Patients: participants,
+		Message:           "List of accessible patient ids from " + config.Data.Path + ". Each patient will have associated studies that in turn have series with tag information.",
+		Patients:          participants,
+		TotalRecordsFound: len(participants),
+		ProcessingTimeMs:  elapsed,
+		DataSourcePath:    input_dir,
 	}, nil
 }
 
 // name could be a part of a patient name.
 func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultStudies, error) {
+	start := time.Now()
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
 		return nil, &resultStudies{Message: "Error could not get ror directory."}, err
@@ -1449,9 +1500,13 @@ func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) 
 			// data += fmt.Sprintf("Patient: %s, Study %s (Date: %s) Series %s: %d images\n", name, key, studyDate, key2, element2.NumImages)
 		}
 	}
+	elapsed := time.Since(start).Milliseconds()
 	return nil, &resultStudies{
-		Message: "Mapping of StudyInstanceUIDs and their associated PatientID, PatientName, StudyDate and StudyDescription from data path " + config.Data.Path,
-		Studies: studyAndDate,
+		Message:           "Mapping of StudyInstanceUIDs and their associated PatientID, PatientName, StudyDate and StudyDescription from data path " + config.Data.Path,
+		Studies:           studyAndDate,
+		TotalRecordsFound: len(studyAndDate),
+		ProcessingTimeMs:  elapsed,
+		DataSourcePath:    input_dir,
 	}, nil
 }
 
@@ -1460,6 +1515,7 @@ type argsSeries struct {
 }
 
 func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSeries) (*mcp.CallToolResult, *resultSeriesInfo, error) {
+	start := time.Now()
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
 		return nil, &resultSeriesInfo{Message: "Error could not get ror directory."}, err
@@ -1518,9 +1574,13 @@ func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSer
 			}
 		}
 	}
+	elapsed := time.Since(start).Milliseconds()
 	return nil, &resultSeriesInfo{
-		Message: "Series information as DICOM tag and value from data path " + config.Data.Path,
-		Series:  series,
+		Message:           "Series information as DICOM tag and value from data path " + config.Data.Path,
+		Series:            series,
+		TotalRecordsFound: len(series),
+		ProcessingTimeMs:  elapsed,
+		DataSourcePath:    input_dir,
 	}, nil
 }
 
@@ -1535,8 +1595,11 @@ type TagsBySeriesUID struct {
 }
 
 type resultTagsBySeriesUID struct {
-	Message string            `json:"message" jsonschema:"the message to convey"`
-	Data    []TagsBySeriesUID `json:"data" jsonschema:"tags grouped by series instance UID"`
+	Message           string            `json:"message" jsonschema:"the message to convey"`
+	Data              []TagsBySeriesUID `json:"data" jsonschema:"tags grouped by series instance UID"`
+	TotalRecordsFound int               `json:"total_records_found" jsonschema:"total number of records found"`
+	ProcessingTimeMs  int64             `json:"processing_time_ms" jsonschema:"time taken to process the request in milliseconds"`
+	DataSourcePath    string            `json:"data_source_path" jsonschema:"path to the data source"`
 }
 
 // Predefined DICOM tag lists for different categories
@@ -1627,6 +1690,7 @@ func shouldIncludeTag(tagStr string, subset string) bool {
 }
 
 func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTagsList) (*mcp.CallToolResult, *resultTagsBySeriesUID, error) {
+	start := time.Now()
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
 		return nil, &resultTagsBySeriesUID{Message: "Error could not get ror directory."}, err
@@ -1687,14 +1751,19 @@ func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTagsL
 		return nil, &resultTagsBySeriesUID{Message: "No matching series instance UIDs found in the loaded data. Make sure you provde a series and not a study instance uid instead."}, nil
 	}
 
+	elapsed := time.Since(start).Milliseconds()
 	return nil, &resultTagsBySeriesUID{
 		Message: "Tag information from data path " + config.Data.Path +
 			". Each series contains tags with group, element, value type and value.",
-		Data: resultData,
+		Data:              resultData,
+		TotalRecordsFound: len(resultData),
+		ProcessingTimeMs:  elapsed,
+		DataSourcePath:    input_dir,
 	}, nil
 }
 
 func dataInfoTool(ctx context.Context, req *mcp.CallToolRequest, args *argsData) (*mcp.CallToolResult, *resultDataInfo, error) {
+	start := time.Now()
 	// find out if there is data, if there is no ror folder produce an error
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
@@ -1807,14 +1876,19 @@ func dataInfoTool(ctx context.Context, req *mcp.CallToolRequest, args *argsData)
 		data = getDetailedStatusInfo(config)
 	}
 
+	elapsed := time.Since(start).Milliseconds()
 	// return that we cleared out the data cache, return the current number of dataset as well
 	return nil, &resultDataInfo{
-		Message: "Here the info loaded from the data path " + config.Data.Path,
-		Data:    data, // shouldn't this be structured information instead?
+		Message:           "Here the info loaded from the data path " + config.Data.Path,
+		Data:              data, // shouldn't this be structured information instead?
+		TotalRecordsFound: 1,    // since it's a single data response
+		ProcessingTimeMs:  elapsed,
+		DataSourcePath:    input_dir,
 	}, nil
 }
 
 func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) (*mcp.CallToolResult, *resultDataCache, error) {
+	start := time.Now()
 	// ask the user for the directory of the data to add
 	// find out if there is data, if there is no ror folder produce an error
 	var err error
@@ -1882,13 +1956,18 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 	}
 	numParticipants := len(participants)
 
+	elapsed := time.Since(start).Milliseconds()
 	// return that we cleared out the data cache, return the current number of dataset as well
 	return nil, &resultDataCache{
-		Message:         "Added the data path " + config.Data.Path,
-		NumStudies:      len(studies),
-		NumSeries:       numSeries,
-		NumImages:       numImages,
-		NumParticipants: numParticipants}, nil
+		Message:           "Added the data path " + config.Data.Path,
+		NumStudies:        len(studies),
+		NumSeries:         numSeries,
+		NumImages:         numImages,
+		NumParticipants:   numParticipants,
+		TotalRecordsFound: len(studies),
+		ProcessingTimeMs:  elapsed,
+		DataSourcePath:    input_dir,
+	}, nil
 }
 
 // structuredTool returns a structured result.
