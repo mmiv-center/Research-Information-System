@@ -10,8 +10,7 @@ Explain a general setup for individual research projects. Not every project need
 
 ## Key Points
 
-- Risk classification
-- Intended purpose
+- Device identification including risk classification and intended purpose
 - Documented software design, development and quality control
 
 ### Risk classification
@@ -28,11 +27,16 @@ Add explicit technical documentation to your software development process. The d
 
 Each document should be under versioning and have a version history section. Each entry in the document should include who/when it was added. Use tables to structure individual items and provide a number to identify individual entries. Reference the numbers across different documents, e.g. an issue might development into a new risk entry. A new risk might require a design change. A software update require additional new tests. Make sure all of the identifiers link to each other in this chain of evidence. It is not important what technical tool you use (Word/Pages/Google Docs/Markdown) but, it is suggested to have a _document management system_ that can keep all releases of documents over time.
 
+- **Device description**: A detailed description of any innovative or novel features.
 - **Design document**: List all requirements, who generated each. Add use-cases. Describe software architecture. 
 - **Risk management**: List all identified risks. Add more as soon as you are discovering them.
 - **Issue tracking**: List all feature requests or bug reports, who, what and how to replicate. Add resolution (fixed, could-not-be-replicated, will-not-be-fixed).
 - **Version control**: Use software version control (git). Reference issues as (fix #N), risk id, and design ids as comment in your source code. Add commit id to resolved / closed issues.
 - **Quality management system**: List all individual tests with setup, individual steps to replicate and expected outcomes. Unexpected outcomes should lead back to new issues.
+
+##### Device description
+
+Include what the product is called and how it works. Describe any innovative or novel features. Describe the patient population, include age, sex, weight, health conditions or any other selection criteria. Add a description on how the device achives its purpose.
 
 ##### Design
 
