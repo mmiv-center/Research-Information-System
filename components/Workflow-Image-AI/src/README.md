@@ -248,3 +248,17 @@ The output folder and output.json file are parsed by the Research Information Sy
 where 'record_id' identifies the participant name, 'event_name' identifies a timepoint, 'field_name' the variable that should be used to store the value and 'value' the actual computed entry.
 
 The above structure corresponds to REDCap's data model for longitudinal event-related studies.
+
+REDCap also supports repeated measures. So instead of adding `_1` etc. you can also have a whole instrument repeat. After you set this up in REDCap you can submit an additional numeric value that identifies which repeat you want to save values to.
+
+```python
+[{
+    "record_id":  description["PatientID"],
+    "redcap_event_name": description["ReferringPhysician"],
+    "instance_number": 1,
+    "field_name": "signal-to-noise",
+    "value":      np.where(sd == 0, 0, img3d.mean()/sd).item(),
+}]
+```
+
+The new field `instance_number` starts counting with 1. If you reuse an instance number you overwrite values. Start counting again with 1 if you store values for another record_id or for another redcap_event_name.
