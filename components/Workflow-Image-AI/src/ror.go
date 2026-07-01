@@ -53,7 +53,7 @@ import (
 	"github.com/rivo/tview"
 )
 
-const version string = "0.0.6"
+const version string = "0.0.7"
 
 // The string below will be replaced during build time using
 // -ldflags "-X main.compileDate=`date -u +.%Y%m%d.%H%M%S"`"
@@ -250,11 +250,11 @@ func readConfig(path_string string) (Config, error) {
 
 	gzreader, err := gzip.NewReader(fi)
 	if err != nil {
-		log.Fatal(err)
+		return Config{}, err
 	}
 	byteValue, err := io.ReadAll(gzreader)
 	if err != nil {
-		log.Fatal(err)
+		return Config{}, err
 	}
 
 	var config Config
@@ -264,7 +264,7 @@ func readConfig(path_string string) (Config, error) {
 	json.Unmarshal(byteValue, &config)
 
 	if err := gzreader.Close(); err != nil {
-		log.Fatal(err)
+		return Config{}, err
 	}
 
 	return config, nil
@@ -286,7 +286,7 @@ func (config Config) writeConfig() bool {
 	_, err := zw.Write(file)
 
 	if err != nil {
-		log.Fatal(err)
+		return false
 	}
 
 	if err := zw.Close(); err != nil {
@@ -2991,7 +2991,7 @@ func ast2Select(ast AST) string {
 	return stm
 }
 
-func callProgram(config Config, triggerWaitTime string, trigger_container string, trigger_cont_options string, dir string, trigger_memory string, trigger_cpus string) {
+func callProgram(config Config, triggerWaitTime string, trigger_container string, trigger_cont_options string, dir string, trigger_memory string, trigger_cpus string, static_folder string) {
 	if config.CallString == "" {
 		exitGracefully(fmt.Errorf("could not run trigger command, no CallString defined\n\n\t%s config --call \"python3 ./stub.py\"", own_name))
 	}
@@ -3050,6 +3050,9 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 		}
 		arr2 = append(arr2, "-v", fmt.Sprintf("%s:/data:ro", strings.Replace(dir, " ", "\\ ", -1)))
 		arr2 = append(arr2, "-v", output_mount)
+		if len(static_folder) > 0 {
+			arr2 = append(arr2, "-v", fmt.Sprintf("%s:/static", strings.Replace(static_folder, " ", "\\ ", -1)))
+		}
 		arr2 = append(arr2, trigger_container)
 		arr2 = append(arr2, arr...)
 		fmt.Println("#")
@@ -3523,6 +3526,8 @@ func main() {
 	triggerCommand.StringVar(&trigger_memory, "mem", "", "Trigger using a container but limit memory (2g).")
 	var trigger_cpus string
 	triggerCommand.StringVar(&trigger_cpus, "cpus", "", "Trigger using a container but limit available cpus (2).")
+	var trigger_static_folder string
+	triggerCommand.StringVar(&trigger_static_folder, "static", "", "If defined add a static folder location visible as /static inside the container. This folder is read-write and can be used as shared storage between workflows.")
 
 	var trigger_help bool
 	triggerCommand.BoolVar(&trigger_help, "help", false, "Show help for trigger")
@@ -4383,7 +4388,7 @@ func main() {
 				if _, err := os.Stat(folder); os.IsNotExist(err) {
 					exitGracefully(fmt.Errorf("%s could not be found. Create one with 'ror trigger --keep'", folder))
 				}
-				callProgram(config, triggerWaitTime, trigger_container, trigger_cont_options, folder, trigger_memory, trigger_cpus)
+				callProgram(config, triggerWaitTime, trigger_container, trigger_cont_options, folder, trigger_memory, trigger_cpus, trigger_static_folder)
 			}
 
 			// make sure we have updated classifyRules.json loaded here ... just in case if the user
@@ -4638,7 +4643,7 @@ func main() {
 				_ = os.WriteFile(dir+"/descr.json", file, 0644)
 				if !trigger_test {
 					// check if the call string is empty
-					callProgram(config, triggerWaitTime, trigger_container, trigger_cont_options, dir, trigger_memory, trigger_cpus)
+					callProgram(config, triggerWaitTime, trigger_container, trigger_cont_options, dir, trigger_memory, trigger_cpus, trigger_static_folder)
 
 					// In case we where running the program we can check the output folder
 					// for data that we can use. That would be structures in output/output.json

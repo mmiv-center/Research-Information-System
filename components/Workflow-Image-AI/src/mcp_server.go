@@ -123,6 +123,30 @@ func startMCP(useHttp string, rootFolder string) {
 	}, projectTool)
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "server/status",
+		Description: "Check server health and loaded data summary.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *serverStatus, error) {
+		_, config, err := loadProject(ctx, req.Session)
+		if err != nil {
+			return nil, &serverStatus{Status: "error", Message: err.Error()}, nil
+		}
+		numSeries := 0
+		for k := range config.Data.DataInfo {
+			for _ = range config.Data.DataInfo[k] {
+				numSeries++
+			}
+		}
+
+		return nil, &serverStatus{
+			Status:   "ok",
+			Version:  version,
+			DataPath: config.Data.Path,
+			Studies:  len(config.Data.DataInfo),
+			Series:   numSeries,
+		}, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "project/clear/data",
 		Description: "Delete all imported data references from the current ror project.",
 		InputSchema: &jsonschema.Schema{
@@ -616,6 +640,21 @@ func startMCP(useHttp string, rootFolder string) {
 
 }
 
+func loadProject(ctx context.Context, session *mcp.ServerSession) (string, Config, error) {
+	var input_dir string
+	if v, err := getInputDir(ctx, session); err != nil {
+		return "", Config{}, err
+	} else {
+		input_dir = v
+	}
+	dir_path := input_dir + "/.ror/config"
+	config, err := readConfig(dir_path)
+	if err != nil {
+		return "", Config{}, fmt.Errorf("could not read config from %s: %w", dir_path, err)
+	}
+	return input_dir, config, nil
+}
+
 // needs folder with data and a folder location to work in
 func createNewRORDatabase(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	return &mcp.GetPromptResult{
@@ -967,6 +1006,15 @@ type argsConfirm struct {
 	Confirm bool `json:"confirm" jsonschema:"Set to true to confirm clearing all data"`
 }
 
+type serverStatus struct {
+	Status   string `json:"status" jsonschema:"the status of the server"`
+	Message  string `json:"message" jsonschema:"the message to convey"`
+	Version  string `json:"version" jsonschema:"the version of the server"`
+	DataPath string `json:"data_path" jsonschema:"the path to the data source"`
+	Studies  int    `json:"studies" jsonschema:"the number of studies in the data source"`
+	Series   int    `json:"series" jsonschema:"the number of series in the data source"`
+}
+
 // contentTool is a tool that returns unstructured content.
 //
 // Since its output type is 'any', no output schema is created.
@@ -1205,8 +1253,8 @@ func suggestSelectStatementTool(ctx context.Context, req *mcp.CallToolRequest, i
 	yyParse(&exprLex{line: line})
 	if errorOnParse {
 		msg := ""
-		for _, msg := range errorMessages {
-			msg += msg
+		for _, em := range errorMessages {
+			msg += em
 		}
 		return nil, &argsSelect{
 			Message:    fmt.Sprintf("could not parse default select statement:\n%s\n%s", "Select series from series where series has Modality containing MR", msg),
@@ -1319,8 +1367,8 @@ func validateSelectStatementTool(ctx context.Context, req *mcp.CallToolRequest, 
 
 	// in case of an error we can print out the error messages collected during parsing
 	msg := ", errors:\n"
-	for _, msg := range errorMessages {
-		msg += msg
+	for _, em := range errorMessages {
+		msg += em
 	}
 	//fmt.Println("Assuming a simple glob type filter now.")
 
@@ -1345,6 +1393,9 @@ func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelec
 		return nil, &argsSelect{Message: "Error could not read config file from ror directory. Maybe this is caused by a permission issue? Make sure that the current user can read the content in the workspaces .ror/ folder."}, err
 	}
 	config_series_filter := string(args.Select)
+	if len(config_series_filter) == 0 {
+		return nil, &argsSelect{Message: "Error, the select statement is empty."}, err
+	}
 
 	comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
 	series_filter_no_comments := comments.ReplaceAllString(config_series_filter, " ")
@@ -1971,6 +2022,12 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 
 	// The following will take a while... should we report back of our progress?
 	config.Data.Path = string(args.Path)
+	// Check if the path exists and is a directory
+	if info, err := os.Stat(config.Data.Path); os.IsNotExist(err) || !info.IsDir() {
+		config.Data.Path = ""
+		return nil, &resultDataCache{Message: "Error, the provided path does not exist or is not a directory."}, err
+	}
+
 	studies, err := dataSets(config, config.Data.DataInfo, func(counter int, nonDICOM int, numStudies int, numSeries int) {
 		//fmt.Printf("Processed %d DICOM files so far...\n", counter)
 
