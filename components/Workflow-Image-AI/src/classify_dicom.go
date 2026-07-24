@@ -353,7 +353,16 @@ func (data SeriesInfo) evalLeaf(rule Rule) (bool, string) {
 	}
 	if !foundValue { // any one rule that does not match will result in false
 		matches = false
-		failureReason = fmt.Sprintf("Value check failed for operator %s with value %v\n", o, v)
+		// show t as hex number 0x0000,0x0000
+		if len(t) == 2 {
+			t1_val, _ := strconv.ParseInt(t[0], 16, 64)
+			properTagStr1 := fmt.Sprintf("0x%04x", t1_val)
+			t2_val, _ := strconv.ParseInt(t[1], 16, 64)
+			properTagStr2 := fmt.Sprintf("0x%04x", t2_val)
+			failureReason = fmt.Sprintf("Value check failed for %s,%s operator %s with value %v\n", properTagStr1, properTagStr2, o, v)
+		} else {
+			failureReason = fmt.Sprintf("Value check failed for %s operator %s with value %v\n", t, o, v)
+		}
 	}
 	return matches, failureReason
 }

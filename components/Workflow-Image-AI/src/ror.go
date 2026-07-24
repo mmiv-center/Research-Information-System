@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"image"
 	"io"
-	"io/ioutil"
 	"log"
 	"math"
 	"math/rand"
@@ -28,6 +27,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -231,12 +231,12 @@ func readConfig(path_string string) (Config, error) {
 	}
 	// we need to check if the config file has the correct permissions,
 	// produce a warning if it does not!
-	if /* fileInfo */ _, err := os.Stat(path_string); err == nil {
-		//mode := fileInfo.Mode()
-		//mode_str := mode.String()
-		//if mode_str != "-rw-------" && runtime.GOOS != "windows" {
-		//	fmt.Println("Warning: Your config file is not secure. Change the permissions by 'chmod 0600 .ror/config'. Now: ", mode)
-		//}
+	if fileInfo, err := os.Stat(path_string); err == nil {
+		mode := fileInfo.Mode()
+		mode_str := mode.String()
+		if mode_str != "-rw-------" && runtime.GOOS != "windows" {
+			fmt.Println("Warning: Your config file is not secure. Change the permissions by 'chmod 0600 .ror/config'. Now: ", mode)
+		}
 	} else {
 		fmt.Println(err)
 	}
@@ -408,7 +408,8 @@ func printImage2SingleRune(img image.Image, PhotometricInterpretation string, Pi
 			// this might be wrong if we have 8bit data - we interpret them as 16bit here which shifts them up
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
-			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			//y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			y := int64(g.(color.Gray16).Y)
 			if PixelPaddingValue != 32768 && y == int64(PixelPaddingValue) {
 				continue
 			}
@@ -434,7 +435,7 @@ func printImage2SingleRune(img image.Image, PhotometricInterpretation string, Pi
 		for j := 0; j < w; j++ {
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
-			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			y := int64(g.(color.Gray16).Y)
 			if PixelPaddingValue != 32768 && y == int64(PixelPaddingValue) {
 				continue
 			}
@@ -492,7 +493,7 @@ func printImage2SingleRune(img image.Image, PhotometricInterpretation string, Pi
 		for j := 0; j < w; j++ {
 			g := color.Gray16Model.Convert(img.At(j, i))
 			//g := img.At(j, i)
-			y := int64(reflect.ValueOf(g).FieldByName("Y").Uint())
+			y := int64(g.(color.Gray16).Y)
 			if PixelPaddingValue != 32768 && y == int64(PixelPaddingValue) {
 				_, err := buf.WriteString("\033[m ")
 				if err != nil {
@@ -1122,7 +1123,7 @@ func copyFiles(SelectedSeriesInstanceUID string, SelectedStudyInstanceUID string
 
 						outputPath := destination_path
 						inputFile, _ := os.Open(path)
-						data, _ := ioutil.ReadAll(inputFile)
+						data, _ := io.ReadAll(inputFile)
 						// what is the next unused filename? We can have this case if other series are exported as well
 						fname := fmt.Sprintf("%06d.dcm", counter)
 						if Modality != "" {
@@ -1135,7 +1136,7 @@ func copyFiles(SelectedSeriesInstanceUID string, SelectedStudyInstanceUID string
 							outputPathFileName := fmt.Sprintf("%s/%06d.dcm", outputPath, counter)
 							_, err = os.Stat(outputPathFileName)
 						}
-						ioutil.WriteFile(outputPathFileName, data, 0644)
+						os.WriteFile(outputPathFileName, data, 0644)
 
 						// We can do a better destination path here. The friendly way of doing this is
 						// to provide separate folders aka the BIDS way.
@@ -2991,6 +2992,66 @@ func ast2Select(ast AST) string {
 	return stm
 }
 
+// parseCallString tokenizes a shell-style command string into an argument slice.
+// It understands single quotes, double quotes, and backslash escaping.
+// Unlike a full shell, it does NOT interpret pipes, redirects, globs, or
+// variable expansion — those require a shell, which we deliberately avoid
+// by using exec.Command (arg0, args...) to bypass the shell entirely.
+func parseCallString(s string) ([]string, error) {
+	var tokens []string
+	var cur strings.Builder
+	inQuote := byte(0) // 0 = unquoted, '"' = double, '\'' = single
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+
+		if inQuote != 0 {
+			// Inside a quoted string
+			if c == '\\' {
+				// Handle escape sequences inside quotes
+				if i+1 < len(s) {
+					next := s[i+1]
+					switch next {
+					case '"', '\'', '\\', ' ':
+						cur.WriteByte(next)
+						i++ // skip the escaped character
+						continue
+					}
+					// Unknown escape: keep the backslash
+					cur.WriteByte(c)
+				} else {
+					cur.WriteByte(c) // trailing backslash
+				}
+			} else if c == inQuote {
+				// Closing quote
+				inQuote = 0
+			} else {
+				cur.WriteByte(c)
+			}
+		} else {
+			// Unquoted
+			switch c {
+			case ' ', '\t', '\n':
+				if cur.Len() > 0 {
+					tokens = append(tokens, cur.String())
+					cur.Reset()
+				}
+			case '"':
+				inQuote = '"'
+			case '\'':
+				inQuote = '\''
+			default:
+				// Shell metacharacters passed literally (no shell)
+				cur.WriteByte(c)
+			}
+		}
+	}
+	if cur.Len() > 0 {
+		tokens = append(tokens, cur.String())
+	}
+	return tokens, nil
+}
+
 func callProgram(config Config, triggerWaitTime string, trigger_container string, trigger_cont_options string, dir string, trigger_memory string, trigger_cpus string, static_folder string) {
 	if config.CallString == "" {
 		exitGracefully(fmt.Errorf("could not run trigger command, no CallString defined\n\n\t%s config --call \"python3 ./stub.py\"", own_name))
@@ -3008,19 +3069,12 @@ func callProgram(config Config, triggerWaitTime string, trigger_container string
 	cmd_str = strings.Replace(cmd_str, "{output}", "/data/output", -1)
 	cmd_str = strings.Replace(cmd_str, "{descr}", "/data/descr.json", -1)
 	cmd_str = strings.Replace(cmd_str, "{output_json}", "/data/output.json", -1)
-	// now we should split the string to an array
-	r := csv.NewReader(strings.NewReader(cmd_str))
-	r.Comma = ' ' // space
-	arr, err := r.Read()
+	// now split the string to an array
+	arr, err := parseCallString(cmd_str)
 	if err != nil {
-		fmt.Println(err)
-		return
+		exitGracefully(fmt.Errorf("could not parse call string: %s", err))
 	}
 
-	// r := regexp.MustCompile(`[^\s"']+|"([^"]*)"|'([^']*)`)
-	// arr := r.FindAllString(cmd_str, -1)
-	// arr = append(arr, string(dir))
-	// cmd := exec.Command("python", "stub.py", dir)
 	var cmd *exec.Cmd
 	var cmd_string []string
 	var output_path = fmt.Sprintf("%s_output", strings.Replace(dir, " ", "\\ ", -1))
@@ -3397,12 +3451,12 @@ func getDetailedStatusInfo(config Config) string {
 						ruleset := ast.RulesTree[idx]
 						if inSelection, reasonNotInSelectionTmp := element2.evalRulesTree(ruleset.Rs); inSelection {
 							// make this green
-							reasonNotInSelection += "\033[32mselected for " + ruleset.Name + "\033[0m"
+							reasonNotInSelection += "\033[32mselected for '" + ruleset.Name + "'\033[0m"
 						} else {
 							if reasonNotInSelection != "" {
 								reasonNotInSelection += ", "
 							}
-							reasonNotInSelection += ruleset.Name + " - " + strings.ReplaceAll(reasonNotInSelectionTmp, "\n", "")
+							reasonNotInSelection += "'" + ruleset.Name + "' - " + strings.ReplaceAll(reasonNotInSelectionTmp, "\n", "")
 						}
 					}
 				}
@@ -3448,13 +3502,12 @@ var app *tview.Application = nil
 
 func main() {
 
-	//rand.Seed(time.Now().UnixNano())
 	// disable logging
 	log.SetFlags(0)
 	log.SetOutput(io.Discard /*ioutil.Discard*/)
 
 	const (
-		defaultInputDir    = "Specify where you want to setup shop"
+		defaultInputDir    = "Location of the working directory"
 		defaultTriggerTime = "A wait time in seconds or minutes before the computation is triggered"
 		errorConfigFile    = "The current directory is not a ror directory. Change to the correct directory first or create a new directory with\n\n\tror init project01\n "
 	)
@@ -4398,7 +4451,7 @@ func main() {
 				// read the classifyDICOM
 				classifyDICOMFile, err := os.Open(classifyDICOM_path)
 				if err != nil {
-					classifyRules_new_set, err := ioutil.ReadAll(classifyDICOMFile)
+					classifyRules_new_set, err := io.ReadAll(classifyDICOMFile)
 					if err != nil {
 						classifyRules = string(classifyRules_new_set)
 					}
@@ -4674,7 +4727,7 @@ func main() {
 					// defer the closing of our jsonFile so that we can parse it later on
 					defer jsonFile.Close()
 
-					byteValue, _ := ioutil.ReadAll(jsonFile)
+					byteValue, _ := io.ReadAll(jsonFile)
 					output_json_array = append(output_json_array, string(byteValue))
 					//fmt.Println(string(byteValue))
 

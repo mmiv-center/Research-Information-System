@@ -132,7 +132,7 @@ func startMCP(useHttp string, rootFolder string) {
 		}
 		numSeries := 0
 		for k := range config.Data.DataInfo {
-			for _ = range config.Data.DataInfo[k] {
+			for range config.Data.DataInfo[k] {
 				numSeries++
 			}
 		}
