@@ -3456,7 +3456,7 @@ func getDetailedStatusInfo(config Config) string {
 							if reasonNotInSelection != "" {
 								reasonNotInSelection += ", "
 							}
-							reasonNotInSelection += "'" + ruleset.Name + "' - " + strings.ReplaceAll(reasonNotInSelectionTmp, "\n", "")
+							reasonNotInSelection += "\033[33m'" + ruleset.Name + "' - " + strings.ReplaceAll(reasonNotInSelectionTmp, "\n", "") + "\033[0m"
 						}
 					}
 				}
