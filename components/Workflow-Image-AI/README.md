@@ -35,18 +35,20 @@ Below is a window capture from one start to finish run of the tool. This workflo
 
 ### Install on MacOS
 
-Download the ror executable. There are two executables, one for Intel (amd64) and one for the M1/M2 line of MacOS (arm64). Copy the file to a folder like /usr/local/bin/ that is in your path. This will make it easier afterwards to work with the tool as you can use `ror` instead of the full path.
+Download the ror executable. There are two executables, one for Intel (amd64) and one for the M1/M2 line of MacOS (arm64). Copy the file to a folder like /usr/local/bin/ that is in your path. This will make it easier afterwards to work with the tool as you can use `ror` instead of the full path. You may need to install 'wget' first (e.g. brew install wget).
 
 ```bash
 # Intel-based mac (amd64)
-wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/macos-amd64/ror > /usr/local/bin/ror
-chmod +x /usr/local/bin/ror
+wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/macos-amd64/ror > /tmp/ror
+chmod +x /tmp/ror
+sudo cp /tmp/ror /usr/local/bin/ror
 ```
 
 ```bash
 # Silicon-based mac (arm64)
-wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/macos-arm64/ror > /usr/local/bin/ror
-chmod +x /usr/local/bin/ror
+wget -qO- https://github.com/mmiv-center/Research-Information-System/raw/master/components/Workflow-Image-AI/build/macos-arm64/ror > /tmp/ror
+chmod +x /tmp/ror
+sudo cp /tmp/ror /usr/local/bin/ror
 ```
 
 
