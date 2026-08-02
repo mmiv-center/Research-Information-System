@@ -46,7 +46,13 @@ func startMCP(useHttp string, rootFolder string) {
 		},
 	}
 
-	server := mcp.NewServer(&mcp.Implementation{Name: "ror", Version: version}, opts)
+	server := mcp.NewServer(&mcp.Implementation{
+		Name:        "ror",
+		Title:       "Research PACS Workflow Tool",
+		Description: "ROR is a tool to create workflows for the research picture archive and communication systems (PACS).",
+		Version:     version,
+		WebsiteURL:  "https://github.com/mmiv-center/Research-Information-System/tree/master/components/Workflow-Image-AI",
+	}, opts)
 
 	// configure the root directory that the server can access
 	if rootFolder != "" {
