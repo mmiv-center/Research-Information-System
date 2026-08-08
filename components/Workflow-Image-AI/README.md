@@ -498,7 +498,11 @@ For LM Studio you can add this mcp server in mcp.json with:
     }
 ```
 
+For claude code (pwd is the current working directory):
 
+```bash
+claude mcp add ror -- ror mcp --working_directory `pwd`
+```
 
 
 ## Acknowlegements
