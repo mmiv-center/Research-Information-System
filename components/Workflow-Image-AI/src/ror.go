@@ -3499,6 +3499,152 @@ func isFlagPassed(name string) bool {
 	return found
 }
 
+func createTemplateFolders(dir_path string, init_type string, author_name string, author_email string, repo_url string, project_token string) error {
+	// we need to clone a github repo here before we can add the .ror folder
+	if init_type == "repo-url" {
+		exec.Command("git", "clone", repo_url, input_dir).Run()
+	}
+
+	// now add the .ror folder
+	if err := os.Mkdir(dir_path, 0700); os.IsExist(err) {
+		return errors.New("directory already exists")
+		//exitGracefully(errors.New("directory already exists"))
+	}
+
+	var annotate Annotate
+	annotate.Ontology = nil // by default we don't have an ontology available
+	data := Config{
+		Date: time.Now().String(),
+		Author: AuthorInfo{
+			Name:  author_name,
+			Email: author_email,
+		},
+		CallString:       "python ./stub.py {}", // {} points to the main folder, we need also the {output} here
+		SeriesFilter:     ".*",
+		SeriesFilterType: "glob",
+		ProjectType:      init_type,
+		SortDICOM:        true,
+		ProjectName:      path.Base(input_dir),
+		ProjectToken:     project_token,
+		LastDataFolder:   "",
+		Annotate:         annotate,
+		StaticFolder:     "",
+	}
+	data.Viewer = Viewer{
+		TextColor: "#000000",
+		Clip:      []float32{5, 95},
+	}
+	if init_type == "bash" {
+		data.CallString = "./stub.sh {}"
+	} else if init_type == "webapp" {
+		data.CallString = "open http://127.0.0.1:8000?_={}"
+	} else if init_type == "repo-url" {
+		data.CallString = "open http://127.0.0.1:8000?_={}"
+	}
+	if !data.writeConfig() {
+		exitGracefully(errors.New("could not write config file"))
+	}
+	//file, _ := json.MarshalIndent(data, "", " ")
+	//_ = ioutil.WriteFile(dir_path+"/config", file, 0600)
+
+	if init_type != "repo-url" {
+		readme_path := filepath.Join(input_dir, "README.md")
+		createStub(readme_path, readme)
+	}
+
+	if data.ProjectType == "python" || data.ProjectType == "notebook" { // plain python
+		stub_path := filepath.Join(input_dir, "stub.py")
+		createStub(stub_path, stub_py)
+		entrypoint_path := filepath.Join(input_dir, "entrypoint.sh")
+		createStub(entrypoint_path, entrypoint)
+	}
+	if data.ProjectType == "notebook" {
+		stubipynb_path := filepath.Join(input_dir, "stub.ipynb")
+		createStub(stubipynb_path, stub_ipynb)
+	}
+	if data.ProjectType == "webapp" {
+		webapp_index_path := filepath.Join(input_dir, "index.html")
+		createStub(webapp_index_path, webapp_index)
+
+		webapp_all_path := filepath.Join(input_dir, "js", "all.js")
+		createStub(webapp_all_path, webapp_js_all)
+
+		webapp_js_bootstrap_path := filepath.Join(input_dir, "js", "bootstrap.min.js")
+		createStub(webapp_js_bootstrap_path, webapp_js_boostrap)
+
+		webapp_js_colorbrewer_path := filepath.Join(input_dir, "js", "colorbrewer.js")
+		createStub(webapp_js_colorbrewer_path, webapp_js_colorbrewer)
+
+		webapp_js_jquery_path := filepath.Join(input_dir, "js", "jquery-3.2.1.min.js")
+		createStub(webapp_js_jquery_path, webapp_js_jquery)
+
+		webapp_js_popper_path := filepath.Join(input_dir, "js", "popper.min.js")
+		createStub(webapp_js_popper_path, webapp_js_popper)
+
+		webapp_css_style_path := filepath.Join(input_dir, "css", "style.css")
+		createStub(webapp_css_style_path, webapp_css_style)
+
+		webapp_css_bootstrap_path := filepath.Join(input_dir, "css", "bootstrap.min.css")
+		createStub(webapp_css_bootstrap_path, webapp_css_bootstrap)
+	}
+	if data.ProjectType == "bash" {
+		stub_path2 := input_dir + "/stub.sh"
+		if _, err := os.Stat(stub_path2); !os.IsNotExist(err) {
+			fmt.Println("This directory already contains a stub.sh, don't overwrite. Skip writing...")
+		} else {
+			f, err := os.Create(stub_path2)
+			check(err)
+			_, err = f.WriteString(stub_sh)
+			check(err)
+			f.Sync()
+			// make the file executable
+			err = os.Chmod(stub_path2, 0755)
+			if err != nil {
+				fmt.Println("Warning: could not make the stub.sh executable, try your luck on your own.")
+			}
+		}
+	}
+	// virtualization environment
+	virt_path := input_dir + "/.ror/virt"
+	if err := os.Mkdir(virt_path, 0755); os.IsExist(err) {
+		exitGracefully(errors.New("directory exist already"))
+	}
+	// classification rules so we can overwrite what ror does on its own
+	classify_dicom_path2 := input_dir + "/.ror/classifyDICOM.json"
+	createStub(classify_dicom_path2, classifyRules)
+
+	// example ontology
+	ontology_path := input_dir + "/.ror/ontologies"
+	if err := os.Mkdir(ontology_path, 0755); os.IsExist(err) {
+		exitGracefully(errors.New("directory exist already"))
+	}
+	ontology_path = input_dir + "/.ror/ontologies/body_parts_DICOM.json"
+	createStub(ontology_path, ontology_body_parts_dicom)
+
+	if data.ProjectType == "python" || data.ProjectType == "notebook" {
+		requirements_path2 := filepath.Join(virt_path, "requirements.txt")
+		createStub(requirements_path2, requirements)
+
+		requirements_path3 := filepath.Join(virt_path, "requirements.yml")
+		createStub(requirements_path3, requirements_yml)
+	}
+	dockerignore_path2 := filepath.Join(virt_path, ".dockerignore")
+	createStub(dockerignore_path2, dockerignore)
+
+	dockerfile_path2 := filepath.Join(virt_path, "Dockerfile")
+	dockerfile_main_path2 := filepath.Join(virt_path, "DockerfileMain")
+	if data.ProjectType == "bash" {
+		createStub(dockerfile_path2, dockerfile_bash)
+	} else if data.ProjectType == "python" || data.ProjectType == "notebook" {
+		createStub(dockerfile_path2, dockerfile)
+		createStub(dockerfile_main_path2, dockerfile_main)
+	} else if data.ProjectType == "webapp" {
+		createStub(dockerfile_path2, webapp_dockerfile)
+	}
+
+	return nil
+}
+
 var app *tview.Application = nil
 
 func main() {
@@ -3819,147 +3965,10 @@ func main() {
 				}
 			}
 
-			// we need to clone a github repo here before we can add the .ror folder
-			if init_type == "repo-url" {
-				exec.Command("git", "clone", repo_url, input_dir).Run()
+			err = createTemplateFolders(dir_path, init_type, author_name, author_email, repo_url, project_token)
+			if err != nil {
+				exitGracefully(err)
 			}
-
-			// now add the .ror folder
-			if err := os.Mkdir(dir_path, 0700); os.IsExist(err) {
-				exitGracefully(errors.New("directory already exists"))
-			}
-
-			var annotate Annotate
-			annotate.Ontology = nil // by default we don't have an ontology available
-			data := Config{
-				Date: time.Now().String(),
-				Author: AuthorInfo{
-					Name:  author_name,
-					Email: author_email,
-				},
-				CallString:       "python ./stub.py {}", // {} points to the main folder, we need also the {output} here
-				SeriesFilter:     ".*",
-				SeriesFilterType: "glob",
-				ProjectType:      init_type,
-				SortDICOM:        true,
-				ProjectName:      path.Base(input_dir),
-				ProjectToken:     project_token,
-				LastDataFolder:   "",
-				Annotate:         annotate,
-				StaticFolder:     "",
-			}
-			data.Viewer = Viewer{
-				TextColor: "#000000",
-				Clip:      []float32{5, 95},
-			}
-			if init_type == "bash" {
-				data.CallString = "./stub.sh {}"
-			} else if init_type == "webapp" {
-				data.CallString = "open http://127.0.0.1:8000?_={}"
-			} else if init_type == "repo-url" {
-				data.CallString = "open http://127.0.0.1:8000?_={}"
-			}
-			if !data.writeConfig() {
-				exitGracefully(errors.New("could not write config file"))
-			}
-			//file, _ := json.MarshalIndent(data, "", " ")
-			//_ = ioutil.WriteFile(dir_path+"/config", file, 0600)
-
-			if init_type != "repo-url" {
-				readme_path := filepath.Join(input_dir, "README.md")
-				createStub(readme_path, readme)
-			}
-
-			if data.ProjectType == "python" || data.ProjectType == "notebook" { // plain python
-				stub_path := filepath.Join(input_dir, "stub.py")
-				createStub(stub_path, stub_py)
-				entrypoint_path := filepath.Join(input_dir, "entrypoint.sh")
-				createStub(entrypoint_path, entrypoint)
-			}
-			if data.ProjectType == "notebook" {
-				stubipynb_path := filepath.Join(input_dir, "stub.ipynb")
-				createStub(stubipynb_path, stub_ipynb)
-			}
-			if data.ProjectType == "webapp" {
-				webapp_index_path := filepath.Join(input_dir, "index.html")
-				createStub(webapp_index_path, webapp_index)
-
-				webapp_all_path := filepath.Join(input_dir, "js", "all.js")
-				createStub(webapp_all_path, webapp_js_all)
-
-				webapp_js_bootstrap_path := filepath.Join(input_dir, "js", "bootstrap.min.js")
-				createStub(webapp_js_bootstrap_path, webapp_js_boostrap)
-
-				webapp_js_colorbrewer_path := filepath.Join(input_dir, "js", "colorbrewer.js")
-				createStub(webapp_js_colorbrewer_path, webapp_js_colorbrewer)
-
-				webapp_js_jquery_path := filepath.Join(input_dir, "js", "jquery-3.2.1.min.js")
-				createStub(webapp_js_jquery_path, webapp_js_jquery)
-
-				webapp_js_popper_path := filepath.Join(input_dir, "js", "popper.min.js")
-				createStub(webapp_js_popper_path, webapp_js_popper)
-
-				webapp_css_style_path := filepath.Join(input_dir, "css", "style.css")
-				createStub(webapp_css_style_path, webapp_css_style)
-
-				webapp_css_bootstrap_path := filepath.Join(input_dir, "css", "bootstrap.min.css")
-				createStub(webapp_css_bootstrap_path, webapp_css_bootstrap)
-			}
-			if data.ProjectType == "bash" {
-				stub_path2 := input_dir + "/stub.sh"
-				if _, err := os.Stat(stub_path2); !os.IsNotExist(err) {
-					fmt.Println("This directory already contains a stub.sh, don't overwrite. Skip writing...")
-				} else {
-					f, err := os.Create(stub_path2)
-					check(err)
-					_, err = f.WriteString(stub_sh)
-					check(err)
-					f.Sync()
-					// make the file executable
-					err = os.Chmod(stub_path2, 0755)
-					if err != nil {
-						fmt.Println("Warning: could not make the stub.sh executable, try your luck on your own.")
-					}
-				}
-			}
-			// virtualization environment
-			virt_path := input_dir + "/.ror/virt"
-			if err := os.Mkdir(virt_path, 0755); os.IsExist(err) {
-				exitGracefully(errors.New("directory exist already"))
-			}
-			// classification rules so we can overwrite what ror does on its own
-			classify_dicom_path2 := input_dir + "/.ror/classifyDICOM.json"
-			createStub(classify_dicom_path2, classifyRules)
-
-			// example ontology
-			ontology_path := input_dir + "/.ror/ontologies"
-			if err := os.Mkdir(ontology_path, 0755); os.IsExist(err) {
-				exitGracefully(errors.New("directory exist already"))
-			}
-			ontology_path = input_dir + "/.ror/ontologies/body_parts_DICOM.json"
-			createStub(ontology_path, ontology_body_parts_dicom)
-
-			if data.ProjectType == "python" || data.ProjectType == "notebook" {
-				requirements_path2 := filepath.Join(virt_path, "requirements.txt")
-				createStub(requirements_path2, requirements)
-
-				requirements_path3 := filepath.Join(virt_path, "requirements.yml")
-				createStub(requirements_path3, requirements_yml)
-			}
-			dockerignore_path2 := filepath.Join(virt_path, ".dockerignore")
-			createStub(dockerignore_path2, dockerignore)
-
-			dockerfile_path2 := filepath.Join(virt_path, "Dockerfile")
-			dockerfile_main_path2 := filepath.Join(virt_path, "DockerfileMain")
-			if data.ProjectType == "bash" {
-				createStub(dockerfile_path2, dockerfile_bash)
-			} else if data.ProjectType == "python" || data.ProjectType == "notebook" {
-				createStub(dockerfile_path2, dockerfile)
-				createStub(dockerfile_main_path2, dockerfile_main)
-			} else if data.ProjectType == "webapp" {
-				createStub(dockerfile_path2, webapp_dockerfile)
-			}
-
 			fmt.Printf("\nInit new project folder \"%s\" done.\n\n", input_dir)
 			fmt.Printf("\033[1mWhat's next?\033[0m\nAdd a data folder with DICOM files to get started:\n  cd \"%s\"\n  %s config --data <data folder>\n\n", input_dir, own_name)
 			fmt.Println(
@@ -3969,6 +3978,157 @@ func main() {
 					"  cd hackathon-dataset\n" +
 					"  git submodule update --init --recursive")
 			fmt.Println("")
+			/*
+				// we need to clone a github repo here before we can add the .ror folder
+				if init_type == "repo-url" {
+					exec.Command("git", "clone", repo_url, input_dir).Run()
+				}
+
+				// now add the .ror folder
+				if err := os.Mkdir(dir_path, 0700); os.IsExist(err) {
+					exitGracefully(errors.New("directory already exists"))
+				}
+
+				var annotate Annotate
+				annotate.Ontology = nil // by default we don't have an ontology available
+				data := Config{
+					Date: time.Now().String(),
+					Author: AuthorInfo{
+						Name:  author_name,
+						Email: author_email,
+					},
+					CallString:       "python ./stub.py {}", // {} points to the main folder, we need also the {output} here
+					SeriesFilter:     ".*",
+					SeriesFilterType: "glob",
+					ProjectType:      init_type,
+					SortDICOM:        true,
+					ProjectName:      path.Base(input_dir),
+					ProjectToken:     project_token,
+					LastDataFolder:   "",
+					Annotate:         annotate,
+					StaticFolder:     "",
+				}
+				data.Viewer = Viewer{
+					TextColor: "#000000",
+					Clip:      []float32{5, 95},
+				}
+				if init_type == "bash" {
+					data.CallString = "./stub.sh {}"
+				} else if init_type == "webapp" {
+					data.CallString = "open http://127.0.0.1:8000?_={}"
+				} else if init_type == "repo-url" {
+					data.CallString = "open http://127.0.0.1:8000?_={}"
+				}
+				if !data.writeConfig() {
+					exitGracefully(errors.New("could not write config file"))
+				}
+				//file, _ := json.MarshalIndent(data, "", " ")
+				//_ = ioutil.WriteFile(dir_path+"/config", file, 0600)
+
+				if init_type != "repo-url" {
+					readme_path := filepath.Join(input_dir, "README.md")
+					createStub(readme_path, readme)
+				}
+
+				if data.ProjectType == "python" || data.ProjectType == "notebook" { // plain python
+					stub_path := filepath.Join(input_dir, "stub.py")
+					createStub(stub_path, stub_py)
+					entrypoint_path := filepath.Join(input_dir, "entrypoint.sh")
+					createStub(entrypoint_path, entrypoint)
+				}
+				if data.ProjectType == "notebook" {
+					stubipynb_path := filepath.Join(input_dir, "stub.ipynb")
+					createStub(stubipynb_path, stub_ipynb)
+				}
+				if data.ProjectType == "webapp" {
+					webapp_index_path := filepath.Join(input_dir, "index.html")
+					createStub(webapp_index_path, webapp_index)
+
+					webapp_all_path := filepath.Join(input_dir, "js", "all.js")
+					createStub(webapp_all_path, webapp_js_all)
+
+					webapp_js_bootstrap_path := filepath.Join(input_dir, "js", "bootstrap.min.js")
+					createStub(webapp_js_bootstrap_path, webapp_js_boostrap)
+
+					webapp_js_colorbrewer_path := filepath.Join(input_dir, "js", "colorbrewer.js")
+					createStub(webapp_js_colorbrewer_path, webapp_js_colorbrewer)
+
+					webapp_js_jquery_path := filepath.Join(input_dir, "js", "jquery-3.2.1.min.js")
+					createStub(webapp_js_jquery_path, webapp_js_jquery)
+
+					webapp_js_popper_path := filepath.Join(input_dir, "js", "popper.min.js")
+					createStub(webapp_js_popper_path, webapp_js_popper)
+
+					webapp_css_style_path := filepath.Join(input_dir, "css", "style.css")
+					createStub(webapp_css_style_path, webapp_css_style)
+
+					webapp_css_bootstrap_path := filepath.Join(input_dir, "css", "bootstrap.min.css")
+					createStub(webapp_css_bootstrap_path, webapp_css_bootstrap)
+				}
+				if data.ProjectType == "bash" {
+					stub_path2 := input_dir + "/stub.sh"
+					if _, err := os.Stat(stub_path2); !os.IsNotExist(err) {
+						fmt.Println("This directory already contains a stub.sh, don't overwrite. Skip writing...")
+					} else {
+						f, err := os.Create(stub_path2)
+						check(err)
+						_, err = f.WriteString(stub_sh)
+						check(err)
+						f.Sync()
+						// make the file executable
+						err = os.Chmod(stub_path2, 0755)
+						if err != nil {
+							fmt.Println("Warning: could not make the stub.sh executable, try your luck on your own.")
+						}
+					}
+				}
+				// virtualization environment
+				virt_path := input_dir + "/.ror/virt"
+				if err := os.Mkdir(virt_path, 0755); os.IsExist(err) {
+					exitGracefully(errors.New("directory exist already"))
+				}
+				// classification rules so we can overwrite what ror does on its own
+				classify_dicom_path2 := input_dir + "/.ror/classifyDICOM.json"
+				createStub(classify_dicom_path2, classifyRules)
+
+				// example ontology
+				ontology_path := input_dir + "/.ror/ontologies"
+				if err := os.Mkdir(ontology_path, 0755); os.IsExist(err) {
+					exitGracefully(errors.New("directory exist already"))
+				}
+				ontology_path = input_dir + "/.ror/ontologies/body_parts_DICOM.json"
+				createStub(ontology_path, ontology_body_parts_dicom)
+
+				if data.ProjectType == "python" || data.ProjectType == "notebook" {
+					requirements_path2 := filepath.Join(virt_path, "requirements.txt")
+					createStub(requirements_path2, requirements)
+
+					requirements_path3 := filepath.Join(virt_path, "requirements.yml")
+					createStub(requirements_path3, requirements_yml)
+				}
+				dockerignore_path2 := filepath.Join(virt_path, ".dockerignore")
+				createStub(dockerignore_path2, dockerignore)
+
+				dockerfile_path2 := filepath.Join(virt_path, "Dockerfile")
+				dockerfile_main_path2 := filepath.Join(virt_path, "DockerfileMain")
+				if data.ProjectType == "bash" {
+					createStub(dockerfile_path2, dockerfile_bash)
+				} else if data.ProjectType == "python" || data.ProjectType == "notebook" {
+					createStub(dockerfile_path2, dockerfile)
+					createStub(dockerfile_main_path2, dockerfile_main)
+				} else if data.ProjectType == "webapp" {
+					createStub(dockerfile_path2, webapp_dockerfile)
+				}
+
+				fmt.Printf("\nInit new project folder \"%s\" done.\n\n", input_dir)
+				fmt.Printf("\033[1mWhat's next?\033[0m\nAdd a data folder with DICOM files to get started:\n  cd \"%s\"\n  %s config --data <data folder>\n\n", input_dir, own_name)
+				fmt.Println(
+					"No DICOM data? Download some publicly available DICOM files from:\n" +
+						"  mkdir data; cd data;\n" +
+						"  git clone https://github.com/ImagingInformatics/hackathon-dataset.git\n" +
+						"  cd hackathon-dataset\n" +
+						"  git submodule update --init --recursive")
+				fmt.Println("") */
 		}
 	case "config":
 		if len(os.Args[2:]) == 0 {

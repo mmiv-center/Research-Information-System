@@ -16,7 +16,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -1137,44 +1136,86 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) 
 		if real_input_dir == real_args_path {
 			// is this a ror folder?
 			if _, err = os.Stat(real_input_dir + "/.ror/config"); err != nil {
-				// create a ror folder here
-				dir_path := real_input_dir + "/.ror"
-				if _, err := os.Stat(dir_path); !os.IsNotExist(err) {
-					return nil, &result{Message: "Error, this directory has already been initialized. Delete the .ror directory to do this again."}, err
-					// exitGracefully(errors.New("this directories has already been initialized. Delete the .ror directory to do this again"))
-				}
-				if err := os.Mkdir(dir_path, 0700); os.IsExist(err) {
-					return nil, &result{Message: "Error, directory already exists."}, err
-					//exitGracefully(errors.New("directory already exists"))
-				}
-
-				init_type := "python"
-				var annotate Annotate
-				annotate.Ontology = nil // by default we don't have an ontology available
-				data := Config{
-					Date: time.Now().String(),
-					Author: AuthorInfo{
-						Name:  "LLM User",
-						Email: "",
+				// if we do not have a config file we can create it now - new ror folder
+				// ask the mcp client for the project type first
+				res, err := req.Session.Elicit(ctx, &mcp.ElicitParams{
+					Message: "provide project type, i.e. python, notebook, bash, webapp, repo-url",
+					RequestedSchema: &jsonschema.Schema{
+						Type: "object",
+						Properties: map[string]*jsonschema.Schema{
+							"init_type": {Type: "string", Enum: []any{"python", "notebook", "bash", "webapp", "repo-url"}},
+						},
 					},
-					CallString:       "python ./stub.py {}", // {} points to the main folder, we need also the {output} here
-					SeriesFilter:     ".*",
-					SeriesFilterType: "glob",
-					ProjectType:      init_type,
-					SortDICOM:        true,
-					ProjectName:      path.Base(real_input_dir),
-					ProjectToken:     "",
-					LastDataFolder:   "",
-					Annotate:         annotate,
+				})
+				if err != nil {
+					return nil, nil, fmt.Errorf("eliciting failed: %v", err)
 				}
-				data.Viewer = Viewer{
-					TextColor: "#000000",
-					Clip:      []float32{5, 95},
+				init_type := res.Content["init_type"].(string)
+
+				repo_url := ""
+				if init_type == "repo-url" {
+					// ask for the repo url
+					res, err := req.Session.Elicit(ctx, &mcp.ElicitParams{
+						Message: "provide the git repository url to clone",
+						RequestedSchema: &jsonschema.Schema{
+							Type: "object",
+							Properties: map[string]*jsonschema.Schema{
+								"repo_url": {Type: "string"},
+							},
+						},
+					})
+					if err != nil {
+						return nil, nil, fmt.Errorf("eliciting failed: %v", err)
+					}
+					repo_url = res.Content["repo_url"].(string)
 				}
-				if !data.writeConfig() {
-					return nil, &result{Message: "Error, could not write config file."}, err
-					//exitGracefully(errors.New("could not write config file"))
+				dir_path := input_dir + "/.ror"
+				project_token := ""
+				err = createTemplateFolders(dir_path, init_type, "LLM User", "", repo_url, project_token)
+				if err != nil {
+					return nil, &result{Message: "Error, could not create template folders."}, err
 				}
+				return nil, &result{Message: "Done. Now change the files entrypoint.sh, stub.py and .ror/virt/Dockerfile to implement your solution. Build the docker container using 'docker build -t <image_name> -f .ror/virt/Dockerfile .'"}, err
+
+				/*
+					// create a ror folder here
+					dir_path := real_input_dir + "/.ror"
+					if _, err := os.Stat(dir_path); !os.IsNotExist(err) {
+						return nil, &result{Message: "Error, this directory has already been initialized. Delete the .ror directory to do this again."}, err
+						// exitGracefully(errors.New("this directories has already been initialized. Delete the .ror directory to do this again"))
+					}
+					if err := os.Mkdir(dir_path, 0700); os.IsExist(err) {
+						return nil, &result{Message: "Error, directory already exists."}, err
+						//exitGracefully(errors.New("directory already exists"))
+					}
+
+					var annotate Annotate
+					annotate.Ontology = nil // by default we don't have an ontology available
+					data := Config{
+						Date: time.Now().String(),
+						Author: AuthorInfo{
+							Name:  "LLM User",
+							Email: "",
+						},
+						CallString:       "python ./stub.py {}", // {} points to the main folder, we need also the {output} here
+						SeriesFilter:     ".*",
+						SeriesFilterType: "glob",
+						ProjectType:      init_type,
+						SortDICOM:        true,
+						ProjectName:      path.Base(real_input_dir),
+						ProjectToken:     "",
+						LastDataFolder:   "",
+						Annotate:         annotate,
+					}
+					data.Viewer = Viewer{
+						TextColor: "#000000",
+						Clip:      []float32{5, 95},
+					}
+					if !data.writeConfig() {
+						return nil, &result{Message: "Error, could not write config file."}, err
+						//exitGracefully(errors.New("could not write config file"))
+					}
+				*/
 			}
 			return nil, &result{Message: "Everything is ok, this folder is already the current working folder."}, err
 		} else {
