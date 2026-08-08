@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -656,7 +657,7 @@ func loadProject(ctx context.Context, session *mcp.ServerSession) (string, Confi
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return "", Config{}, fmt.Errorf("could not read config from %s: %w", dir_path, err)
+		return "", Config{}, fmt.Errorf("could not read config from %s, error: \"%w\", use init/create before importing data", dir_path, err)
 	}
 	return input_dir, config, nil
 }
@@ -1124,11 +1125,20 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) 
 
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err == nil {
-		if input_dir == args.Path {
+		real_input_dir, err := filepath.EvalSymlinks(input_dir)
+		if err != nil {
+			return nil, &result{Message: "Error, could not resolve symbolic link for input directory."}, err
+		}
+		real_args_path, err := filepath.EvalSymlinks(args.Path)
+		if err != nil {
+			return nil, &result{Message: "Error, could not resolve symbolic link for args path."}, err
+		}
+
+		if real_input_dir == real_args_path {
 			// is this a ror folder?
-			if _, err = os.Stat(input_dir + "/.ror/config"); err != nil {
+			if _, err = os.Stat(real_input_dir + "/.ror/config"); err != nil {
 				// create a ror folder here
-				dir_path := input_dir + "/.ror"
+				dir_path := real_input_dir + "/.ror"
 				if _, err := os.Stat(dir_path); !os.IsNotExist(err) {
 					return nil, &result{Message: "Error, this directory has already been initialized. Delete the .ror directory to do this again."}, err
 					// exitGracefully(errors.New("this directories has already been initialized. Delete the .ror directory to do this again"))
@@ -1152,7 +1162,7 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) 
 					SeriesFilterType: "glob",
 					ProjectType:      init_type,
 					SortDICOM:        true,
-					ProjectName:      path.Base(input_dir),
+					ProjectName:      path.Base(real_input_dir),
 					ProjectToken:     "",
 					LastDataFolder:   "",
 					Annotate:         annotate,
@@ -1168,15 +1178,24 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) 
 			}
 			return nil, &result{Message: "Everything is ok, this folder is already the current working folder."}, err
 		} else {
-			return nil, &result{Message: "Error, a ror directory was already specified. Restart the mcp server with the new project location folder working_directory."}, err
+			return nil, &result{Message: "Error, a ror directory was already specified. Restart the mcp server with 'ror mcp -working_directory <new project folder>'."}, err
 		}
 	}
-	if input_dir != args.Path {
+	// both paths could be symbolic links, we need to resolve them to the real path before we compare them
+	real_input_dir, err := filepath.EvalSymlinks(input_dir)
+	if err != nil {
+		return nil, &result{Message: "Error, could not resolve symbolic link for input directory."}, err
+	}
+	real_args_path, err := filepath.EvalSymlinks(args.Path)
+	if err != nil {
+		return nil, &result{Message: "Error, could not resolve symbolic link for args path."}, err
+	}
+	if real_input_dir != real_args_path {
 		return nil, &result{Message: "Error, the requested directory is different from the working_directory specified when the mcp_server was started."}, err
 	}
 
 	// read the config
-	dir_path := args.Path + "/.ror/config"
+	dir_path := real_args_path + "/.ror/config"
 	_, err = readConfig(dir_path)
 	if err == nil {
 		return nil, &result{Message: "Error, a config file exists already at that location. Remove .ror/ or use a different directory."}, err
