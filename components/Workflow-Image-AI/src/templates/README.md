@@ -1,10 +1,10 @@
-# Stub of a workflow triggered by arriving data
+# Stub of a workflow triggered by data
 
-In a research environment we want to be notified if new data arrives so we can process on demand. Output data needs to be stored as JSON - to be added to REDCap; new image data should be uploaded as DICOM to document processing results.
+In a research environment we are notified when new data arrives. This allows for data processing on demand. Structured output data is stored as JSON - to be added to REDCap; new image data should be uploaded as DICOM.
 
-The stub provides a first setup for you. First step is to get triggered by a directory containing DICOM and structured data (descr.json), select an image series and load the individual slices. Those could be 2D or 3D loaded in memory, or as an intermediate directory for command line driven analysis pipelines.
+The **stub.py** provides a first setup for you. First step is to get triggered by a directory containing DICOM and structured data (descr.json), select an image series and load the individual slices. Those could be 2D or 3D loaded in memory, or as an intermediate directory for command line driven analysis pipelines.
 
-In order to use the python script you need to install pydicom, numpy and matplotlib using pip or conda. Consider using conda as an environment for python. This will help you transfer your development pipeline into the research PACS later.
+In order to use the python script install pydicom, numpy and matplotlib using pip/uv/conda. Consider always using a virtual environment for python. 
 
 Test your workflow with 'ror trigger --keep'. Start building the environment with:
 
@@ -18,8 +18,16 @@ This will ask you to update a Dockerfile and successfully test it using:
 ror trigger --keep --cont workflow_<project name>
 ```
 
-In order to upload your workflow to the research PACS you need a submission token for your research project. Such a token can be obtained from the research PACS interface on:
+## Governance
+
+Your processing pipeline should announce what input data it accepts. Suggested checks include age/sex of participants, image modality and details of the image sequence used when testing or training your application. Store this information in **select.statement** (json format).
+
+## Needed for PACS integration
+
+After testing your application export it from docker:
 
 ```bash
-open https://fiona.ihelse.net/applications/User/index.php
+docker save <image_name>:<tag> | pigz > docker_image_name.tar.gz
 ```
+
+Provide both the updated select.statement and the docker_image_name.tar.gz.

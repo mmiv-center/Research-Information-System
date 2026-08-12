@@ -102,6 +102,9 @@ var dockerignore string
 //go:embed templates/python/entrypoint.sh
 var entrypoint string
 
+//go:embed templates/python/select.statement
+var select_statement string
+
 //go:embed templates/webapp/index.html
 var webapp_index string
 
@@ -3557,6 +3560,8 @@ func createTemplateFolders(dir_path string, init_type string, author_name string
 		createStub(stub_path, stub_py)
 		entrypoint_path := filepath.Join(input_dir, "entrypoint.sh")
 		createStub(entrypoint_path, entrypoint)
+		select_statement_path := filepath.Join(input_dir, "select.statement")
+		createStub(select_statement_path, select_statement)
 	}
 	if data.ProjectType == "notebook" {
 		stubipynb_path := filepath.Join(input_dir, "stub.ipynb")
