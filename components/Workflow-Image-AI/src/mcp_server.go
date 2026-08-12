@@ -567,6 +567,24 @@ func startMCP(useHttp string, rootFolder string) {
 		},
 	}, downloadDICOMData)
 
+	server.AddPrompt(&mcp.Prompt{Name: "ror/search_for_dicom_data",
+		Description: "Workflow to find and download DICOM files for specific body parts, modalities and use cases.",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "directory",
+				Title:       "Data Directory",
+				Description: "Directory to store the DICOM images.",
+				Required:    true,
+			},
+			{
+				Name:        "criteria",
+				Title:       "Search Criteria",
+				Description: "Criteria for searching DICOM data.",
+				Required:    true,
+			},
+		},
+	}, searchDICOMData)
+
 	server.AddPrompt(&mcp.Prompt{Name: "ror/design_select_statement",
 		Description: "Workflow to design a select statement for a given database.",
 		Arguments: []*mcp.PromptArgument{
@@ -715,6 +733,22 @@ func downloadDICOMData(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.Get
 					"     'git clone https://github.com/ImagingInformatics/hackathon-dataset.git'\n\n" +
 					"  3. Enter the new directory and update the submodules to download the DICOM images with\n" +
 					"     'cd hackathon-dataset; git submodule update --init --recursive'"},
+			},
+		},
+	}, nil
+}
+
+func searchDICOMData(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	return &mcp.GetPromptResult{
+		Description: "Workflow to search for DICOM data on TCIA",
+		Messages: []*mcp.PromptMessage{
+			{
+				Role: "user",
+				Content: &mcp.TextContent{Text: "Identify and download TCIA (https://www.cancerimagingarchive.net/access-data/) data for the following criteria: " + req.Params.Arguments["criteria"] +
+					"\n\nStep by step instructions are: \n\n" +
+					"  1. Use skill.md online at url: https://raw.githubusercontent.com/kirbyju/tcia-query-skill/refs/heads/main/SKILL.md\n\n" +
+					"  2. Use the search functionality to find datasets matching your criteria.\n\n" +
+					"  3. Download the relevant DICOM files to the directory: " + req.Params.Arguments["directory"]},
 			},
 		},
 	}, nil
