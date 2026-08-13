@@ -80,6 +80,13 @@ go install golang.org/x/tools/cmd/goyacc@master
 
 Use the provided Makefile to build ror for all three platforms.
 
+You might need to code sign the application with:
+
+```bash
+codesign --force --deep --sign - /usr/local/bin/ror
+```
+
+
 ## Create a first project
 
 Before you start you will need some DICOM data. Best if you have a couple of participants DICOM studies. Using such a collection the ror tool will be able to simulate different data arriving for selection and for processing. You do not need to select image series for processing - this is a feature of the ror tool so it will be part of the following workflow.
