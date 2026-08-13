@@ -1017,16 +1017,16 @@ func copyFiles(SelectedSeriesInstanceUID string, SelectedStudyInstanceUID string
 							}
 							orig_width, orig_height := showDataset(dataset, counter+1, path, info, viewer, clip)
 							if app != nil {
-								fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+								fmt.Fprint(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
 							} else {
-								fmt.Println(langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+								fmt.Print(langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
 							}
 							if len(info) > 0 {
 								//fmt.Fprintf(structure, langFmt.Sprintf("\033[2K%s\n%d", info, theight))
 								if app != nil {
-									fmt.Fprintf(structure, langFmt.Sprintf("%s", info))
+									fmt.Fprint(structure, langFmt.Sprintf("%s", info))
 								} else {
-									fmt.Printf(langFmt.Sprintf("%s", info))
+									fmt.Print(langFmt.Sprintf("%s", info))
 								}
 							}
 							if app != nil {
@@ -1332,7 +1332,7 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 					for _, entry := range initial_list_of_seriesinstanceuids {
 						if entry == SeriesInstanceUID {
 							if app != nil {
-								fmt.Fprintf(footer, langFmt.Sprintf("SeriesInstanceUID already in cache: %s\n", entry))
+								fmt.Fprint(footer, langFmt.Sprintf("SeriesInstanceUID already in cache: %s\n", entry))
 							}
 							return nil
 						}
@@ -1505,12 +1505,12 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 							structure.Clear()
 							viewer.Clear()
 							orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, viewer, config.Viewer.Clip)
-							fmt.Fprintf(structure, langFmt.Sprintf("%s", dataset_info))
-							fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+							fmt.Fprint(structure, langFmt.Sprintf("%s", dataset_info))
+							fmt.Fprint(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
 							app.Draw()
 						} else {
 							orig_width, orig_height := showDataset(dataset, counter, path, dataset_info, nil, config.Viewer.Clip)
-							fmt.Printf(langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
+							fmt.Print(langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
 						}
 					} else {
 						if processCallback == nil {
@@ -1676,7 +1676,7 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 				//fmt.Println("NONDICOM FILE: ", path, err, dataset)
 				if app != nil {
 					footer.Clear()
-					fmt.Fprintf(footer, langFmt.Sprintf("[%d] non-DICOM file %s\n", nonDICOM, path))
+					fmt.Fprint(footer, langFmt.Sprintf("[%d] non-DICOM file %s\n", nonDICOM, path))
 					app.Draw()
 				}
 			}

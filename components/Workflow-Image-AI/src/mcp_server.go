@@ -37,12 +37,12 @@ func startMCP(useHttp string, rootFolder string) {
 	}
 
 	opts := &mcp.ServerOptions{
-		Instructions:      "Use this server with the MCP protocol in vcode or other clients.",
+		Instructions:      "ROR server for MCP protocol clients. Supports protocol versions 2024-11-05 through 2026-07-28. The actual protocol version used is negotiated with each client based on mutual support.",
 		CompletionHandler: complete, // support completions by setting this handler
-		RootsListChangedHandler: func(ctx context.Context, req *mcp.RootsListChangedRequest) {
-			// notificationChans["roots"] <- 0
-			// fmt.Printf("got a root change request %v", req)
-			// should we reject a change of the root if its not in the initial root folder?
+		Capabilities: &mcp.ServerCapabilities{
+			Tools:     &mcp.ToolCapabilities{ListChanged: true},
+			Prompts:   &mcp.PromptCapabilities{ListChanged: true},
+			Resources: &mcp.ResourceCapabilities{ListChanged: true},
 		},
 	}
 
@@ -103,8 +103,8 @@ func startMCP(useHttp string, rootFolder string) {
 		},
 	}, rootsTool) // does everything with the ror folder?                                                                                                                                                                // lists roots
 	*/
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "roots/list",
+	mcp.AddTool[NoInput, *argsListTool](server, &mcp.Tool{
+		Name:        "roots_list",
 		Description: "List the currently configured roots.",
 		OutputSchema: &jsonschema.Schema{
 			Type: "object",
@@ -123,13 +123,28 @@ func startMCP(useHttp string, rootFolder string) {
 		},
 	}, rootsListTool) // lists roots
 
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "project/init",
+	mcp.AddTool[*argsProjectInit, *result](server, &mcp.Tool{
+		Name:        "project_init",
 		Description: "Create a ror project folder. In a later step add data and trigger workflows for matching DICOM series or studies.",
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"path": {
+					Type:        "string",
+					Description: "the directory path for the new project",
+				},
+				"type": {
+					Type:        "string",
+					Description: "project type: python, notebook, bash, webapp, or repo-url",
+					Enum:        []any{"python", "notebook", "bash", "webapp", "repo-url"},
+				},
+			},
+			Required: []string{"path", "type"},
+		},
 	}, projectTool)
 
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "server/status",
+	mcp.AddTool[any, *serverStatus](server, &mcp.Tool{
+		Name:        "server_status",
 		Description: "Check server health and loaded data summary.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *serverStatus, error) {
 		_, config, err := loadProject(ctx, req.Session)
@@ -152,8 +167,8 @@ func startMCP(useHttp string, rootFolder string) {
 		}, nil
 	})
 
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "project/clear/data",
+	mcp.AddTool[*argsConfirm, *resultDataCache](server, &mcp.Tool{
+		Name:        "project_clear_data",
 		Description: "Delete all imported data references from the current ror project.",
 		InputSchema: &jsonschema.Schema{
 			Type: "object",
@@ -164,8 +179,8 @@ func startMCP(useHttp string, rootFolder string) {
 		},
 	}, clearOutDataCacheTool) // returns structured output
 
-	mcp.AddTool(server, &mcp.Tool{
-		Name: "project/add/data",
+	mcp.AddTool[*argsPath, *resultDataCache](server, &mcp.Tool{
+		Name: "project_add_data",
 		Description: "Add a new data folder with DICOM series, studies and patients. Adding data will require ror to parse the whole directory which takes some time. " +
 			"Wait for this operation to finish before querying the resources again.",
 		InputSchema: &jsonschema.Schema{
@@ -182,7 +197,7 @@ func startMCP(useHttp string, rootFolder string) {
 		Description: "Get detailed information on the currently loaded data.",
 	}, dataInfoTool)*/
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool[any, *resultPatients](server, &mcp.Tool{
 		Name: "get_patients_info",
 		Description: "Get detailed information about the list of patients or, in the context of a research study the list of participants.\n" +
 			"\nReturns an object with a 'patients' property containing an array of patient identifiers.",
@@ -197,7 +212,7 @@ func startMCP(useHttp string, rootFolder string) {
 			},
 		},
 	}, dataListPatients)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool[*args, *resultStudies](server, &mcp.Tool{
 		Name: "get_study_info",
 		Description: "Get detailed information about the list of studies for a given patient or participant.\n" +
 			"\nParameters:\n" +
@@ -222,7 +237,7 @@ func startMCP(useHttp string, rootFolder string) {
 			},
 		},
 	}, dataListStudies)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool[*argsSeries, *resultSeriesInfo](server, &mcp.Tool{
 		Name: "get_series_info",
 		Description: "Get detailed information about the list of image series.\n" +
 			"\nParameters:\n" +
@@ -260,7 +275,7 @@ func startMCP(useHttp string, rootFolder string) {
 			},
 		},
 	}, dataListSeries)
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool[*argsTagsList, *resultTagsBySeriesUID](server, &mcp.Tool{
 		Name:        "get_series_tags",
 		Description: "Get a list of tags for DICOM series. Accepts a list of series instance UIDs and returns tags grouped by series UID.",
 		InputSchema: &jsonschema.Schema{
@@ -311,7 +326,7 @@ func startMCP(useHttp string, rootFolder string) {
 
 	//mcp.AddTool(server, &mcp.Tool{Name: "change/root", Description: "Change to a new ror folder."}, changeRootTool)                                                                                                                                                   // returns structured output
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool[any, *argsSelect](server, &mcp.Tool{
 		Name:        "get_current_select_statement",
 		Description: "Get the current select statement used to filter the DICOM studies and series.",
 		OutputSchema: &jsonschema.Schema{
@@ -385,7 +400,7 @@ func startMCP(useHttp string, rootFolder string) {
 			},
 		},
 	}, showSelectTool) // support completions
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool[*setSelectMessage, *argsSelect](server, &mcp.Tool{
 		Name:        "set_new_select_statement",
 		Description: "Set a new select statement.",
 		OutputSchema: &jsonschema.Schema{
@@ -460,7 +475,7 @@ func startMCP(useHttp string, rootFolder string) {
 		},
 	}, setSelectTool) // support completions
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool[*setSelectMessage, *argsSelect](server, &mcp.Tool{
 		Name:        "validate_select_statement",
 		Description: "Validate a SELECT statement syntax without executing it. Returns detailed error messages and suggestions.",
 		InputSchema: &jsonschema.Schema{
@@ -472,7 +487,7 @@ func startMCP(useHttp string, rootFolder string) {
 		},
 	}, validateSelectStatementTool)
 
-	mcp.AddTool(server, &mcp.Tool{
+	mcp.AddTool[NoInput, *argsSelect](server, &mcp.Tool{
 		Name:        "suggest_select_statement",
 		Description: "Suggest a SELECT statement for the currently loaded data.",
 		OutputSchema: &jsonschema.Schema{
@@ -525,7 +540,7 @@ func startMCP(useHttp string, rootFolder string) {
 	// Add a basic prompt.
 	//server.AddPrompt(&mcp.Prompt{Name: "greet"}, prompt)
 
-	server.AddPrompt(&mcp.Prompt{Name: "ror/process_data",
+	server.AddPrompt(&mcp.Prompt{Name: "ror_process_data",
 		Description: "Workflow to create a new ROR database from a folder with DICOM images.",
 		Arguments: []*mcp.PromptArgument{
 			{
@@ -543,7 +558,7 @@ func startMCP(useHttp string, rootFolder string) {
 		},
 	}, createNewRORDatabase)
 
-	server.AddPrompt(&mcp.Prompt{Name: "ror/analyze_data",
+	server.AddPrompt(&mcp.Prompt{Name: "ror_analyze_data",
 		Description: "Workflow to summarize information about DICOM data in a folder.",
 		Arguments: []*mcp.PromptArgument{
 			{
@@ -555,7 +570,7 @@ func startMCP(useHttp string, rootFolder string) {
 		},
 	}, analyzeDICOMData)
 
-	server.AddPrompt(&mcp.Prompt{Name: "ror/get_test_dicom_data",
+	server.AddPrompt(&mcp.Prompt{Name: "ror_get_test_dicom_data",
 		Description: "Workflow to download some test DICOM data using git.",
 		Arguments: []*mcp.PromptArgument{
 			{
@@ -567,7 +582,7 @@ func startMCP(useHttp string, rootFolder string) {
 		},
 	}, downloadDICOMData)
 
-	server.AddPrompt(&mcp.Prompt{Name: "ror/search_for_dicom_data",
+	server.AddPrompt(&mcp.Prompt{Name: "ror_search_for_dicom_data",
 		Description: "Workflow to find and download DICOM files for specific body parts, modalities and use cases.",
 		Arguments: []*mcp.PromptArgument{
 			{
@@ -585,7 +600,7 @@ func startMCP(useHttp string, rootFolder string) {
 		},
 	}, searchDICOMData)
 
-	server.AddPrompt(&mcp.Prompt{Name: "ror/design_select_statement",
+	server.AddPrompt(&mcp.Prompt{Name: "ror_design_select_statement",
 		Description: "Workflow to design a select statement for a given database.",
 		Arguments: []*mcp.PromptArgument{
 			{
@@ -672,6 +687,9 @@ func loadProject(ctx context.Context, session *mcp.ServerSession) (string, Confi
 		input_dir = v
 	}
 	dir_path := input_dir + "/.ror/config"
+	if _, err := os.Stat(dir_path); os.IsNotExist(err) {
+		return "", Config{}, fmt.Errorf("error folder %s is not yet a ror project folder, use init/create to create the project", input_dir)
+	}
 	config, err := readConfig(dir_path)
 	if err != nil {
 		return "", Config{}, fmt.Errorf("could not read config from %s, error: \"%w\", use init/create before importing data", dir_path, err)
@@ -1011,6 +1029,11 @@ type argsPath struct {
 	Path string `json:"path" jsonschema:"the data folder with DICOM images to add"`
 }
 
+type argsProjectInit struct {
+	Path string `json:"path" jsonschema:"the directory path for the new project"`
+	Type string `json:"type" jsonschema:"project type: python, notebook, bash, webapp, or repo-url"`
+}
+
 type argsMessage struct {
 	Message string `json:"message" jsonschema:"the message to log"`
 }
@@ -1153,12 +1176,16 @@ type resultDataCache struct {
 }
 
 // TOOL
-func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) (*mcp.CallToolResult, *result, error) {
+func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsProjectInit) (*mcp.CallToolResult, *result, error) {
 	// only init if a directory already exists and its not yet a ror folder
 
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err == nil {
-		real_input_dir, err := filepath.EvalSymlinks(input_dir)
+		var absolute_input_dir string
+		if absolute_input_dir, err = filepath.Abs(input_dir); err != nil {
+			return nil, &result{Message: "Error, could not get absolute path for input directory."}, err
+		}
+		real_input_dir, err := filepath.EvalSymlinks(absolute_input_dir)
 		if err != nil {
 			return nil, &result{Message: "Error, could not resolve symbolic link for input directory."}, err
 		}
@@ -1171,20 +1198,8 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) 
 			// is this a ror folder?
 			if _, err = os.Stat(real_input_dir + "/.ror/config"); err != nil {
 				// if we do not have a config file we can create it now - new ror folder
-				// ask the mcp client for the project type first
-				res, err := req.Session.Elicit(ctx, &mcp.ElicitParams{
-					Message: "provide project type, i.e. python, notebook, bash, webapp, repo-url",
-					RequestedSchema: &jsonschema.Schema{
-						Type: "object",
-						Properties: map[string]*jsonschema.Schema{
-							"init_type": {Type: "string", Enum: []any{"python", "notebook", "bash", "webapp", "repo-url"}},
-						},
-					},
-				})
-				if err != nil {
-					return nil, nil, fmt.Errorf("eliciting failed: %v", err)
-				}
-				init_type := res.Content["init_type"].(string)
+				// use the provided project type
+				init_type := args.Type
 
 				repo_url := ""
 				if init_type == "repo-url" {
@@ -1253,7 +1268,7 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) 
 			}
 			return nil, &result{Message: "Everything is ok, this folder is already the current working folder."}, err
 		} else {
-			return nil, &result{Message: "Error, a ror directory was already specified. Restart the mcp server with 'ror mcp -working_directory <new project folder>'."}, err
+			return nil, &result{Message: fmt.Sprintf("Error, a ror directory (%s) was already specified, its different from %s. Restart the mcp server with 'ror mcp -working_directory %s'.", real_input_dir, real_args_path, real_args_path)}, err
 		}
 	}
 	// both paths could be symbolic links, we need to resolve them to the real path before we compare them
@@ -1266,7 +1281,7 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsPath) 
 		return nil, &result{Message: "Error, could not resolve symbolic link for args path."}, err
 	}
 	if real_input_dir != real_args_path {
-		return nil, &result{Message: "Error, the requested directory is different from the working_directory specified when the mcp_server was started."}, err
+		return nil, &result{Message: fmt.Sprintf("Error, the requested directory (%s) is different from the working_directory specified when the mcp_server was started (%s).", real_input_dir, real_args_path)}, err
 	}
 
 	// read the config
@@ -2237,7 +2252,7 @@ func loggingTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.Cal
 	return nil, nil, nil
 }
 
-func rootsListTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *argsListTool, error) {
+func rootsListTool(ctx context.Context, req *mcp.CallToolRequest, _ NoInput) (*mcp.CallToolResult, *argsListTool, error) {
 	res, err := req.Session.ListRoots(ctx, nil)
 	if err != nil {
 		if input_dir != "" {
