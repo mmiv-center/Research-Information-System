@@ -541,7 +541,7 @@ func startMCP(useHttp string, rootFolder string) {
 	//server.AddPrompt(&mcp.Prompt{Name: "greet"}, prompt)
 
 	server.AddPrompt(&mcp.Prompt{Name: "ror_process_data",
-		Description: "Workflow to create a new ROR database from a folder with DICOM images.",
+		Description: "Workflow to create a new ROR project from a folder with DICOM images.",
 		Arguments: []*mcp.PromptArgument{
 			{
 				Name:        "directory",
@@ -724,7 +724,7 @@ func analyzeDICOMData(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetP
 				Role: "user",
 				Content: &mcp.TextContent{Text: "Summarize information about a folder with DICOM images in '" +
 					req.Params.Arguments["directory"] + "'.\n\nStep by step instructions are: \n\n" +
-					"  1. Create a new temporary ROR working directory and add the data.\n\n" +
+					"  1. Create a new temporary ROR working directory, use project_init and project_add_data with '" + req.Params.Arguments["directory"] + "'.\n\n" +
 					"  2. Show the number of participants, number of DICOM studies and number of DICOM series.\n\n" +
 					"  3. Show a list of image modalities and the number of series for each.\n\n" +
 					"  4. Show a list of sequence names and the number of studies for each.\n\n" +
@@ -1224,7 +1224,7 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsProjec
 				if err != nil {
 					return nil, &result{Message: "Error, could not create template folders."}, err
 				}
-				return nil, &result{Message: "Done. Now change the files entrypoint.sh, stub.py and .ror/virt/Dockerfile to implement your solution. Build the docker container using 'docker build -t <image_name> -f .ror/virt/Dockerfile .'"}, err
+				return nil, &result{Message: "Done. Now change the files entrypoint.sh, stub.py and .ror/virt/Dockerfile to implement your solution. Ensure that generated DICOM images contain stable UIDs, e.g. same uid is generated when run more than once for the same version of your AI. Ensure that you fill or keep DICOM tag 'InstitutionName' (name of your project). Build the docker container using 'docker build -t <image_name> -f .ror/virt/Dockerfile .'. In file 'select.statement' fill in your select statement, the name of your image and tag. Export your build images using 'docker save <image_name> | pigz > <output_file>.tar.gz' and provide this file together with the select.statement file for PACS integration."}, err
 
 				/*
 					// create a ror folder here
