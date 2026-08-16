@@ -181,8 +181,9 @@ func startMCP(useHttp string, rootFolder string) {
 
 	mcp.AddTool[*argsPath, *resultDataCache](server, &mcp.Tool{
 		Name: "project_add_data",
-		Description: "Add a new data folder with DICOM series, studies and patients. Adding data will require ror to parse the whole directory which takes some time. " +
-			"Wait for this operation to finish before querying the resources again.",
+		Description: "Add a new data folder with DICOM series, studies and patients. Adding data will " +
+			"require ror to parse the whole directory which takes some time. Progress notifications are " +
+			"generated. Wait for this operation to finish before querying the resources again.",
 		InputSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
