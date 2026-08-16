@@ -1350,15 +1350,26 @@ func suggestSelectStatementTool(ctx context.Context, req *mcp.CallToolRequest, i
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &argsSelect{Message: "Error could not read config file from ror directory. Maybe this is caused by a permission issue? Make sure that the current user can read the content in the workspaces .ror/ folder."}, err
+		return nil, &argsSelect{
+			Message:    "Error could not read config file from ror directory. Check if the current folder is a ror folder. Check permissions. Make sure that the current user can read the content in the workspaces .ror/ folder.",
+			Select:     "",
+			MatchCount: 0,
+			Matches:    [][]SeriesInstanceUIDWithName{},
+			Complains:  []string{},
+		}, err
+	}
+
+	if config.Data.DataInfo == nil {
+		return nil, &argsSelect{
+			Message:    "Error no data loaded. We can suggest a better select statement if we have example data to analyze.",
+			Select:     "Select series from study where series named \"volumeA\" has Modality regexp \"(MR|CT|US)\"",
+			MatchCount: 0,
+			Matches:    [][]SeriesInstanceUIDWithName{},
+			Complains:  []string{},
+		}, err
 	}
 
 	// now suggest a select statement for the current data
-
-	if config.Data.DataInfo == nil {
-		return nil, &argsSelect{Message: "Error no data loaded."}, err
-		//		exitGracefully(fmt.Errorf("to suggest a selection we need some data first. Use\n\t%s config --data <path to DICOMs>", own_name))
-	}
 
 	// get dataset and ast from config
 	// create an ast
@@ -1375,8 +1386,8 @@ func suggestSelectStatementTool(ctx context.Context, req *mcp.CallToolRequest, i
 			Message:    fmt.Sprintf("could not parse default select statement:\n%s\n%s", "Select series from series where series has Modality containing MR", msg),
 			Select:     "",
 			MatchCount: 0,
-			Matches:    nil,
-			Complains:  nil,
+			Matches:    [][]SeriesInstanceUIDWithName{},
+			Complains:  []string{},
 		}, nil
 
 		// exitGracefully(fmt.Errorf("could not parse select statement:\n%s\n%s", config.SeriesFilter, msg))
@@ -1583,6 +1594,9 @@ func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelec
 	}, nil
 }
 
+// got error:
+// MCP error 0: validating tool output: validating root: validating /properties/matches: type: <invalid reflect.Value> has type "null", want "array"
+
 func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *argsSelect, error) {
 	var err error
 	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
@@ -1592,11 +1606,24 @@ func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &argsSelect{Message: "Error could not read config file from ror directory."}, err
+		return nil, &argsSelect{
+			Message:    "Error could not read config file from ror directory, start by creating a ror project.",
+			Select:     "", // shouldn't this be structured information instead?
+			MatchCount: 0,
+			Matches:    [][]SeriesInstanceUIDWithName{},
+			Complains:  []string{},
+		}, err
 	}
 
+	space := regexp.MustCompile(`\s+`)
 	if len(config.Data.DataInfo) == 0 {
-		return nil, &argsSelect{Message: "No data loaded, please add data first using the add/data tool."}, nil
+		return nil, &argsSelect{
+			Message:    "No data loaded, select statement could not be evaluated. Add test data using add_data tool.",
+			Select:     space.ReplaceAllString(strings.Replace(ast2Select(ast), "\n", "", -1), " "), // shouldn't this be structured information instead?
+			MatchCount: 0,
+			Matches:    [][]SeriesInstanceUIDWithName{},
+			Complains:  []string{},
+		}, nil
 	}
 
 	comments := regexp.MustCompile("/[*]([^*]|[\r\n]|([*]+([^*/]|[\r\n])))*[*]+/")
@@ -1628,7 +1655,6 @@ func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.
 		warning = ", but no matching datasets found"
 	}
 
-	space := regexp.MustCompile(`\s+`)
 	//str = space.ReplaceAllString(str, " ")
 	return nil, &argsSelect{
 		Message:    "Valid select statement" + warning,
