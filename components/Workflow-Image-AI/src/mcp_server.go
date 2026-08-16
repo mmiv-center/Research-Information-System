@@ -1224,7 +1224,9 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsProjec
 				if err != nil {
 					return nil, &result{Message: "Error, could not create template folders."}, err
 				}
-				return nil, &result{Message: "Done. Now change the files entrypoint.sh, stub.py and .ror/virt/Dockerfile to implement your solution. Ensure that generated DICOM images contain stable UIDs, e.g. same uid is generated when run more than once for the same version of your AI. Ensure that you fill or keep DICOM tag 'InstitutionName' (name of your project). Build the docker container using 'docker build -t <image_name> -f .ror/virt/Dockerfile .'. In file 'select.statement' fill in your select statement, the name of your image and tag. Export your build images using 'docker save <image_name> | pigz > <output_file>.tar.gz' and provide this file together with the select.statement file for PACS integration."}, err
+				return nil, &result{
+					Message: "Done. Now change the files entrypoint.sh, stub.py and .ror/virt/Dockerfile to implement your solution. Ignore the .ror/config (zip-)file. Its the ror internal memory and should only be queried or changed by ror. Ensure that generated DICOM images contain stable UIDs, e.g. same uid is generated when run more than once for the same version of your AI. Ensure that you fill or keep DICOM tag 'InstitutionName' (name of your project). Build the docker container using 'docker build -t <image_name> -f .ror/virt/Dockerfile .'. In file 'select.statement' fill in your select statement, the name of your image and tag. Export your build images using 'docker save <image_name> | pigz > <output_file>.tar.gz' and provide this file together with the select.statement file for PACS integration.",
+				}, err
 
 				/*
 					// create a ror folder here
