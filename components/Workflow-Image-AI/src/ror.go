@@ -3884,11 +3884,12 @@ func main() {
 				initCommand.PrintDefaults()
 				return
 			}
-			// we expect a path first
+			// we expect a path first (or it could be in -input_dir)
 			values := initCommand.Args()
-			if len(values) != 1 {
-				exitGracefully(errors.New("we need a single path entry specified"))
-			} else {
+			if len(values) == 1 && input_dir != defaultInputDir {
+				fmt.Printf("Warning: conflicting arguments -input_dir and positional argument. Will use the positional argument.")
+			}
+			if len(values) == 1 {
 				input_dir = initCommand.Arg(0)
 			}
 
