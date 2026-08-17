@@ -2919,6 +2919,11 @@ func ast2Select(ast AST) string {
 		}
 
 		s := rules.Rs.toString()
+		if len(s) == 0 {
+			// this is a default always true rule
+			s = "everything"
+		}
+
 		if idx2 > 0 {
 			stm = fmt.Sprintf("%s\n  ALSO\n    WHERE series NAMED \"%s\" HAS\n      %s", stm, list_name, s)
 		} else {
@@ -3612,6 +3617,8 @@ func createTemplateFolders(dir_path string, init_type string, author_name string
 	// virtualization environment
 	virt_path := input_dir + "/.ror/virt"
 	if err := os.Mkdir(virt_path, 0755); os.IsExist(err) {
+		// TODO: we should not exit out here, we might be called in the mcp_server part and should return something more useful
+		// Also, if the directory exists we can do more - like add the files that are missing.
 		exitGracefully(errors.New("directory exist already"))
 	}
 	// classification rules so we can overwrite what ror does on its own
@@ -3621,6 +3628,8 @@ func createTemplateFolders(dir_path string, init_type string, author_name string
 	// example ontology
 	ontology_path := input_dir + "/.ror/ontologies"
 	if err := os.Mkdir(ontology_path, 0755); os.IsExist(err) {
+		// TODO: we should not exit out here, we might be called in the mcp_server part and should return something more useful
+		// Also, if the directory exists we can do more - like add the files that are missing.
 		exitGracefully(errors.New("directory exist already"))
 	}
 	ontology_path = input_dir + "/.ror/ontologies/body_parts_DICOM.json"
@@ -4940,8 +4949,9 @@ func main() {
 			// remove any spaces in the project name, make it lower-case
 			projectName = strings.Replace(projectName, " ", "_", -1)
 			projectName = strings.ToLower(projectName)
-			fmt.Println("\nWe will assume a python/pip based workflow and fall back to using conda.")
+			fmt.Println("\nWe will assume a python/pip based workflow and fall back to using uv.")
 			fmt.Println("There is no automated build, please follow these instructions.")
+			fmt.Println("\nCheck that 'ror init' created the .ror/virt/Dockerfile, entrypoint.sh and stub.py files.")
 			fmt.Println("\nThere are only two steps that need to be done, create a list of")
 			fmt.Println("requirements and build a container. Run pip freeze to update the")
 			fmt.Println("list of python packages (requires pip):")
@@ -4954,15 +4964,15 @@ func main() {
 			fmt.Println("inside the container. If that is the case it is best to use a virtual environment.")
 			fmt.Println("The list of dependencies inside a new virtual environment easier to handle as only")
 			fmt.Println("the essential packages for your workflow will be part of the container.")
-			fmt.Println("\nCreate a new conda environment with")
-			fmt.Printf("\n\tconda create --name workflow_%s python=3.8\n", projectName)
-			fmt.Printf("\tconda activate workflow_%s\n", projectName)
-			fmt.Printf("\tconda install -c conda-forge pydicom numpy matplotlib\n")
+			fmt.Println("\nCreate a new uv environment with")
+			fmt.Printf("\n\tuv venv --python 3.12\n", projectName)
+			fmt.Printf("\tsource .venv/bin/activate\n", projectName)
+			fmt.Printf("\tuv pip install pydicom numpy matplotlib\n")
 			fmt.Printf("\nAdjust the list of packages based on your workflow. The above list should be\n")
 			fmt.Printf("sufficient for the default workflow. Now repeat the above steps.\n")
 			fmt.Println("\nA corresponding yml file can be created with:")
-			fmt.Println("\n\tconda env export --name \"name\" >", path.Join(input_dir, ".ror", "virt", "requirements.yml"))
-			fmt.Println("\nwhere \"name\" is the name of your docker environment. Create the container now with:")
+			fmt.Println("\n\tuv export --format requirements-txt > ", path.Join(input_dir, ".ror", "virt", "requirements.txt"))
+			fmt.Println("\nCreate the container with:")
 			fmt.Println("\n\tdocker build --no-cache --build-arg conda-env=\"name\" -t", fmt.Sprintf("workflow_%s", projectName), "-f", path.Join(input_dir, ".ror", "virt", "Dockerfile"), ".")
 
 			fmt.Println("\n\nSimulate a docker based processing workflow using one of the trigger generated folders:")

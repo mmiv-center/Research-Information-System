@@ -84,7 +84,7 @@ func getCurrentRulesLIdx(entry string) (int64, error) {
 
 %token '+' '-' '*' '/' '"' '\''
 %token SELECT FROM PATIENT STUDY SERIES IMAGE WHERE EQUALS HAS AND OR ALSO LBRACKET RBRACKET COMMA
-%token CONTAINING SMALLER LARGER REGEXP NOT NAMED PROJECT CHECK AT SMALLEREQUAL LARGEREQUAL
+%token CONTAINING SMALLER LARGER REGEXP NOT NAMED PROJECT CHECK AT SMALLEREQUAL LARGEREQUAL EVERYTHING
 
 %token	<num>	NUM
 %token  <word>  STRING NOT
@@ -610,6 +610,17 @@ rule:
         //fmt.Printf("store a currentRule as regexp %s \"%s\" (id: %d)\n", lastGroupTag, $3, len(currentRules)-1)
         $$ = fmt.Sprintf("currentRules:%d", len(currentRules)-1) // fmt.Sprintf("Variable %s contains %s", $1, $3)
     }
+|   EVERYTHING
+    {
+        // always true
+        r := Rule{
+            Tag: lastGroupTag,
+            Operator: "true",
+            Value: "",
+        }
+        currentRules = append(currentRules, r)
+        $$ = fmt.Sprintf("currentRules:%d", len(currentRules)-1)
+    }    
 
 tag_string:
     STRING
@@ -993,6 +1004,8 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
         return ALSO
     } else if strings.ToLower(b.String()) == "regexp" {
         return REGEXP
+    } else if strings.ToLower(b.String()) == "everything" {
+        return EVERYTHING
     } else if strings.ToLower(b.String()) == "not" {
         return NOT
     } else if strings.ToLower(b.String()) == "named" {
