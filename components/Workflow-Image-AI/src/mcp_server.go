@@ -67,7 +67,7 @@ func startMCP(useHttp string, rootFolder string) {
 			input_dir = rootFolder
 			log.Printf("Setting the MCP root folder to %s", rootFolder) */
 	} else {
-		log.Printf("No root folder specified, please set one up using the MCP Inspector or other client (see --working_directory).")
+		log.Printf("No working directory specified, using the default (see --working_directory).")
 	}
 
 	// Add tools that exercise different features of the protocol.
@@ -83,29 +83,9 @@ func startMCP(useHttp string, rootFolder string) {
 	//mcp.AddTool(server, &mcp.Tool{Name: "log"}, loggingTool)                                                                                                                                                    // performs a log
 	//mcp.AddTool(server, &mcp.Tool{Name: "sample"}, samplingTool)                                                                                                                                                // performs sampling
 	//mcp.AddTool(server, &mcp.Tool{Name: "elicit"}, elicitingTool)                                                                                                                                               // performs elicitation
-	/*mcp.AddTool(server, &mcp.Tool{
-		Name:        "roots",
-		Description: "Manage the ror roots. Use roots/list to see the currently configured roots.",
-		OutputSchema: &jsonschema.Schema{
-			Type: "object",
-			Properties: map[string]*jsonschema.Schema{
-				"roots": {
-					Type: "array",
-					Items: &jsonschema.Schema{
-						Type: "object",
-						Properties: map[string]*jsonschema.Schema{
-							"name": {Type: "string"},
-							"uri":  {Type: "string"},
-						},
-					},
-				},
-			},
-		},
-	}, rootsTool) // does everything with the ror folder?                                                                                                                                                                // lists roots
-	*/
 	mcp.AddTool[NoInput, *argsListTool](server, &mcp.Tool{
 		Name:        "roots_list",
-		Description: "List the currently configured roots.",
+		Description: "Report the working directory this ror server is configured with (see --working_directory).",
 		OutputSchema: &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
@@ -147,7 +127,7 @@ func startMCP(useHttp string, rootFolder string) {
 		Name:        "server_status",
 		Description: "Check server health and loaded data summary.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *serverStatus, error) {
-		_, config, err := loadProject(ctx, req.Session)
+		_, config, err := loadProject(ctx)
 		if err != nil {
 			return nil, &serverStatus{Status: "error", Message: err.Error()}, nil
 		}
@@ -680,9 +660,9 @@ func startMCP(useHttp string, rootFolder string) {
 
 }
 
-func loadProject(ctx context.Context, session *mcp.ServerSession) (string, Config, error) {
+func loadProject(ctx context.Context) (string, Config, error) {
 	var input_dir string
-	if v, err := getInputDir(ctx, session); err != nil {
+	if v, err := getInputDir(ctx); err != nil {
 		return "", Config{}, err
 	} else {
 		input_dir = v
@@ -809,33 +789,20 @@ var embeddedResources = map[string]string{
 	"numparticipants": "",
 }
 
-func getInputDir(ctx context.Context, session *mcp.ServerSession) (string, error) {
-	if input_dir != "" {
-		return input_dir, nil
+func getInputDir(ctx context.Context) (string, error) {
+	// The working directory is server-side configuration set with the
+	// --working_directory flag at startup. Querying client roots (roots/list)
+	// is deprecated by the MCP protocol (SEP-2577) and is no longer used.
+	if input_dir == "" {
+		return "", fmt.Errorf("no working directory configured, start the mcp server with 'ror mcp --working_directory <dir>'")
 	}
-	res, err := session.ListRoots(ctx, nil)
-	if err != nil {
-		return "", fmt.Errorf("listing roots failed: %v", err)
-	}
-	var allroots []string
-	for _, r := range res.Roots {
-		uri_temp := strings.TrimPrefix(r.URI, "file://")
-		allroots = append(allroots, uri_temp)
-	}
-	if len(allroots) == 0 {
-		return "", fmt.Errorf("no roots defined, setup a root first")
-	}
-	dir_path := allroots[0] // should be "./.ror/config"
-	if len(allroots) > 1 {
-		log.Printf("Warning: Multiple roots defined: %v, selecting %s", allroots, dir_path)
-	}
-	return dir_path, nil
+	return input_dir, nil
 }
 
 // add all fields to the embeddedResources global variable (update them)
-func fillInEmbeddedResources(ctx context.Context, session *mcp.ServerSession) (map[string]string, error) {
+func fillInEmbeddedResources(ctx context.Context) (map[string]string, error) {
 	var err error
-	if input_dir, err = getInputDir(ctx, session); err != nil {
+	if input_dir, err = getInputDir(ctx); err != nil {
 		return nil, fmt.Errorf("failed to read config file: %v", err)
 	}
 
@@ -952,7 +919,7 @@ func embeddedResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.R
 	//	uri_temp := strings.TrimPrefix(r.URI, "file://")
 	//	allroots = append(allroots, uri_temp)
 	//}
-	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+	if input_dir, err = getInputDir(ctx); err != nil {
 		return nil, fmt.Errorf("failed to read config file: %v", err)
 	}
 
@@ -1181,7 +1148,7 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsProjec
 	// only init if a directory already exists and its not yet a ror folder
 
 	var err error
-	if input_dir, err = getInputDir(ctx, req.Session); err == nil {
+	if input_dir, err = getInputDir(ctx); err == nil {
 		var absolute_input_dir string
 		if absolute_input_dir, err = filepath.Abs(input_dir); err != nil {
 			return nil, &result{Message: "Error, could not get absolute path for input directory."}, err
@@ -1273,7 +1240,9 @@ func projectTool(ctx context.Context, req *mcp.CallToolRequest, args *argsProjec
 		} else {
 			return nil, &result{Message: fmt.Sprintf("Error, a ror directory (%s) was already specified, its different from %s. Restart the mcp server with 'ror mcp -working_directory %s'.", real_input_dir, real_args_path, real_args_path)}, err
 		}
-	}
+	} //else {
+	//	return nil, &result{Message: "Error, input dir not found. Restart the mcp server with an existing '--working_directory'."}, err
+	//}
 	// both paths could be symbolic links, we need to resolve them to the real path before we compare them
 	real_input_dir, err := filepath.EvalSymlinks(input_dir)
 	if err != nil {
@@ -1305,7 +1274,7 @@ func clearOutDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, input 
 	}
 	// find out if there is data, if there is no ror folder produce an error
 	var err error
-	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+	if input_dir, err = getInputDir(ctx); err != nil {
 		return nil, &resultDataCache{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
@@ -1336,17 +1305,9 @@ func clearOutDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, input 
 	}, nil
 }
 
-func changeRootTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultDataCache, error) {
-	//req.Session.Roots.append({uri: "file://" + args[0], name: "RootFolder"})
-	// This is not enough, the getInputDir will lookup the value from the roots again, we need to add the input_dir there.
-	// Right now the only place we can add it is from the client (MCP Inspector).
-	input_dir = args.Name
-	return nil, &resultDataCache{Message: "Changed to the new root path", NumStudies: 0, NumSeries: 0, NumImages: 0}, nil
-}
-
 func suggestSelectStatementTool(ctx context.Context, req *mcp.CallToolRequest, input NoInput) (*mcp.CallToolResult, *argsSelect, error) {
 	var err error
-	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+	if input_dir, err = getInputDir(ctx); err != nil {
 		return nil, &argsSelect{Message: "Error could not get ror directory. Your workspace is expected to be a ror directory (contains a .ror/config file)."}, err
 	}
 	// make the config
@@ -1428,7 +1389,7 @@ func suggestSelectStatementTool(ctx context.Context, req *mcp.CallToolRequest, i
 
 func validateSelectStatementTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelectMessage) (*mcp.CallToolResult, *argsSelect, error) {
 	var err error
-	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+	if input_dir, err = getInputDir(ctx); err != nil {
 		return nil, &argsSelect{Message: "Error could not get ror directory. Your workspace is expected to be a ror directory (contains a .ror/config file)."}, err
 	}
 	// make the config
@@ -1512,7 +1473,7 @@ func validateSelectStatementTool(ctx context.Context, req *mcp.CallToolRequest, 
 
 func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelectMessage) (*mcp.CallToolResult, *argsSelect, error) {
 	var err error
-	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+	if input_dir, err = getInputDir(ctx); err != nil {
 		return nil, &argsSelect{Message: "Error could not get ror directory. Your workspace is expected to be a ror directory (contains a .ror/config file)."}, err
 	}
 	// make the config
@@ -1602,7 +1563,7 @@ func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelec
 
 func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *argsSelect, error) {
 	var err error
-	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+	if input_dir, err = getInputDir(ctx); err != nil {
 		return nil, &argsSelect{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
@@ -1671,7 +1632,7 @@ func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.
 func dataListPatients(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, *resultPatients, error) {
 	start := time.Now()
 	var err error
-	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+	if input_dir, err = getInputDir(ctx); err != nil {
 		return nil, &resultPatients{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
@@ -1713,7 +1674,7 @@ func dataListPatients(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mc
 func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *resultStudies, error) {
 	start := time.Now()
 	var err error
-	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+	if input_dir, err = getInputDir(ctx); err != nil {
 		return nil, &resultStudies{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
@@ -1779,7 +1740,7 @@ type argsSeries struct {
 func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSeries) (*mcp.CallToolResult, *resultSeriesInfo, error) {
 	start := time.Now()
 	var err error
-	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+	if input_dir, err = getInputDir(ctx); err != nil {
 		return nil, &resultSeriesInfo{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
@@ -1954,7 +1915,7 @@ func shouldIncludeTag(tagStr string, subset string) bool {
 func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTagsList) (*mcp.CallToolResult, *resultTagsBySeriesUID, error) {
 	start := time.Now()
 	var err error
-	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+	if input_dir, err = getInputDir(ctx); err != nil {
 		return nil, &resultTagsBySeriesUID{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
@@ -2028,7 +1989,7 @@ func dataInfoTool(ctx context.Context, req *mcp.CallToolRequest, args *argsData)
 	start := time.Now()
 	// find out if there is data, if there is no ror folder produce an error
 	var err error
-	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+	if input_dir, err = getInputDir(ctx); err != nil {
 		return nil, &resultDataInfo{Message: "Error, could not find this ror directory."}, err
 	}
 	// make the config
@@ -2154,7 +2115,7 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 	// ask the user for the directory of the data to add
 	// find out if there is data, if there is no ror folder produce an error
 	var err error
-	if input_dir, err = getInputDir(ctx, req.Session); err != nil {
+	if input_dir, err = getInputDir(ctx); err != nil {
 		return nil, &resultDataCache{Message: "Error could not get ror directory."}, err
 	}
 	// make the config
@@ -2245,7 +2206,7 @@ func structuredTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (
 
 // rorTool returns a structured result.
 func rorTool(ctx context.Context, req *mcp.CallToolRequest, args *args) (*mcp.CallToolResult, *result, error) {
-	resources, err := fillInEmbeddedResources(ctx, req.Session)
+	resources, err := fillInEmbeddedResources(ctx)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -2282,62 +2243,17 @@ func loggingTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.Cal
 }
 
 func rootsListTool(ctx context.Context, req *mcp.CallToolRequest, _ NoInput) (*mcp.CallToolResult, *argsListTool, error) {
-	res, err := req.Session.ListRoots(ctx, nil)
+	// Report the server-side configured working directory instead of
+	// querying client roots (deprecated by SEP-2577).
+	dir, err := getInputDir(ctx)
 	if err != nil {
-		if input_dir != "" {
-			return nil, &argsListTool{
-				Roots: []nameUriPair{
-					{Name: "RootFolder", Uri: "file://" + input_dir},
-				},
-			}, nil
-			/*return &mcp.CallToolResult{
-				Content: []mcp.Content{
-					&mcp.TextContent{Text: `{"roots":[{"name":"RootFolder","uri":"file://` + input_dir + `"}]}`}, // do we need to add file:// ?
-				},
-			}, nil, nil */
-		}
-		return nil, nil, fmt.Errorf("listing roots failed: %v", err)
+		return nil, nil, err
 	}
-	var roots []nameUriPair
-	for _, r := range res.Roots {
-		roots = append(roots, nameUriPair{Name: r.Name, Uri: r.URI})
-	}
-	//jsonContent, err := json.Marshal(map[string]any{"roots": roots})
-	//if err != nil {
-	//	return nil, nil, fmt.Errorf("could not marshal roots: %v", err)
-	//}
 	return nil, &argsListTool{
-		Roots: roots,
-	}, nil
-}
-
-func rootsTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
-	res, err := req.Session.ListRoots(ctx, nil)
-	if err != nil {
-		if input_dir != "" {
-			return &mcp.CallToolResult{
-				Content: []mcp.Content{
-					// fallback to a structured JSON response with the configured input dir
-					&mcp.TextContent{Text: `{"roots":[{"name":"RootFolder","uri":"file://` + input_dir + `"}]}`}, // do we need to add file:// ?
-				},
-			}, nil, nil
-		}
-		return nil, nil, fmt.Errorf("listing roots failed: %v", err)
-	}
-	// construct a structured response matching the OutputSchema: { "roots": [ { "name": ..., "uri": ... }, ... ] }
-	var roots []map[string]string
-	for _, r := range res.Roots {
-		roots = append(roots, map[string]string{"name": r.Name, "uri": r.URI})
-	}
-	jsonContent, err := json.Marshal(map[string]any{"roots": roots})
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not marshal roots: %v", err)
-	}
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: string(jsonContent)},
+		Roots: []nameUriPair{
+			{Name: "RootFolder", Uri: "file://" + dir},
 		},
-	}, nil, nil
+	}, nil
 }
 
 func samplingTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
