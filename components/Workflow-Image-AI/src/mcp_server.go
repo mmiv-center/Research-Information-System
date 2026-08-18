@@ -2125,22 +2125,50 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 	// find out if there is data, if there is no ror folder produce an error
 	var err error
 	if input_dir, err = getInputDir(ctx); err != nil {
-		return nil, &resultDataCache{Message: "Error could not get ror directory."}, err
+		return nil, &resultDataCache{
+			Message:           "Error could not get ror directory.",
+			NumStudies:        0,
+			NumSeries:         0,
+			NumImages:         0,
+			NumParticipants:   0,
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  0,
+			DataSourcePath:    "",
+		}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &resultDataCache{Message: "Error could not read config file from ror directory."}, err
+		return nil, &resultDataCache{
+			Message:           "Error could not read config file from ror directory.",
+			NumStudies:        0,
+			NumSeries:         0,
+			NumImages:         0,
+			NumParticipants:   0,
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  0,
+			DataSourcePath:    "",
+		}, err
 	}
 
 	// The following will take a while... should we report back of our progress?
-	config.Data.Path = string(args.Path)
+	var tmp_data_path string = string(args.Path)
 	// Check if the path exists and is a directory
-	if info, err := os.Stat(config.Data.Path); os.IsNotExist(err) || !info.IsDir() {
-		config.Data.Path = ""
-		return nil, &resultDataCache{Message: "Error, the provided path does not exist or is not a directory."}, err
+	if info, err := os.Stat(tmp_data_path); os.IsNotExist(err) || !info.IsDir() {
+		return nil, &resultDataCache{
+			Message:           "Error, the provided path does not exist or is not a directory.",
+			NumStudies:        0,
+			NumSeries:         0,
+			NumImages:         0,
+			NumParticipants:   0,
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  0,
+			DataSourcePath:    "",
+		}, err
 	}
+	// change the config value only if the above worked
+	config.Data.Path = tmp_data_path
 
 	studies, err := dataSets(config, config.Data.DataInfo, func(counter int, nonDICOM int, numStudies int, numSeries int) {
 		//fmt.Printf("Processed %d DICOM files so far...\n", counter)
@@ -2152,7 +2180,7 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 			Message:       fmt.Sprintf("Imported %d files (%d non-DICOM skipped, %d studies, %d series)", counter, nonDICOM, numStudies, numSeries),
 		}) != nil {
 			// cannot notify progress
-			fmt.Println("Could not notify progress")
+			// fmt.Println("Could not notify progress")
 		}
 	}) // TODO: can we make this create no output on stdout?
 	check(err)
@@ -2160,7 +2188,16 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 		app.Stop()
 	}
 	if len(studies) == 0 {
-		return nil, &resultDataCache{Message: "Error we did not find any DICOM files in the folder specified."}, err
+		return nil, &resultDataCache{
+			Message:           "Error we did not find any DICOM files in the folder specified.",
+			NumStudies:        0,
+			NumSeries:         0,
+			NumImages:         0,
+			NumParticipants:   0,
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  0,
+			DataSourcePath:    "",
+		}, err
 		// fmt.Println("We did not find any DICOM files in the folder you provided. Please check if the files are available, un-compress any zip files to make the accessible to this tool.")
 	}
 
@@ -2174,7 +2211,16 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 
 	// this will use input_dir to write
 	if !config.writeConfig() {
-		return nil, &resultDataCache{Message: "Error could not write config file into ror directory."}, err
+		return nil, &resultDataCache{
+			Message:           "Error could not write config file into ror directory.",
+			NumStudies:        0,
+			NumSeries:         0,
+			NumImages:         0,
+			NumParticipants:   0,
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  0,
+			DataSourcePath:    "",
+		}, err
 	}
 	numSeries := 0
 	for _, v := range studies {
