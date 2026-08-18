@@ -3514,9 +3514,9 @@ func createTemplateFolders(dir_path string, init_type string, author_name string
 	}
 
 	// now add the .ror folder
-	if err := os.Mkdir(dir_path, 0700); os.IsExist(err) {
-		return errors.New("directory already exists")
-		//exitGracefully(errors.New("directory already exists"))
+	// create the .ror folder if it is missing; keep it if it already exists
+	if err := os.MkdirAll(dir_path, 0700); err != nil {
+		return err
 	}
 
 	var annotate Annotate
@@ -3549,8 +3549,14 @@ func createTemplateFolders(dir_path string, init_type string, author_name string
 	} else if init_type == "repo-url" {
 		data.CallString = "open http://127.0.0.1:8000?_={}"
 	}
-	if !data.writeConfig() {
-		exitGracefully(errors.New("could not write config file"))
+	// only create the config if it is missing, so we never clobber the internal
+	// memory (data associations, etc.) of an already-initialized project
+	if _, err := os.Stat(input_dir + "/.ror/config"); os.IsNotExist(err) {
+		if !data.writeConfig() {
+			exitGracefully(errors.New("could not write config file"))
+		}
+	} else {
+		fmt.Println("This directory already contains a .ror/config, don't overwrite. Skip writing...")
 	}
 	//file, _ := json.MarshalIndent(data, "", " ")
 	//_ = ioutil.WriteFile(dir_path+"/config", file, 0600)
@@ -3616,10 +3622,9 @@ func createTemplateFolders(dir_path string, init_type string, author_name string
 	}
 	// virtualization environment
 	virt_path := input_dir + "/.ror/virt"
-	if err := os.Mkdir(virt_path, 0755); os.IsExist(err) {
-		// TODO: we should not exit out here, we might be called in the mcp_server part and should return something more useful
-		// Also, if the directory exists we can do more - like add the files that are missing.
-		exitGracefully(errors.New("directory exist already"))
+	// create the .ror/virt folder if missing; keep it if it already exists
+	if err := os.MkdirAll(virt_path, 0755); err != nil {
+		return err
 	}
 	// classification rules so we can overwrite what ror does on its own
 	classify_dicom_path2 := input_dir + "/.ror/classifyDICOM.json"
@@ -3627,10 +3632,9 @@ func createTemplateFolders(dir_path string, init_type string, author_name string
 
 	// example ontology
 	ontology_path := input_dir + "/.ror/ontologies"
-	if err := os.Mkdir(ontology_path, 0755); os.IsExist(err) {
-		// TODO: we should not exit out here, we might be called in the mcp_server part and should return something more useful
-		// Also, if the directory exists we can do more - like add the files that are missing.
-		exitGracefully(errors.New("directory exist already"))
+	// create the .ror/ontologies folder if missing; keep it if it already exists
+	if err := os.MkdirAll(ontology_path, 0755); err != nil {
+		return err
 	}
 	ontology_path = input_dir + "/.ror/ontologies/body_parts_DICOM.json"
 	createStub(ontology_path, ontology_body_parts_dicom)
@@ -3895,7 +3899,7 @@ func main() {
 
 			dir_path := input_dir + "/.ror"
 			if _, err := os.Stat(dir_path); !os.IsNotExist(err) {
-				exitGracefully(errors.New("this directories has already been initialized. Delete the .ror directory to do this again"))
+				fmt.Println("Info: a .ror folder already exists in \"" + input_dir + "\". Completing the project - existing files are kept, missing files are created.")
 			}
 			// do we know the author information?, do we need to know?
 			// Instead we should ask for the user token and secret so we can
