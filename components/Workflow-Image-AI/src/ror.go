@@ -2631,7 +2631,8 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 	} else if ast.Output_level == "series" {
 		// we don't need to do anything here, series is default
 	} else {
-		exitGracefully(fmt.Errorf("Error: unknown from statement, should be series, study, project, or participant"))
+		// give up here, no valid info and error message
+		return [][]SeriesInstanceUIDWithName{}, []string{"Error: unknown \"SELECT FROM XXX...\" statement, should be \"SELECT FROM series|study|project|participant...\""}
 	}
 
 	// we need to check the CheckRules as well - if we have those we might loose some more entries here

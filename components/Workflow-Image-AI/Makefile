@@ -26,3 +26,5 @@ build/windows-amd64/ror.exe: src/ror.go src/classify_dicom.go src/select_group.g
 
 build/macos-arm64/ror: src/ror.go src/classify_dicom.go src/select_group.go src/status_tui.go src/annotate_tui.go src/mcp_server.go src/SELECT_GRAMMAR.md
 	env GOOS=darwin GOARCH=arm64 go build $(GCFLAGS) $(LDFLAGS_ARM) -o build/macos-arm64/ror src/ror.go src/classify_dicom.go src/select_group.go src/status_tui.go src/annotate_tui.go src/mcp_server.go
+	chmod +x build/macos-arm64/ror
+	codesign --force --deep --sign - ./build/macos-arm64/ror

@@ -293,6 +293,7 @@ func startMCP(useHttp string, rootFolder string) {
 									Properties: map[string]*jsonschema.Schema{
 										"group":   {Type: "string"},
 										"element": {Type: "string"},
+										"name":    {Type: "string"},
 										"value":   {Type: "string"},
 										"vr":      {Type: "string"},
 									},
@@ -1119,6 +1120,7 @@ type resultSeriesInfo struct {
 type TagInfo struct {
 	Group   string `json:"group" jsonschema:"the DICOM tag group in hexadecimal notation (like 0x0008)"`
 	Element string `json:"element" jsonschema:"the DICOM tag element in hexadecimal notation (like 0x0020)"`
+	Name    string `json:"name" jsonschema:"the human readable DICOM tag name for this group and element, empty if unknown"`
 	Value   string `json:"value" jsonschema:"the tag value"`
 	VR      string `json:"vr" jsonschema:"the value representation"`
 }
@@ -1956,9 +1958,16 @@ func dataListTags(ctx context.Context, req *mcp.CallToolRequest, args *argsTagsL
 				if !shouldIncludeTag(tagStr, args.Subset) {
 					continue
 				}
+				// Look up the human readable DICOM tag name; leave it empty
+				// when the tag is not in the standard dictionary.
+				name := ""
+				if info, err := tag.Find(a.Tag); err == nil {
+					name = info.Name
+				}
 				tags = append(tags, TagInfo{
 					Group:   fmt.Sprintf("%#04x", a.Tag.Group),
 					Element: fmt.Sprintf("%#04x", a.Tag.Element),
+					Name:    name,
 					Value:   strings.Join(a.Value, ","),
 					VR:      a.Type,
 				})
