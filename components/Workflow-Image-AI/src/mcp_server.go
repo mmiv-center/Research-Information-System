@@ -1467,9 +1467,9 @@ func validateSelectStatementTool(ctx context.Context, req *mcp.CallToolRequest, 
 	return nil, &argsSelect{
 		Message:    fmt.Sprintf("Error, the select statement could not be parsed successfully%s", msg),
 		Select:     "",
-		MatchCount: -1,
+		MatchCount: 0,
 		Matches:    [][]SeriesInstanceUIDWithName{},
-		Complains:  []string{},
+		Complains:  []string{"Error parsing select statement"},
 	}, nil
 }
 
@@ -1556,7 +1556,7 @@ func setSelectTool(ctx context.Context, req *mcp.CallToolRequest, args *setSelec
 		Select:     "",
 		MatchCount: -1,
 		Matches:    [][]SeriesInstanceUIDWithName{},
-		Complains:  []string{},
+		Complains:  []string{"Error parsing select statement"},
 	}, nil
 }
 
@@ -1577,7 +1577,7 @@ func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.
 			Select:     "", // shouldn't this be structured information instead?
 			MatchCount: 0,
 			Matches:    [][]SeriesInstanceUIDWithName{},
-			Complains:  []string{},
+			Complains:  []string{"Error reading configuration file"},
 		}, err
 	}
 
@@ -1588,7 +1588,7 @@ func showSelectTool(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.
 			Select:     space.ReplaceAllString(strings.Replace(ast2Select(ast), "\n", "", -1), " "), // shouldn't this be structured information instead?
 			MatchCount: 0,
 			Matches:    [][]SeriesInstanceUIDWithName{},
-			Complains:  []string{},
+			Complains:  []string{"No data loaded"},
 		}, nil
 	}
 
