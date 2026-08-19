@@ -1635,17 +1635,38 @@ func dataListPatients(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mc
 	start := time.Now()
 	var err error
 	if input_dir, err = getInputDir(ctx); err != nil {
-		return nil, &resultPatients{Message: "Error could not get ror directory."}, err
+		elapsed := time.Since(start).Milliseconds()
+		return nil, &resultPatients{
+			Message:           "Error could not get ror directory.",
+			Patients:          []string{},
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  elapsed,
+			DataSourcePath:    input_dir,
+		}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &resultPatients{Message: "Error could not read config file from ror directory."}, err
+		elapsed := time.Since(start).Milliseconds()
+		return nil, &resultPatients{
+			Message:           "Error could not read config file from ror directory.",
+			Patients:          []string{},
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  elapsed,
+			DataSourcePath:    input_dir,
+		}, err
 	}
 
 	if len(config.Data.DataInfo) == 0 {
-		return nil, &resultPatients{Message: "No data loaded, please add data first using the add/data tool."}, nil
+		elapsed := time.Since(start).Milliseconds()
+		return nil, &resultPatients{
+			Message:           "No data loaded, please add data first using the add/data tool.",
+			Patients:          []string{},
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  elapsed,
+			DataSourcePath:    input_dir,
+		}, nil
 	}
 
 	var participantsMap map[string]bool = make(map[string]bool)
@@ -1677,17 +1698,38 @@ func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) 
 	start := time.Now()
 	var err error
 	if input_dir, err = getInputDir(ctx); err != nil {
-		return nil, &resultStudies{Message: "Error could not get ror directory."}, err
+		elapsed := time.Since(start).Milliseconds()
+		return nil, &resultStudies{
+			Message:           "Error could not get ror directory.",
+			Studies:           make(map[string]studyInfo),
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  elapsed,
+			DataSourcePath:    input_dir,
+		}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &resultStudies{Message: "Error could not read config file from ror directory."}, err
+		elapsed := time.Since(start).Milliseconds()
+		return nil, &resultStudies{
+			Message:           "Error could not read config file from ror directory.",
+			Studies:           make(map[string]studyInfo),
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  elapsed,
+			DataSourcePath:    input_dir,
+		}, err
 	}
 
 	if len(config.Data.DataInfo) == 0 {
-		return nil, &resultStudies{Message: "No data loaded, please add data first using the add/data tool."}, nil
+		elapsed := time.Since(start).Milliseconds()
+		return nil, &resultStudies{
+			Message:           "No data loaded, please add data first using the add/data tool.",
+			Studies:           make(map[string]studyInfo),
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  elapsed,
+			DataSourcePath:    input_dir,
+		}, nil
 	}
 	var studyAndDate map[string]studyInfo = make(map[string]studyInfo, 0)
 	for key, element := range config.Data.DataInfo { // study
@@ -1710,6 +1752,7 @@ func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) 
 					break
 				}
 			}
+			// user may provide the name of a patient to filter the results
 			if args.Name != "" {
 				if !strings.Contains(name, args.Name) {
 					continue
@@ -1721,11 +1764,24 @@ func dataListStudies(ctx context.Context, req *mcp.CallToolRequest, args *args) 
 				StudyDate:        studyDate,
 				StudyDescription: element2.StudyDescription,
 			}
+			// we can break here because we already found a study that matches, no sense in iterating more over series in that study
 			break
 			// data += fmt.Sprintf("Patient: %s, Study %s (Date: %s) Series %s: %d images\n", name, key, studyDate, key2, element2.NumImages)
 		}
+
 	}
 	elapsed := time.Since(start).Milliseconds()
+
+	if len(studyAndDate) == 0 && args.Name != "" {
+		return nil, &resultStudies{
+			Message:           "No studies found for the specified patient name (or patient id).",
+			Studies:           studyAndDate,
+			TotalRecordsFound: len(studyAndDate),
+			ProcessingTimeMs:  elapsed,
+			DataSourcePath:    input_dir,
+		}, nil
+	}
+
 	return nil, &resultStudies{
 		Message:           "Mapping of StudyInstanceUIDs and their associated PatientID, PatientName, StudyDate and StudyDescription from data path " + config.Data.Path,
 		Studies:           studyAndDate,
