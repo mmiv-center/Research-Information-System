@@ -165,6 +165,7 @@ type AuthorInfo struct {
 type DataInfo struct {
 	Path     string
 	DataInfo map[string]map[string]SeriesInfo
+	Message  string
 }
 
 type Viewer struct {
@@ -223,6 +224,16 @@ type SeriesInfo struct {
 	All                   []TagAndValue
 	Annotations           []Annotation
 	SOPInstanceUIDs       []string
+}
+
+// patientIdentifier returns a single display string identifying the patient:
+// the PatientID when PatientName is empty or identical to it, otherwise
+// "PatientID-PatientName".
+func (info SeriesInfo) patientIdentifier() string {
+	if info.PatientName == "" || info.PatientName == info.PatientID {
+		return info.PatientID
+	}
+	return info.PatientID + "-" + info.PatientName
 }
 
 // readConfig parses a provided config file as JSON.
@@ -1472,7 +1483,7 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 							for _, vv := range v {
 								numImages += vv.NumImages
 								modalities[vv.Modality] = true
-								participants[fmt.Sprintf("%s%s", vv.PatientID, vv.PatientName)] = true
+								participants[vv.patientIdentifier()] = true
 							}
 						}
 						numModalities := len(modalities)
@@ -2023,62 +2034,57 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo, processCall
 		}
 	}
 
-	// likelihood: we want to minimize this function
+	// likelihood: we want to maximize this function.
+	// A good select statement matches roughly half the series (a balanced split)
+	// and is as simple as possible (few rules).
 	likelihood := func(ast AST) float64 {
 		allSeriesNum := 0.0
 		for _, v := range datasets {
 			allSeriesNum = allSeriesNum + float64(len(v))
 		}
+		// guard against an empty dataset (avoid division by zero below)
+		if allSeriesNum == 0 {
+			return 0
+		}
 
-		// compute the match with the data
-		// this is using the RulesTree, but we only changed the Rs Rules, need to do more here (like copy?)
-
+		// fraction of series matched by this AST (the RulesTree is what is evaluated)
 		a, _ := findMatchingSets(ast, datasets)
-
-		var numSeriesByStudy = make(map[string]int32)
-		for _, vv := range datasets {
-			for siuid := range vv {
-				numSeriesByStudy[siuid] += int32(len(vv))
-			}
-		}
-
-		//  we like to have all a's equally big (studyinstanceuid with same #seriesinstanceuid)
-		var sumX float64
+		var matched float64
 		for _, v := range a {
-			if len(v) == 0 {
-				continue
+			matched = matched + float64(len(v))
+		}
+		frac := matched / allSeriesNum
+
+		// mean should be close to 0.5 -> prefer a balanced split, penalize drift from it
+		score := -math.Abs(frac-0.5)
+
+		// penalize rule complexity: fewer rules is better.
+		// Count leaves in the RulesTree (the structure findMatchingSets evaluates),
+		// not ast.Rules, which the search does not keep in sync.
+		var countLeaves func(rs RuleSetL) int
+		countLeaves = func(rs RuleSetL) int {
+			n := 0
+			if rs.Rs1 != nil {
+				n += countLeaves(*rs.Rs1)
 			}
-			//numSeries := len(a[k])
-			// number of series for this study
-			SeriesInstanceUID := v[0].SeriesInstanceUID
-			/*			var numSeriesByStudy float64 = 0.0
-						L:
-							for _, vv := range datasets {
-								for siuid := range vv {
-									if SeriesInstanceUID == siuid {
-										numSeriesByStudy = float64(len(vv))
-										break L
-									}
-								}
-							} */
+			if rs.Rs2 != nil {
+				n += countLeaves(*rs.Rs2)
+			}
+			if rs.Leaf1 != nil && rs.Leaf1.Operator != "" {
+				n++
+			}
+			if rs.Leaf2 != nil && rs.Leaf2.Operator != "" {
+				n++
+			}
+			return n
+		}
+		ruleCount := 0
+		for _, rts := range ast.RulesTree {
+			ruleCount += countLeaves(rts.Rs)
+		}
+		score -= 0.05 * float64(ruleCount)
 
-			numSelected := float64(len(v)) / float64(numSeriesByStudy[SeriesInstanceUID])
-			sumX += float64(numSelected)
-		}
-		if len(a) > 0 {
-			sumX = sumX / allSeriesNum
-		} else {
-			sumX = 0
-		}
-		// mean should be close to 0.5
-
-		// compute penalty for the complexity of the rules, more rules is worse
-		var total float64
-		for _, rulelist := range ast.Rules {
-			total = total + float64(len(rulelist.Rs))
-		}
-		b := sumX + 1.0/math.Log2(total+1.0)
-		return b
+		return score
 	}
 	// addRule: add a single rule
 	addRule := func(rules *RuleSet, targetValues map[string][]string) bool {
@@ -2235,7 +2241,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo, processCall
 	l := likelihood(ast)
 	var bestRulesetEver AST
 	foundBestRuleset := false
-	bestL2 := math.Inf(1)
+	bestL2 := -math.Inf(1) // track the best (highest) score seen so far
 	for i := 0; i < 100; i++ {
 		if processCallback != nil {
 			processCallback(i+1, 100, bestL2)
@@ -2263,7 +2269,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo, processCall
 		if l2 > l {
 			ast = copyRule
 			l = l2
-			if bestL2 < l2 {
+			if bestL2 > l2 {
 				jast, _ := json.Marshal(ast)
 				json.Unmarshal(jast, &bestRulesetEver)
 				bestL2 = l2
@@ -2274,7 +2280,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo, processCall
 			if prob > 0.99 {
 				ast = copyRule
 				l = l2
-				if bestL2 < l2 {
+				if bestL2 > l2 {
 					jast, _ := json.Marshal(ast)
 					json.Unmarshal(jast, &bestRulesetEver)
 					bestL2 = l2
@@ -2404,7 +2410,7 @@ func findMatchingSets(ast AST, dataInfo map[string]map[string]SeriesInfo) ([][]S
 				if _, ok := seriesByStudy[StudyInstanceUID]; !ok {
 					seriesByStudy[StudyInstanceUID] = make(map[string][]IndexWithMeta)
 				}
-				PatientName := value2.PatientID + value2.PatientName
+				PatientName := value2.patientIdentifier()
 				var one_index = IndexWithMeta{
 					SeriesInstanceUID: SeriesInstanceUID,
 					StudyInstanceUID:  StudyInstanceUID,
@@ -4248,6 +4254,11 @@ func main() {
 				}
 				config.Data.DataInfo = studies
 				config.Data.Path = data_path
+				postfix := "ies"
+				if len(studies) == 1 {
+					postfix = "y"
+				}
+				config.Data.Message = fmt.Sprintf("%d DICOM stud%s", len(studies), postfix)
 				if config_temp_directory == "" {
 					fmt.Printf("\033[1mWhat's next?\033[0m\nFor testing a workflow you might next want to set the temp directory\n\n\t"+
 						"%s config --temp_directory \"<folder>\"\n\nExample trigger data folders will appear there.\n",
@@ -4258,6 +4269,7 @@ func main() {
 				// empty out the existing data before adding new data
 				config.Data.DataInfo = make(map[string]map[string]SeriesInfo)
 				config.Data.Path = ""
+				config.Data.Message = "No DICOM data"
 			}
 			if author_name != "" {
 				config.Author.Name = author_name
@@ -4545,9 +4557,10 @@ func main() {
 				if err == nil {
 					var newConfig Config
 					json.Unmarshal(tt, &newConfig)
-					newConfig.Data.DataInfo = nil     // hide the data
-					newConfig.ProjectToken = "hidden" // hide the project token
-					newConfig.Annotate = Annotate{}   // hide the annotation
+					newConfig.Data.Message = fmt.Sprintf("Number of studies: %d. To get additional information, add the --all option.", len(newConfig.Data.DataInfo)) // summary message keep
+					newConfig.Data.DataInfo = nil                                                                                                                     // hide the data
+					newConfig.ProjectToken = "hidden"                                                                                                                 // hide the project token
+					newConfig.Annotate = Annotate{}                                                                                                                   // hide the annotation
 					file, _ := json.MarshalIndent(newConfig, "", "  ")
 					fmt.Println(string(file))
 				} else {
@@ -4971,8 +4984,8 @@ func main() {
 			fmt.Println("The list of dependencies inside a new virtual environment easier to handle as only")
 			fmt.Println("the essential packages for your workflow will be part of the container.")
 			fmt.Println("\nCreate a new uv environment with")
-			fmt.Printf("\n\tuv venv --python 3.12\n", projectName)
-			fmt.Printf("\tsource .venv/bin/activate\n", projectName)
+			fmt.Printf("\n\tuv venv --python 3.12\n")
+			fmt.Printf("\tsource .venv/bin/activate\n")
 			fmt.Printf("\tuv pip install pydicom numpy matplotlib\n")
 			fmt.Printf("\nAdjust the list of packages based on your workflow. The above list should be\n")
 			fmt.Printf("sufficient for the default workflow. Now repeat the above steps.\n")
