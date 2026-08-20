@@ -39,6 +39,7 @@ import (
 	"github.com/suyashkumar/dicom/pkg/tag"
 
 	"golang.org/x/image/draw"
+	"golang.org/x/term"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 
@@ -802,6 +803,257 @@ func printImage2ASCII(img image.Image, PhotometricInterpretation string, PixelPa
 	return buf.Bytes()
 }
 
+// terminalColorMode reports the highest color depth the current terminal is
+// likely to render: 2 = 24-bit truecolor, 1 = 256-color, 0 = no color. It lets
+// the renderer pick the most detailed encoding that will actually display
+// correctly instead of emitting escapes the terminal cannot parse.
+func terminalColorMode() int {
+	if os.Getenv("NO_COLOR") != "" {
+		return 0
+	}
+	colorterm := strings.ToLower(os.Getenv("COLORTERM"))
+	termName := strings.ToLower(os.Getenv("TERM"))
+	if colorterm == "truecolor" || colorterm == "24bit" ||
+		strings.Contains(termName, "truecolor") || strings.Contains(termName, "24bit") {
+		return 2
+	}
+	if termName == "dumb" {
+		return 0
+	}
+	return 1
+}
+
+// mapGrayLevel maps a 16-bit grayscale sample into the 0..255 range using the
+// computed display window starting at min2 with span denom.
+func mapGrayLevel(v uint16, min2, denom int64) int {
+	pos := int(float64(int64(v)-min2) * 255.0 / float64(denom))
+	if pos < 0 {
+		return 0
+	}
+	if pos > 255 {
+		return 255
+	}
+	return pos
+}
+
+// decodeGray16 flattens a *image.Gray16 into a row-major []uint16. image.Gray16
+// stores 2 bytes per pixel in big-endian order (Pix is []uint8), so each 16-bit
+// value is reconstructed from two bytes.
+func decodeGray16(g16 *image.Gray16) []uint16 {
+	w := g16.Rect.Dx()
+	h := g16.Rect.Dy()
+	pix := make([]uint16, 0, w*h)
+	for y := g16.Rect.Min.Y; y < g16.Rect.Max.Y; y++ {
+		for x := g16.Rect.Min.X; x < g16.Rect.Max.X; x++ {
+			i := g16.PixOffset(x, y)
+			pix = append(pix, uint16(g16.Pix[i])<<8|uint16(g16.Pix[i+1]))
+		}
+	}
+	return pix
+}
+
+// grayWindow computes a display window [min2, max99] from a percentile clip of
+// the pixel-value histogram, ignoring padding values. It returns ok=false if the
+// image has no usable pixels. clip must hold two percentages (e.g. {5, 95});
+// otherwise {5, 95} is used.
+func grayWindow(pix []uint16, padVal int, clip []float32) (int64, int64, bool) {
+	var minVal, maxVal int64 = 65535, 0
+	any := false
+	for _, v := range pix {
+		if padVal != 32768 && int(v) == padVal {
+			continue
+		}
+		if !any {
+			minVal, maxVal = int64(v), int64(v)
+			any = true
+		}
+		if int64(v) < minVal {
+			minVal = int64(v)
+		}
+		if int64(v) > maxVal {
+			maxVal = int64(v)
+		}
+	}
+	if !any {
+		return 0, 0, false
+	}
+	if len(clip) != 2 {
+		clip = []float32{5, 95}
+	}
+	min2, max99 := minVal, maxVal
+	if maxVal > minVal {
+		const bins = 1024
+		var histogram [1024]int
+		for _, v := range pix {
+			if padVal != 32768 && int(v) == padVal {
+				continue
+			}
+			idx := int(float64(int64(v)-minVal) / float64(maxVal-minVal) * float64(bins-1))
+			if idx < 0 {
+				idx = 0
+			}
+			if idx > bins-1 {
+				idx = bins - 1
+			}
+			if idx != 0 && idx != bins-1 {
+				histogram[idx]++
+			}
+		}
+		sum := 0
+		for i := 1; i < bins-1; i++ {
+			sum += histogram[i]
+		}
+		if sum > 0 {
+			s := histogram[0]
+			for i := 1; i < bins; i++ {
+				if float32(s) >= float32(sum)*clip[0]/100.0 {
+					min2 = minVal + int64(float64(i)/float64(bins)*float64(maxVal-minVal))
+					break
+				}
+				s += histogram[i]
+			}
+			s = histogram[0]
+			for i := 1; i < bins; i++ {
+				if float32(s) >= float32(sum)*clip[1]/100.0 {
+					max99 = minVal + int64(float64(i)/float64(bins)*float64(maxVal-minVal))
+					break
+				}
+				s += histogram[i]
+			}
+		}
+	}
+	return min2, max99, true
+}
+
+// printImage2HalfBlocks renders a grayscale image using Unicode upper-half-block
+// characters: one terminal cell carries two vertically stacked pixels, doubling
+// the vertical resolution of one-character-per-pixel ASCII art. The two pixel
+// levels are encoded as foreground/background color — 24-bit truecolor when the
+// terminal supports it, otherwise the 256-color palette. Pixels equal to padVal
+// (the DICOM padding margin) are left blank.
+func printImage2HalfBlocks(g16 *image.Gray16, clip []float32, padVal int) string {
+	w := g16.Rect.Dx()
+	h := g16.Rect.Dy()
+	cells := h / 2
+	if cells < 1 {
+		cells = 1
+	}
+
+	pix := decodeGray16(g16)
+	min2, max99, ok := grayWindow(pix, padVal, clip)
+	if !ok {
+		return ""
+	}
+	denom := max99 - min2
+	if denom == 0 {
+		denom = 1
+	}
+
+	mode := terminalColorMode()
+	half := "▀" // upper half block: top and bottom pixel in one cell
+	buf := new(bytes.Buffer)
+	for y := 0; y < cells; y++ {
+		for x := 0; x < w; x++ {
+			top := pix[(y*2)*w+x]
+			bot := pix[(y*2+1)*w+x]
+			topPad := padVal != 32768 && int(top) == padVal
+			botPad := padVal != 32768 && int(bot) == padVal
+			if topPad && botPad {
+				buf.WriteString("\x1b[0m ")
+				continue
+			}
+			topLvl := mapGrayLevel(top, min2, denom)
+			botLvl := mapGrayLevel(bot, min2, denom)
+			if mode == 2 {
+				if topPad {
+					buf.WriteString("\x1b[39m")
+				} else {
+					fmt.Fprintf(buf, "\x1b[38;2;%d;%d;%dm", topLvl, topLvl, topLvl)
+				}
+				if botPad {
+					buf.WriteString("\x1b[49m")
+				} else {
+					fmt.Fprintf(buf, "\x1b[48;2;%d;%d;%dm", botLvl, botLvl, botLvl)
+				}
+			} else {
+				if topPad {
+					buf.WriteString("\x1b[39m")
+				} else {
+					fmt.Fprintf(buf, "\x1b[38;5;%dm", 232+topLvl*23/255)
+				}
+				if botPad {
+					buf.WriteString("\x1b[49m")
+				} else {
+					fmt.Fprintf(buf, "\x1b[48;5;%dm", 232+botLvl*23/255)
+				}
+			}
+			buf.WriteString(half)
+		}
+		buf.WriteByte('\n')
+	}
+	buf.WriteString("\x1b[0m")
+	return buf.String()
+}
+
+// printImage2RunesHalfBlocks is the tview counterpart of printImage2HalfBlocks.
+// It renders the same two-pixels-per-cell half-block image, but emits tview's
+// inline color tags — "[#rrggbb:#rrggbb]▀" — where the first color is the
+// foreground (top pixel) and the second is the background (bottom pixel). This
+// lets the image be displayed inside a tview TextView, which does not parse raw
+// ANSI escapes. Pixels equal to padVal (the DICOM padding margin) are left blank.
+func printImage2RunesHalfBlocks(g16 *image.Gray16, clip []float32, padVal int) string {
+	w := g16.Rect.Dx()
+	h := g16.Rect.Dy()
+	cells := h / 2
+	if cells < 1 {
+		cells = 1
+	}
+	pix := decodeGray16(g16)
+	min2, max99, ok := grayWindow(pix, padVal, clip)
+	if !ok {
+		return ""
+	}
+	denom := max99 - min2
+	if denom == 0 {
+		denom = 1
+	}
+
+	// tview style-tag color spec for a level: "#rrggbb"; "-" resets that color.
+	levelTag := func(v uint16) string {
+		l := mapGrayLevel(v, min2, denom)
+		return fmt.Sprintf("#%02x%02x%02x", l, l, l)
+	}
+
+	buf := new(bytes.Buffer)
+	for y := 0; y < cells; y++ {
+		for x := 0; x < w; x++ {
+			top := pix[(y*2)*w+x]
+			bot := pix[(y*2+1)*w+x]
+			topPad := padVal != 32768 && int(top) == padVal
+			botPad := padVal != 32768 && int(bot) == padVal
+			if topPad && botPad {
+				buf.WriteString("[-:-] ") // reset both colors, blank cell
+				continue
+			}
+			fg := "-"
+			if !topPad {
+				fg = levelTag(top)
+			}
+			bg := "-"
+			if !botPad {
+				bg = levelTag(bot)
+			}
+			buf.WriteString("[")
+			buf.WriteString(fg)
+			buf.WriteString(":")
+			buf.WriteString(bg)
+			buf.WriteString("]▀")
+		}
+		buf.WriteByte('\n')
+	}
+	return buf.String()
+}
+
 // Scale uses a different package for rescaling the image
 func Scale(src image.Image, rect image.Rectangle, scale draw.Scaler) image.Image {
 	dst := image.NewRGBA(rect)
@@ -911,68 +1163,73 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 		} else {
 			globalWidth = 192 / 2
 		} */
-		if viewer != nil {
-			_, _, globalWidth, globalHeight = viewer.GetInnerRect()
-		} else {
-			globalWidth = 192 / 2
-			globalHeight = 192 / 2
-		}
-		twidth := globalWidth
-		theight := int(math.Round(float64(globalWidth) / (80.0 / 30.0)))
-
 		origbounds := img.Bounds()
 		orig_width, orig_height := origbounds.Max.X, origbounds.Max.Y
-		newImage := image.NewGray16(image.Rect(0, 0, twidth, theight))
 
-		draw.ApproxBiLinear.Scale(newImage, image.Rect(0, 0, twidth, theight), img, origbounds, draw.Over, nil)
-
-		//bounds := newImage.Bounds()
-		// width, height := bounds.Max.X, bounds.Max.Y
-		//p := printImage2ASCII(newImage, PhotometricInterpretation, PixelPaddingValue)
-		//p := printImage2Runes(newImage, PhotometricInterpretation, PixelPaddingValue)
-		//p := printImage2SingleRune(newImage, PhotometricInterpretation, PixelPaddingValue)
-
-		//fmt.Printf("%s", string(p))
 		if viewer != nil {
-			// remove some lines from the top and bottom of the image (fit image into limited height space)
-			offset := []int{0, 0}
+			// TUI path: render half-blocks (two pixels stacked per cell) using
+			// tview's inline color tags — a tview TextView does not parse raw ANSI
+			// escapes, so we use its own "[#rrggbb:#rrggbb]" syntax instead.
+			_, _, vw, _ := viewer.GetInnerRect()
 			_, _, _, printableHeight := viewer.Box.GetInnerRect()
-			if printableHeight < theight {
-				offset[0] = (theight - printableHeight) / 2
-				offset[1] = (theight - printableHeight - offset[0])
+			// Keep the original 80:30 cell aspect ratio, capped to the rows the
+			// viewer can actually show. Half-blocks give two pixels of vertical
+			// detail per cell, so the pixel grid is twice as tall.
+			cells := int(math.Round(float64(vw) / (80.0 / 30.0)))
+			if printableHeight < cells {
+				cells = printableHeight
 			}
-			// fmt.Printf("Printable Height %d, theight: %d, offset[0]: %d, offset[1]: %d", printableHeight, theight, offset[0], offset[1])
+			if cells < 1 {
+				cells = 1
+			}
+			twidth := vw
+			theight := cells * 2
+			newImage := image.NewGray16(image.Rect(0, 0, twidth, theight))
+			// Catmull-Rom keeps edges sharper than ApproxBiLinear on high-contrast
+			// DICOM images.
+			draw.CatmullRom.Scale(newImage, newImage.Bounds(), img, origbounds, draw.Over, nil)
 
-			p := printImage2Runes(newImage, PhotometricInterpretation, PixelPaddingValue, clip, offset)
+			p := printImage2RunesHalfBlocks(newImage, clip, PixelPaddingValue)
 			viewer.Clear()
-			//app.SetFocus(viewer)
-			//footer.Clear()
-			//structure.Clear()
-			//text := tview.createTextNode(p)
 			viewer.SetText(p)
-
-			// fmt.Fprintf(viewer, "%s", string(p))
-			return orig_width, orig_height
-			// langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
-			//  fmt.Fprintf(footer, langFmt.Sprintf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
-			//fmt.Fprintf(footer, langFmt.Sprintf("[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height))
-			//if len(info) > 0 {
-			//	//fmt.Fprintf(structure, langFmt.Sprintf("\033[2K%s\n%d", info, theight))
-			//	fmt.Fprintf(structure, langFmt.Sprintf("%s", info))
-			//}
-			//app.Draw()
-		} else {
-			// Only emit the ASCII rendering when stdout is an actual terminal.
-			// When stdout is a pipe or redirected to a file (e.g. `ror ... | ...`,
-			// or an MCP client capturing the CLI's output over a pipe), the ASCII
-			// art would be noise in the stream, so suppress it. We still return the
-			// dimensions so the caller can print its "[n] path (WxH)" metadata line.
-			if stdoutIsTTY {
-				p := printImage2ASCII(newImage, PhotometricInterpretation, PixelPaddingValue)
-				fmt.Printf("%s", string(p))
-			}
 			return orig_width, orig_height
 		}
+
+		// Terminal path. Only render when stdout is a real terminal — when it is a
+		// pipe or a file (e.g. `ror ... | ...`, or an MCP client capturing the
+		// output over a pipe) the ANSI escapes would be noise in the stream, so
+		// suppress them. We still return the dimensions for the caller's metadata
+		// line ("[n] path (WxH)").
+		if !stdoutIsTTY {
+			return orig_width, orig_height
+		}
+
+		// Size to the real terminal. Each half-block cell carries two vertically
+		// stacked pixels, so the target height is twice the row count; a pure-
+		// density fallback uses one pixel per cell instead.
+		cols, rows, gerr := term.GetSize(int(os.Stdout.Fd()))
+		if gerr != nil || cols < 8 {
+			cols = 80
+		}
+		if gerr != nil || rows < 4 {
+			rows = 20
+		}
+		pxPerCell := 2
+		if terminalColorMode() == 0 {
+			pxPerCell = 1
+		}
+		twidth := cols
+		theight := rows * pxPerCell
+		newImage := image.NewGray16(image.Rect(0, 0, twidth, theight))
+		draw.CatmullRom.Scale(newImage, newImage.Bounds(), img, origbounds, draw.Over, nil)
+
+		if terminalColorMode() == 0 {
+			p := printImage2ASCII(newImage, PhotometricInterpretation, PixelPaddingValue)
+			fmt.Printf("%s", string(p))
+		} else {
+			fmt.Print(printImage2HalfBlocks(newImage, clip, PixelPaddingValue))
+		}
+		return orig_width, orig_height
 	}
 	return 0, 0
 }
