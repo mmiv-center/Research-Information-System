@@ -835,7 +835,7 @@ func fillInEmbeddedResources(ctx context.Context) (map[string]string, error) {
 	var participants map[string]bool = make(map[string]bool)
 	for _, v := range datasets {
 		for _, vv := range v {
-			participants[fmt.Sprintf("%s%s", vv.PatientID, vv.PatientName)] = true
+			participants[vv.patientIdentifier()] = true
 		}
 	}
 	numParticipants := len(participants)
@@ -971,7 +971,7 @@ func embeddedResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.R
 		var participants map[string]bool = make(map[string]bool)
 		for _, v := range datasets {
 			for _, vv := range v {
-				participants[fmt.Sprintf("%s%s", vv.PatientID, vv.PatientName)] = true
+				participants[vv.patientIdentifier()] = true
 			}
 		}
 		numParticipants := len(participants)
@@ -1672,11 +1672,7 @@ func dataListPatients(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mc
 	var participantsMap map[string]bool = make(map[string]bool)
 	for _, element := range config.Data.DataInfo {
 		for _, element2 := range element {
-			name := element2.PatientID
-			if element2.PatientName != "" && element2.PatientName != name {
-				name = name + "-" + element2.PatientName
-			}
-			participantsMap[name] = true
+			participantsMap[element2.patientIdentifier()] = true
 		}
 	}
 	var participants []string = make([]string, 0, len(participantsMap))
@@ -1799,17 +1795,35 @@ func dataListSeries(ctx context.Context, req *mcp.CallToolRequest, args *argsSer
 	start := time.Now()
 	var err error
 	if input_dir, err = getInputDir(ctx); err != nil {
-		return nil, &resultSeriesInfo{Message: "Error could not get ror directory."}, err
+		return nil, &resultSeriesInfo{
+			Message:           "Error could not get ror directory.",
+			Series:            make(map[string]seriesOutput),
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  time.Since(start).Milliseconds(),
+			DataSourcePath:    input_dir,
+		}, err
 	}
 	// make the config
 	dir_path := input_dir + "/.ror/config"
 	config, err := readConfig(dir_path)
 	if err != nil {
-		return nil, &resultSeriesInfo{Message: "Error could not read config file from ror directory."}, err
+		return nil, &resultSeriesInfo{
+			Message:           "Error could not read config file from ror directory.",
+			Series:            make(map[string]seriesOutput),
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  time.Since(start).Milliseconds(),
+			DataSourcePath:    input_dir,
+		}, err
 	}
 
 	if len(config.Data.DataInfo) == 0 {
-		return nil, &resultSeriesInfo{Message: "No data loaded, please add data first using the add/data tool."}, nil
+		return nil, &resultSeriesInfo{
+			Message:           "No data loaded, please add data first using the add/data tool.",
+			Series:            make(map[string]seriesOutput),
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  time.Since(start).Milliseconds(),
+			DataSourcePath:    input_dir,
+		}, nil
 	}
 
 	// Create a map of requested study UIDs for fast lookup
@@ -2227,8 +2241,6 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 	config.Data.Path = tmp_data_path
 
 	studies, err := dataSets(config, config.Data.DataInfo, func(counter int, nonDICOM int, numStudies int, numSeries int) {
-		//fmt.Printf("Processed %d DICOM files so far...\n", counter)
-
 		if req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
 			ProgressToken: req.Params.GetProgressToken(),
 			Progress:      float64(counter),
@@ -2238,11 +2250,21 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 			// cannot notify progress
 			// fmt.Println("Could not notify progress")
 		}
-	}) // TODO: can we make this create no output on stdout?
-	check(err)
-	if app != nil {
-		app.Stop()
+	})
+
+	if err != nil {
+		return nil, &resultDataCache{
+			Message:           "Error during parsing data folder.",
+			NumStudies:        0,
+			NumSeries:         0,
+			NumImages:         0,
+			NumParticipants:   0,
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  0,
+			DataSourcePath:    "",
+		}, err
 	}
+
 	if len(studies) == 0 {
 		return nil, &resultDataCache{
 			Message:           "Error we did not find any DICOM files in the folder specified.",
@@ -2260,8 +2282,18 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 	// update the config file now - the above dataSets can take a long time!
 	config, err = readConfig(dir_path)
 	if err != nil {
-		//exitGracefully(errors.New(errorConfigFile))
+		return nil, &resultDataCache{
+			Message:           "Error reading .ror/config",
+			NumStudies:        0,
+			NumSeries:         0,
+			NumImages:         0,
+			NumParticipants:   0,
+			TotalRecordsFound: 0,
+			ProcessingTimeMs:  0,
+			DataSourcePath:    "",
+		}, err
 	}
+	// TODO: should this add/merge to the existing DataInfo? What if we call the add/data tool multiple times with different data paths?
 	config.Data.DataInfo = studies
 	config.Data.Path = args.Path
 
@@ -2291,7 +2323,7 @@ func addDataCacheTool(ctx context.Context, req *mcp.CallToolRequest, args *argsP
 	var participants map[string]bool = make(map[string]bool)
 	for _, v := range studies {
 		for _, vv := range v {
-			participants[fmt.Sprintf("%s%s", vv.PatientID, vv.PatientName)] = true
+			participants[vv.patientIdentifier()] = true
 		}
 	}
 	numParticipants := len(participants)

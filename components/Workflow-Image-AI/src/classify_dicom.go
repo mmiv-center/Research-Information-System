@@ -168,6 +168,11 @@ func (data SeriesInfo) evalLeaf(rule Rule) (bool, string) {
 	t := rule.Tag
 	o := rule.Operator
 	v := rule.Value
+	// "always true" rules (e.g. `series ... HAS everything`) are stored by the
+	// parser with an empty Tag, so they must be answered before we look at any tag entries
+	if o == "true" || o == "everything" {
+		return true, ""
+	}
 	dataData := []string{""}
 	// if we have two fields, one for group, one for tag we need to look into the all fields to find it
 	if len(t) == 2 {
@@ -185,6 +190,9 @@ func (data SeriesInfo) evalLeaf(rule Rule) (bool, string) {
 			failureReason = fmt.Sprintf("Could not find tag (%s,%s)\n", group_str, tag_str)
 		}
 		foundValue = false // set this to false again so we can do a test of the value as well
+	} else if len(t) == 0 { // a rule without a tag has nothing to compare against
+		matches = false
+		failureReason = fmt.Sprintf("Rule has no tag, operator %s with value %v\n", o, v)
 	} else { // we have a single entry (really?) and treat it as the name of a variable
 		if t[0] == "ClassifyType" {
 			dataData = data.ClassifyTypes

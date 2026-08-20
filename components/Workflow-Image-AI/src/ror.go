@@ -405,6 +405,17 @@ func isTerminal() bool {
 	return isTerminalVal
 }
 
+// stdoutIsTTY is computed once at startup. It reports whether stdout is
+// connected to a real terminal. It is false when stdout is a pipe or
+// redirected to a file — exactly the cases where terminal-only output (ASCII
+// art, ANSI escape sequences) must be suppressed, because it would be noise in
+// the captured stream (e.g. `ror ... | ...`, or an MCP client reading the CLI's
+// output over a pipe). Only stdout matters here: that is where the graphics go.
+var stdoutIsTTY = func() bool {
+	fileInfo, err := os.Stdout.Stat()
+	return err == nil && (fileInfo.Mode()&os.ModeCharDevice) != 0
+}()
+
 // printImage2ASCII prints the image as ASCII art
 func printImage2SingleRune(img image.Image, PhotometricInterpretation string, PixelPaddingValue int) string {
 	//if PhotometricInterpretation == "MONOCHROME1" { // only valid if samples per pixel is 1
@@ -828,7 +839,9 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 
 	pixelDataInfo := dicom.MustGetPixelDataInfo(pixelDataElement.Value)
 	for _, fr := range pixelDataInfo.Frames {
-		fmt.Printf("\033[0;0f") // go to top of the screen
+		if stdoutIsTTY {
+			fmt.Printf("\033[0;0f") // go to top of the screen
+		}
 
 		// we can try to convert the image here based on the pixel representation
 		var img image.Image
@@ -949,10 +962,15 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 			//}
 			//app.Draw()
 		} else {
-			p := printImage2ASCII(newImage, PhotometricInterpretation, PixelPaddingValue)
-
-			fmt.Printf("%s", string(p))
-			//langFmt.Printf("\033[2K[%d] %s (%dx%d)\n", counter+1, path, orig_width, orig_height)
+			// Only emit the ASCII rendering when stdout is an actual terminal.
+			// When stdout is a pipe or redirected to a file (e.g. `ror ... | ...`,
+			// or an MCP client capturing the CLI's output over a pipe), the ASCII
+			// art would be noise in the stream, so suppress it. We still return the
+			// dimensions so the caller can print its "[n] path (WxH)" metadata line.
+			if stdoutIsTTY {
+				p := printImage2ASCII(newImage, PhotometricInterpretation, PixelPaddingValue)
+				fmt.Printf("%s", string(p))
+			}
 			return orig_width, orig_height
 		}
 	}
@@ -977,7 +995,9 @@ func copyFiles(SelectedSeriesInstanceUID string, SelectedStudyInstanceUID string
 	description.ProcessDataPath = dest_path
 	description.ClassifyTypes = classifyTypes
 	counter := startCounter // we are using this to name DICOM files, not possible here!
-	fmt.Printf("\033[2J\n") // clear the screen
+	if stdoutIsTTY {
+		fmt.Printf("\033[2J\n") // clear the screen
+	}
 
 	var input_path_list []string
 	if _, err := os.Stat(source_path); err != nil && os.IsNotExist(err) {
@@ -1525,7 +1545,9 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 						}
 					} else {
 						if processCallback == nil {
-							fmt.Printf("%05d files\r", counter)
+							if stdoutIsTTY {
+								fmt.Printf("%05d files\r", counter)
+							}
 						}
 					}
 
