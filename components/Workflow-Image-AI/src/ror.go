@@ -31,6 +31,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -237,25 +238,50 @@ func (info SeriesInfo) patientIdentifier() string {
 	return info.PatientID + "-" + info.PatientName
 }
 
+// cachedConfig stores a parsed config together with the modification
+// time of the file it was read from.
+type cachedConfig struct {
+	mtime  time.Time
+	config Config
+}
+
+// configCache caches parsed configs keyed by the cleaned file path so
+// that readConfig does not re-read and re-parse the file on disk unless
+// its modification time has changed since the last read.
+var configCache = struct {
+	sync.Mutex
+	entries map[string]cachedConfig
+}{
+	entries: make(map[string]cachedConfig),
+}
+
 // readConfig parses a provided config file as JSON.
 // It returns the parsed code as a marshaled structure.
+// Parsed configs are cached; the file on disk is only re-read and
+// re-parsed when its modification time changed since the last read.
 // @return
 func readConfig(path_string string) (Config, error) {
 	// todo: check directories up as well
-	if _, err := os.Stat(path_string); err != nil && os.IsNotExist(err) {
-		return Config{}, fmt.Errorf("file %s does not exist", path_string)
+	fileInfo, err := os.Stat(path_string)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Config{}, fmt.Errorf("file %s does not exist", path_string)
+		}
+		return Config{}, err
 	}
 	// we need to check if the config file has the correct permissions,
 	// produce a warning if it does not!
-	if fileInfo, err := os.Stat(path_string); err == nil {
-		mode := fileInfo.Mode()
-		mode_str := mode.String()
-		if mode_str != "-rw-------" && runtime.GOOS != "windows" {
-			fmt.Println("Warning: Your config file is not secure. Change the permissions by 'chmod 0600 .ror/config'. Now: ", mode)
-		}
-	} else {
-		fmt.Println(err)
+	if mode_str := fileInfo.Mode().String(); mode_str != "-rw-------" && runtime.GOOS != "windows" {
+		fmt.Println("Warning: Your config file is not secure. Change the permissions by 'chmod 0600 .ror/config'. Now: ", fileInfo.Mode())
 	}
+
+	cacheKey := filepath.Clean(path_string)
+	configCache.Lock()
+	if entry, ok := configCache.entries[cacheKey]; ok && entry.mtime.Equal(fileInfo.ModTime()) {
+		configCache.Unlock()
+		return entry.config, nil
+	}
+	configCache.Unlock()
 
 	// var buf bytes.Buffer
 	fi, err := os.Open(path_string)
@@ -272,16 +298,24 @@ func readConfig(path_string string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	if err := gzreader.Close(); err != nil {
+		return Config{}, err
+	}
 
 	var config Config
 
 	// we unmarshal our byteArray which contains our
 	// jsonFile's content into 'users' which we defined above
-	json.Unmarshal(byteValue, &config)
-
-	if err := gzreader.Close(); err != nil {
+	if err := json.Unmarshal(byteValue, &config); err != nil {
 		return Config{}, err
 	}
+
+	// cache the parsed config together with the modification time we
+	// checked above, so subsequent calls can skip re-parsing while the
+	// file on disk is unchanged.
+	configCache.Lock()
+	configCache.entries[cacheKey] = cachedConfig{mtime: fileInfo.ModTime(), config: config}
+	configCache.Unlock()
 
 	return config, nil
 }
