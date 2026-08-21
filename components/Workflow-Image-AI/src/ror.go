@@ -1148,28 +1148,20 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 					fmt.Println("Error: Could not convert raw data to []uint16")
 					continue
 				}
-				currValue := rawData[0]
-				currValue2 := complement2(currValue)
-				PixelPaddingValue = int(32768) + int(currValue2)
+				// keep the padding value in the same range as the pixel values we
+				// display (GetImage passes unsigned values through unchanged)
+				PixelPaddingValue = int(rawData[0])
 			} else {
+				// 32768 disables padding blanking in the renderer
 				PixelPaddingValue += int(32768)
 			}
-			rawDataSlice, ok := native_img.RawDataSlice().([]uint16)
-			if !ok {
-				fmt.Println("Error: Could not convert raw data to []uint16")
-				continue
-			}
-			for i := 0; i < native_img.Rows(); i++ {
-				for j := 0; j < native_img.Cols(); j++ {
-					currValue := uint16(rawDataSlice[i*native_img.Cols()+j])
-					currValue2 := complement2(currValue)
-					// the GetImage function will convert everything to uint16 later
-					// so any values we might have here that are negative will be gone
-					// lets shift into the positive range here (dah)
-
-					rawDataSlice[i*native_img.Cols()+j] = (uint16)(32768 + int(currValue2))
-				}
-			}
+			// Do NOT transform the frame's raw data in place (the old code applied
+			// v -> 32768-v to the shared buffer on every render). That map is its
+			// own inverse, so displaying the same cached dataset twice toggled
+			// between an inverted and a correct image (visible in the TUI
+			// animation: inverted, correct, inverted, ...). Unsigned values are
+			// already in the positive range and the renderer auto-windows the
+			// display, so the shift served no purpose.
 			img, err = native_img.GetImage()
 			if err != nil {
 				fmt.Println(err)
