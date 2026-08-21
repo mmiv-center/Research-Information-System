@@ -74,6 +74,11 @@ func (statusTUI *StatusTUI) Init() {
 			SetText(text)
 	}
 	statusTUI.summary = newPrimitive("")
+	// keep lines on a single row: the window is narrow, so wrapping makes
+	// the text hard to read. Long lines are clipped at the border instead
+	// and can be scrolled sideways (left/right arrow or h/l) while vertical
+	// scrolling works as before (up/down arrow or j/k).
+	statusTUI.summary.SetWrap(false)
 	statusTUI.summary.SetBorder(true).SetTitle("Current selection")
 	statusTUI.viewer = newPrimitive("").SetDynamicColors(true)
 	statusTUI.selection = tview.NewTreeView()

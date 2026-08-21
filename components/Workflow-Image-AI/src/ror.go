@@ -2361,7 +2361,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo, processCall
 		frac := matched / allSeriesNum
 
 		// mean should be close to 0.5 -> prefer a balanced split, penalize drift from it
-		score := -math.Abs(frac-0.5)
+		score := -math.Abs(frac - 0.5)
 
 		// penalize rule complexity: fewer rules is better.
 		// Count leaves in the RulesTree (the structure findMatchingSets evaluates),
@@ -3852,7 +3852,7 @@ func createTemplateFolders(dir_path string, init_type string, author_name string
 	}
 	data.Viewer = Viewer{
 		TextColor: "#000000",
-		Clip:      []float32{5, 95},
+		Clip:      []float32{1, 99},
 	}
 	if init_type == "bash" {
 		data.CallString = "./stub.sh {}"
@@ -4202,8 +4202,8 @@ func main() {
 			}
 			// we expect a path first (or it could be in -input_dir)
 			values := initCommand.Args()
-			if len(values) == 1 && input_dir != defaultInputDir {
-				fmt.Printf("Warning: conflicting arguments -input_dir and positional argument. Will use the positional argument.")
+			if len(values) == 1 && input_dir != "." {
+				fmt.Printf("Warning: conflicting arguments -input_dir=\"%s\" and positional argument=\"%s\". Will use the positional argument (%s).\n", input_dir, initCommand.Arg(0), initCommand.Arg(0))
 			}
 			if len(values) == 1 {
 				input_dir = initCommand.Arg(0)
