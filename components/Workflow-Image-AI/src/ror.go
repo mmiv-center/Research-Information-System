@@ -343,8 +343,30 @@ func (config Config) writeConfig() bool {
 		log.Fatal(err)
 	}
 
-	err = os.WriteFile(dir_path, buf.Bytes(), 0600)
+	// Atomic write: write to a temp file in the same directory and rename it
+	// into place, so a crash or Ctrl-C mid-write never leaves a truncated or
+	// partially-written config file behind (the previous file stays intact
+	// until the rename swaps it in).
+	tmp, err := os.CreateTemp(filepath.Dir(dir_path), ".config-*.tmp")
 	if err != nil {
+		log.Fatal(err)
+	}
+	tmpName := tmp.Name()
+	if _, werr := tmp.Write(buf.Bytes()); werr != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		log.Fatal(werr)
+	}
+	if cerr := tmp.Close(); cerr != nil {
+		os.Remove(tmpName)
+		log.Fatal(cerr)
+	}
+	if err := os.Chmod(tmpName, 0600); err != nil {
+		os.Remove(tmpName)
+		log.Fatal(err)
+	}
+	if err := os.Rename(tmpName, dir_path); err != nil {
+		os.Remove(tmpName)
 		log.Fatal(err)
 	}
 
@@ -1525,6 +1547,117 @@ func copyFiles(SelectedSeriesInstanceUID string, SelectedStudyInstanceUID string
 	return description.NumFiles, description
 }
 
+// copySeriesInfo returns a deep copy of a SeriesInfo so it can be shared with
+// another goroutine without aliasing the backing arrays of its slices.
+func copySeriesInfo(s SeriesInfo) SeriesInfo {
+	cp := s
+	if s.ClassifyTypes != nil {
+		cp.ClassifyTypes = append([]string(nil), s.ClassifyTypes...)
+	}
+	if s.All != nil {
+		cp.All = make([]TagAndValue, len(s.All))
+		for i := range s.All {
+			cp.All[i] = s.All[i]
+			if s.All[i].Value != nil {
+				cp.All[i].Value = append([]string(nil), s.All[i].Value...)
+			}
+		}
+	}
+	if s.Annotations != nil {
+		cp.Annotations = append([]Annotation(nil), s.Annotations...)
+	}
+	if s.SOPInstanceUIDs != nil {
+		cp.SOPInstanceUIDs = append([]string(nil), s.SOPInstanceUIDs...)
+	}
+	return cp
+}
+
+// copyDatasets returns a deep copy of the study/series dataset map so it can
+// be marshalled in a background goroutine while the import loop keeps
+// mutating the original map.
+func copyDatasets(m map[string]map[string]SeriesInfo) map[string]map[string]SeriesInfo {
+	out := make(map[string]map[string]SeriesInfo, len(m))
+	for study, inner := range m {
+		innerCopy := make(map[string]SeriesInfo, len(inner))
+		for series, info := range inner {
+			innerCopy[series] = copySeriesInfo(info)
+		}
+		out[study] = innerCopy
+	}
+	return out
+}
+
+// configCheckpointWriter persists config checkpoints off the import loop.
+// It keeps only the most recent snapshot (latest-wins) and writes it
+// atomically from a single background goroutine, so the caller's file walk
+// never blocks on JSON marshalling, gzip, or the disk write.
+type configCheckpointWriter struct {
+	mu     sync.Mutex
+	latest Config
+	queued bool
+	wake   chan struct{}
+	stopCh chan struct{}
+	done   chan struct{}
+}
+
+func newConfigCheckpointWriter() *configCheckpointWriter {
+	return &configCheckpointWriter{
+		wake: make(chan struct{}, 1),
+		stopCh: make(chan struct{}),
+		done:   make(chan struct{}),
+	}
+}
+
+// request publishes a snapshot to be persisted. It is cheap and safe to call
+// from the import loop; if a write is already pending it is simply replaced
+// by the newer one.
+func (w *configCheckpointWriter) request(cfg Config) {
+	w.mu.Lock()
+	w.latest = cfg
+	w.queued = true
+	w.mu.Unlock()
+	select {
+	case w.wake <- struct{}{}:
+	default: // a wake is already pending; the writer will pick up the new snapshot
+	}
+}
+
+// start launches the background writer goroutine.
+func (w *configCheckpointWriter) start() {
+	go func() {
+		defer close(w.done)
+		for {
+			select {
+			case <-w.wake:
+				w.flush()
+			case <-w.stopCh:
+				w.flush() // persist the final snapshot on the way out
+				return
+			}
+		}
+	}()
+}
+
+// stop flushes the final snapshot and waits for the writer goroutine to exit.
+// After it returns no background write is in flight.
+func (w *configCheckpointWriter) stop() {
+	close(w.stopCh)
+	<-w.done
+}
+
+// flush persists the newest queued snapshot, if any.
+func (w *configCheckpointWriter) flush() {
+	w.mu.Lock()
+	if !w.queued {
+		w.mu.Unlock()
+		return
+	}
+	cfg := w.latest
+	w.queued = false
+	w.mu.Unlock()
+	cfg.writeConfig()
+}
+
 // dataSets parses the config.Data path for DICOM files.
 // It returns the detected studies and series as collections of paths.
 func dataSets(config Config, previous map[string]map[string]SeriesInfo, processCallback func(counter int, nonDICOM int, numStudies int, numSeries int)) (map[string]map[string]SeriesInfo, error) {
@@ -1556,6 +1689,11 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 	counter := 0
 	nonDICOM := 0
 	langFmt := message.NewPrinter(language.English)
+	// persist periodic config checkpoints in a background goroutine so the
+	// import loop below never blocks on marshal + gzip + disk write
+	checkpoint := newConfigCheckpointWriter()
+	checkpoint.start()
+	defer checkpoint.stop()
 	for p := range input_path_list {
 		err := filepath.Walk(input_path_list[p], func(path string, info os.FileInfo, err error) error {
 			//fmt.Println(path)
@@ -1570,17 +1708,15 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 			}
 			// every once in a while we should save the datasets - so we can break reading without lossing work
 			if counter > 0 && counter%200 == 0 {
-				dir_path := input_dir + "/.ror/config"
-				config2, err := readConfig(dir_path)
-				if err != nil {
-					exitGracefully(errors.New("could not read config file"))
-				}
-				config2.Data.DataInfo = datasets
-				// do we need to copy this - do we need to copy more???
-				config2.Data.Path = config.Data.Path
+				// snapshot the in-memory state (deep copy) so the background
+				// writer can marshal + write it without racing the walk loop,
+				// which keeps adding to `datasets` on this goroutine. The base
+				// config was already loaded in full by the caller before
+				// calling us, so we do not re-read it from disk here.
+				checkpointCfg := config
+				checkpointCfg.Data.DataInfo = copyDatasets(datasets)
+				checkpoint.request(checkpointCfg)
 
-				// write out config again
-				config2.writeConfig()
 				if app != nil {
 					app.Sync()
 				}
@@ -1593,9 +1729,6 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 				if processCallback != nil {
 					processCallback(counter, nonDICOM, len(datasets), numSeries)
 				}
-
-				//file, _ := json.MarshalIndent(config2, "", " ")
-				//_ = ioutil.WriteFile(dir_path, file, 0600)
 			}
 
 			// we could be faster here if we ignore zip files, those are large and we don't want them (?)
