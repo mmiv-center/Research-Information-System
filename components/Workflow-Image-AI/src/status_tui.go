@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +29,7 @@ type StatusTUI struct {
 	config                    Config
 	stopAnimation             bool
 	lastSelectedSeries        string
+	summaryLines              []string
 }
 
 func findSeriesInfo(dataSets map[string]map[string]SeriesInfo, SeriesInstanceUID string) (SeriesInfo, error) {
@@ -60,27 +62,116 @@ func typeToColor(t string) string {
 }
 
 func addDataset(statusTUI *StatusTUI, dataset dicom.Dataset) {
-	if len((*statusTUI).selectedDatasets) == 0 {
-		// this is the first time we add a dataset, show the
-		// meta-data if we have an app
-		if (*statusTUI).app != nil {
-			var sAllInfo string
-			for _, a := range (*statusTUI).selectedSeriesInformation.All {
-				line := a.Tag.String() + " " + fmt.Sprintf("%v", a.Value)
-				if color := typeToColor(a.Type); color != "" {
-					line = color + line + "[-]"
-				}
-				sAllInfo += " " + line + "\n"
-			}
-			//fmt.Printf("IN FIRST DATASET! %s", sAllInfo)
+	(*statusTUI).selectedDatasets = append((*statusTUI).selectedDatasets, dataset)
+}
 
-			(*statusTUI).summary.Clear()
-			fmt.Fprintf((*statusTUI).summary, "%s\n%s\n\n%s", (*statusTUI).selectedSeriesInformation.SeriesDescription, strings.Join((*statusTUI).selectedSeriesInformation.ClassifyTypes, ","),
-				sAllInfo)
-		}
+// updateSummary re-renders the "Current selection" panel with the metadata of
+// the displayed image, so the panel follows the animation instead of only
+// showing the series information. Lines whose content differs from the
+// previously displayed image are marked with a leading '*' so the changes
+// stand out. Replacing the text of the TextView preserves its scroll
+// position (tview keeps the line offset and the track-end state), so the
+// panel does not jump back to the top with every new image.
+func updateSummary(statusTUI *StatusTUI, dataset dicom.Dataset) {
+	if statusTUI.app == nil {
+		return
+	}
+	series := statusTUI.selectedSeriesInformation
+	all := allTagAndValues(dataset)
+
+	// the plain-text lines of the panel; they are remembered (in
+	// summaryLines) so the next image can be compared line by line
+	type panelLine struct {
+		text string
+		typ  string
+	}
+	lines := make([]panelLine, 0, len(all)+3)
+	lines = append(lines, panelLine{text: series.SeriesDescription})
+	lines = append(lines, panelLine{text: strings.Join(series.ClassifyTypes, ",")})
+	lines = append(lines, panelLine{text: ""})
+	for _, a := range all {
+		lines = append(lines, panelLine{text: a.Tag.String() + " " + fmt.Sprintf("%v", a.Value), typ: a.Type})
 	}
 
-	(*statusTUI).selectedDatasets = append((*statusTUI).selectedDatasets, dataset)
+	plain := make([]string, len(lines))
+	var out strings.Builder
+	for i, l := range lines {
+		plain[i] = l.text
+		// mark lines that changed compared to the previously displayed
+		// image; the first rendering of a series (summaryLines is nil) is
+		// not marked
+		mark := " "
+		if statusTUI.summaryLines != nil && (i >= len(statusTUI.summaryLines) || statusTUI.summaryLines[i] != l.text) {
+			mark = "*"
+		}
+		line := mark + l.text
+		if color := typeToColor(l.typ); color != "" {
+			line = mark + color + l.text + "[-]"
+		}
+		out.WriteString(line)
+		out.WriteByte('\n')
+	}
+
+	statusTUI.summary.Clear()
+	fmt.Fprint(statusTUI.summary, out.String())
+	statusTUI.summaryLines = plain
+}
+
+// sliceSortKey extracts the two ordering keys from a single image: the
+// Instance Number (0020,0013, VR IS) and the Slice Location (0020,1041, VR DS).
+// The dicom library stores both as strings (they map to VRStringList), so we
+// parse them here. hasSliceLoc reports whether a Slice Location was present and
+// could be parsed as a number.
+func sliceSortKey(dataset dicom.Dataset) (instanceNumber int, sliceLocation float64, hasSliceLoc bool) {
+	if v, err := dataset.FindElementByTag(tag.InstanceNumber); err == nil {
+		if strs := dicom.MustGetStrings(v.Value); len(strs) > 0 {
+			instanceNumber, _ = strconv.Atoi(strs[0])
+		}
+	}
+	if v, err := dataset.FindElementByTag(tag.SliceLocation); err == nil {
+		if strs := dicom.MustGetStrings(v.Value); len(strs) > 0 {
+			if loc, err := strconv.ParseFloat(strs[0], 64); err == nil {
+				sliceLocation = loc
+				hasSliceLoc = true
+			}
+		}
+	}
+	return
+}
+
+// sortDatasets orders the images of a series for the animation. When every
+// image carries a Slice Location and those values actually differ across the
+// series, the anatomical order is used (Slice Location ascending, with Instance
+// Number as a tie-breaker). Otherwise we fall back to acquisition order
+// (Instance Number ascending). This mirrors how DICOM viewers order slices for
+// display, and keeps the animation a clean sweep through the anatomy.
+func sortDatasets(datasets []dicom.Dataset) {
+	type key struct {
+		instanceNumber int
+		sliceLocation  float64
+		hasSliceLoc    bool
+	}
+	keys := make([]key, len(datasets))
+	numWithSlice := 0
+	distinct := map[float64]struct{}{}
+	for i, d := range datasets {
+		in, sl, has := sliceSortKey(d)
+		keys[i] = key{in, sl, has}
+		if has {
+			numWithSlice++
+			distinct[sl] = struct{}{}
+		}
+	}
+	useSliceLocation := numWithSlice == len(datasets) && len(distinct) > 1
+	sort.SliceStable(datasets, func(i, j int) bool {
+		if useSliceLocation {
+			if keys[i].sliceLocation != keys[j].sliceLocation {
+				return keys[i].sliceLocation < keys[j].sliceLocation
+			}
+			return keys[i].instanceNumber < keys[j].instanceNumber
+		}
+		return keys[i].instanceNumber < keys[j].instanceNumber
+	})
 }
 
 func (statusTUI *StatusTUI) Init() {
@@ -105,7 +196,7 @@ func (statusTUI *StatusTUI) Init() {
 	statusTUI.viewer = newPrimitive("").SetDynamicColors(true)
 	statusTUI.selection = tview.NewTreeView()
 	statusTUI.selection.SetBorder(true)
-	statusTUI.selection.SetTitle("Selections")
+	statusTUI.selection.SetTitle("Series by job")
 	statusTUI.viewer.SetBorder(true).SetTitle("DICOM")
 
 	path_config := input_dir + "/.ror/config"
@@ -224,6 +315,9 @@ func (statusTUI *StatusTUI) Init() {
 		}
 		SelectedSeriesInstanceUID := SeriesInstanceUID
 		statusTUI.selectedDatasets = nil
+		// the first image of the new series is not marked as changed, only
+		// the differences between the images of the series get the '*'
+		statusTUI.summaryLines = nil
 		statusTUI.currentImage = 0
 		statusTUI.stopAnimation = false
 		filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
@@ -251,6 +345,10 @@ func (statusTUI *StatusTUI) Init() {
 			}
 			return nil
 		})
+		// all images of the series are now in memory; order them before the
+		// animation starts so it sweeps through the anatomy in a sensible order
+		// instead of following the file-system walk order
+		sortDatasets(statusTUI.selectedDatasets)
 
 		children := node.GetChildren()
 		if len(children) == 0 {
@@ -282,6 +380,9 @@ func showImage(statusTUI *StatusTUI, idx int) {
 	statusTUI.currentImage = idx
 	showDataset(statusTUI.selectedDatasets[idx], 1, "path", "", statusTUI.viewer, statusTUI.config.Viewer.Clip)
 	if statusTUI.app != nil {
+		// update the "Current selection" panel for the new image before the
+		// redraw so both are visible in the same frame
+		updateSummary(statusTUI, statusTUI.selectedDatasets[idx])
 		statusTUI.app.Draw()
 		statusTUI.viewer.SetTitle(fmt.Sprintf("DICOM image %d/%d", statusTUI.currentImage+1, len(statusTUI.selectedDatasets)))
 	}

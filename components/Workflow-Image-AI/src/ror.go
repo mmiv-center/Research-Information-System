@@ -238,6 +238,125 @@ func (info SeriesInfo) patientIdentifier() string {
 	return info.PatientID + "-" + info.PatientName
 }
 
+// allTagAndValues extracts the tag/value pairs of a single dataset that make
+// up the "All" section of a SeriesInfo. Every element whose value
+// representation is not one of the large or binary ones (pixel data,
+// 16/32-bit lists) is converted to a TagAndValue with a guessed type
+// (numeric, categorical, time, datetime, uid).
+func allTagAndValues(dataset dicom.Dataset) []TagAndValue {
+	var all_dicom []*dicom.Element = make([]*dicom.Element, 0)
+	// we should clean out the larger elements based on VR
+	for i := 0; i < len(dataset.Elements); i++ {
+		if !(dataset.Elements[i].ValueRepresentation == tag.VRUInt16List ||
+			dataset.Elements[i].ValueRepresentation == tag.VRUInt32List ||
+			dataset.Elements[i].ValueRepresentation == tag.VRBytes ||
+			dataset.Elements[i].ValueRepresentation == tag.VRPixelData) {
+			all_dicom = append(all_dicom, dataset.Elements[i]) // append(all[:i], all[i+1:]...)
+		}
+	}
+	// now convert for the All secion
+	var all []TagAndValue = make([]TagAndValue, 0)
+	for i := 0; i < len(all_dicom); i++ {
+		var tav TagAndValue
+		tav.Tag.Element = all_dicom[i].Tag.Element
+		tav.Tag.Group = all_dicom[i].Tag.Group
+
+		// special treatments for known value representations
+		if all_dicom[i].RawValueRepresentation == "TM" {
+			tav.Value = all_dicom[i].Value.GetValue().([]string)
+			tav.Type = "time"
+			all = append(all, tav)
+			continue // do not check more
+		}
+
+		if all_dicom[i].RawValueRepresentation == "DT" {
+			tav.Value = all_dicom[i].Value.GetValue().([]string)
+			tav.Type = "datetime"
+			all = append(all, tav)
+			continue // do not check more
+		}
+
+		if all_dicom[i].RawValueRepresentation == "UI" {
+			tav.Value = all_dicom[i].Value.GetValue().([]string)
+			tav.Type = "uid"
+			all = append(all, tav)
+			continue // do not check more
+		}
+
+		switch all_dicom[i].Value.ValueType() {
+		case dicom.Strings:
+			//tav.Value = all_dicom[i].Value.GetValue().([]string)
+			//tav.Type = "categorical"
+			//all = append(all, tav)
+			// First try to parse as numeric if possible
+			strValues := all_dicom[i].Value.GetValue().([]string)
+			isNumeric := true
+
+			// Check if all values can be parsed as numbers
+			for _, val := range strValues {
+				// Skip empty strings
+				if val == "" {
+					continue
+				}
+
+				// Try to parse as float first (more general than int)
+				_, err := strconv.ParseFloat(val, 64)
+				if err != nil {
+					isNumeric = false
+					break
+				}
+			}
+
+			tav.Value = strValues
+			if isNumeric && len(strValues) > 0 {
+				// Convert to numeric representation for consistency
+				numericValues := make([]string, len(strValues))
+				for i, val := range strValues {
+					if val != "" {
+						// fval, _ := strconv.ParseFloat(val, 64)
+						// Format with reasonable precision
+						numericValues[i] = val // fmt.Sprintf("%.6g", fval) // %.6g handles both int and float nicely
+					} else {
+						numericValues[i] = ""
+					}
+				}
+				tav.Value = numericValues
+				tav.Type = "numeric"
+			} else {
+				tav.Type = "categorical"
+			}
+			all = append(all, tav)
+		case dicom.Ints:
+			tav.Value = []string{}
+			did := false
+			for _, v := range all_dicom[i].Value.GetValue().([]int) {
+				tav.Value = append(tav.Value, fmt.Sprintf("%d", v))
+				tav.Type = "numeric"
+				did = true
+			}
+			if did {
+				all = append(all, tav)
+			}
+		case dicom.Floats:
+			tav.Value = []string{}
+			did := false
+			for _, v := range all_dicom[i].Value.GetValue().([]float64) {
+				tav.Value = append(tav.Value, fmt.Sprintf("%f", v))
+				tav.Type = "numeric"
+				did = true
+			}
+			if did {
+				all = append(all, tav)
+			}
+		default:
+			// todo: handle sequences here
+			//fmt.Printf("Warning: we don't know that type yet %v\n", all_dicom[i].Value.ValueType())
+			// ...
+		}
+	}
+	return all
+}
+
 // cachedConfig stores a parsed config together with the modification
 // time of the file it was read from.
 type cachedConfig struct {
@@ -1815,117 +1934,7 @@ func dataSets(config Config, previous map[string]map[string]SeriesInfo, processC
 					//	return s[:len(s)-1]
 					//}
 
-					var all_dicom []*dicom.Element = make([]*dicom.Element, 0)
-					// we should clean out the larger elements based on VR
-					for i := 0; i < len(dataset.Elements); i++ {
-						if !(dataset.Elements[i].ValueRepresentation == tag.VRUInt16List ||
-							dataset.Elements[i].ValueRepresentation == tag.VRUInt32List ||
-							dataset.Elements[i].ValueRepresentation == tag.VRBytes ||
-							dataset.Elements[i].ValueRepresentation == tag.VRPixelData) {
-							all_dicom = append(all_dicom, dataset.Elements[i]) // append(all[:i], all[i+1:]...)
-						}
-					}
-					// now convert for the All secion
-					var all []TagAndValue = make([]TagAndValue, 0)
-					for i := 0; i < len(all_dicom); i++ {
-						var tav TagAndValue
-						tav.Tag.Element = all_dicom[i].Tag.Element
-						tav.Tag.Group = all_dicom[i].Tag.Group
-
-						// special treatments for known value representations
-						if all_dicom[i].RawValueRepresentation == "TM" {
-							tav.Value = all_dicom[i].Value.GetValue().([]string)
-							tav.Type = "time"
-							all = append(all, tav)
-							continue // do not check more
-						}
-
-						if all_dicom[i].RawValueRepresentation == "DT" {
-							tav.Value = all_dicom[i].Value.GetValue().([]string)
-							tav.Type = "datetime"
-							all = append(all, tav)
-							continue // do not check more
-						}
-
-						if all_dicom[i].RawValueRepresentation == "UI" {
-							tav.Value = all_dicom[i].Value.GetValue().([]string)
-							tav.Type = "uid"
-							all = append(all, tav)
-							continue // do not check more
-						}
-
-						switch all_dicom[i].Value.ValueType() {
-						case dicom.Strings:
-							//tav.Value = all_dicom[i].Value.GetValue().([]string)
-							//tav.Type = "categorical"
-							//all = append(all, tav)
-							// First try to parse as numeric if possible
-							strValues := all_dicom[i].Value.GetValue().([]string)
-							isNumeric := true
-
-							// Check if all values can be parsed as numbers
-							for _, val := range strValues {
-								// Skip empty strings
-								if val == "" {
-									continue
-								}
-
-								// Try to parse as float first (more general than int)
-								_, err := strconv.ParseFloat(val, 64)
-								if err != nil {
-									isNumeric = false
-									break
-								}
-							}
-
-							tav.Value = strValues
-							if isNumeric && len(strValues) > 0 {
-								// Convert to numeric representation for consistency
-								numericValues := make([]string, len(strValues))
-								for i, val := range strValues {
-									if val != "" {
-										// fval, _ := strconv.ParseFloat(val, 64)
-										// Format with reasonable precision
-										numericValues[i] = val // fmt.Sprintf("%.6g", fval) // %.6g handles both int and float nicely
-									} else {
-										numericValues[i] = ""
-									}
-								}
-								tav.Value = numericValues
-								tav.Type = "numeric"
-							} else {
-								tav.Type = "categorical"
-							}
-							all = append(all, tav)
-
-						case dicom.Ints:
-							tav.Value = []string{}
-							did := false
-							for _, v := range all_dicom[i].Value.GetValue().([]int) {
-								tav.Value = append(tav.Value, fmt.Sprintf("%d", v))
-								tav.Type = "numeric"
-								did = true
-							}
-							if did {
-								all = append(all, tav)
-							}
-						case dicom.Floats:
-							tav.Value = []string{}
-							did := false
-							for _, v := range all_dicom[i].Value.GetValue().([]float64) {
-								tav.Value = append(tav.Value, fmt.Sprintf("%f", v))
-								tav.Type = "numeric"
-								did = true
-							}
-							if did {
-								all = append(all, tav)
-							}
-						default:
-							// todo: handle sequences here
-							//fmt.Printf("Warning: we don't know that type yet %v\n", all_dicom[i].Value.ValueType())
-							// ...
-						}
-					}
+					all := allTagAndValues(dataset)
 
 					showImages := true
 					if processCallback != nil {
