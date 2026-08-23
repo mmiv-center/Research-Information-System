@@ -39,6 +39,30 @@ SELECT <output_level> FROM study WHERE SERIES [NAMED <named match>] HAS <conditi
 
 ## Examples by Use Case
 
+### Example 0: Any image series
+
+```
+SELECT series FROM study WHERE SERIES HAS EVERYTHING
+```
+
+### Example 0.1: Every series in one study
+
+```
+SELECT study FROM study WHERE SERIES HAS EVERYTHING
+```
+
+### Example 0.2: Everything from one patient
+
+```
+SELECT patient FROM study WHERE SERIES HAS EVERYTHING
+```
+
+### Example 0.3: Everything
+
+```
+SELECT project FROM study WHERE SERIES HAS EVERYTHING
+```
+
 ### Example 1: Find all MR imaging
 
 ```
@@ -57,10 +81,12 @@ ALSO WHERE series named "T2" has
 ### Example 3: Complex multi-series filter
 
 ```
-SELECT patient FROM study
-WHERE series named "Anat" has Modality == 'MR' AND SeriesDescription regexp '^Anat'
-ALSO WHERE series named "Func" has Modality == 'MR' AND NumImages > 100
-ALSO WHERE series named "DTI" has ClassifyType containing DIFFUSION
+SELECT patient FROM study WHERE 
+   series named "Anat" has Modality == 'MR' AND SeriesDescription regexp '^Anat'
+ALSO WHERE 
+   series named "Func" has Modality == 'MR' AND NumImages > 100
+ALSO WHERE 
+   series named "DTI" has ClassifyType containing DIFFUSION
 ````
 
 ### Example 4: Numeric filtering
