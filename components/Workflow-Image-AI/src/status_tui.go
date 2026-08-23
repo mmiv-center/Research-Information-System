@@ -16,12 +16,16 @@ import (
 )
 
 type StatusTUI struct {
-	dataSets                  map[string]map[string]SeriesInfo
-	viewer                    *tview.TextView
-	summary                   *tview.TextView
-	selection                 *tview.TreeView
-	app                       *tview.Application
-	flex                      *tview.Flex
+	dataSets  map[string]map[string]SeriesInfo
+	viewer    *tview.TextView
+	summary   *tview.TextView
+	selection *tview.TreeView
+	app       *tview.Application
+	flex      *tview.Flex
+	// topSection is the inner flex that lays the summary (left) and the
+	// viewer (right) out side by side; it is kept as a field so its layout can
+	// be re-sized when the display mode changes.
+	topSection                *tview.Flex
 	ast                       AST
 	selectedDatasets          []dicom.Dataset
 	currentImage              int
@@ -30,6 +34,43 @@ type StatusTUI struct {
 	stopAnimation             bool
 	lastSelectedSeries        string
 	summaryLines              []string
+	// mode selects how the "DICOM Meta Data" panel is rendered:
+	//   1 (default) tag shown as "(group,tag)", panel 30 wide
+	//   2           tag shown as its camel-case name, panel 60 wide
+	// Toggled with the keys '1' and '2'.
+	mode int
+}
+
+// leftPanelWidth is the width of the "DICOM Meta Data" panel for a given mode.
+func leftPanelWidth(mode int) int {
+	if mode == 2 {
+		return 60
+	}
+	return 30
+}
+
+// maxTagKeywordLen is the maximum width of the human-readable tag keyword
+// shown in mode 2. Real DICOM tag names in a CT series run up to ~36 chars
+// (e.g. "ContrastBolusIngredientConcentration"); most are under 28. Truncating
+// at 30 keeps the vast majority of names intact while guaranteeing that, in
+// the 60-wide panel, there is still room for the tag's value on the same line.
+const maxTagKeywordLen = 30
+
+// tagKeyword returns the human-readable DICOM keyword of a tag in camel-case
+// notation without spaces (e.g. "InstanceNumber"), truncated to
+// maxTagKeywordLen. If the tag is not part of the DICOM dictionary (e.g. a
+// private/vendor tag), it falls back to the "(gggg,tttt)" form so the line is
+// still identifiable.
+func tagKeyword(t tag.Tag) string {
+	info, err := tag.Find(t)
+	if err != nil {
+		return t.String()
+	}
+	kw := info.Keyword
+	if len(kw) > maxTagKeywordLen {
+		kw = kw[:maxTagKeywordLen]
+	}
+	return kw
 }
 
 func findSeriesInfo(dataSets map[string]map[string]SeriesInfo, SeriesInstanceUID string) (SeriesInfo, error) {
@@ -90,7 +131,13 @@ func updateSummary(statusTUI *StatusTUI, dataset dicom.Dataset) {
 	lines = append(lines, panelLine{text: strings.Join(series.ClassifyTypes, ",")})
 	lines = append(lines, panelLine{text: ""})
 	for _, a := range all {
-		lines = append(lines, panelLine{text: a.Tag.String() + " " + fmt.Sprintf("%v", a.Value), typ: a.Type})
+		// mode 1 shows the tag as "(group,tag)"; mode 2 shows its human-readable
+		// camel-case name (see tagKeyword)
+		label := a.Tag.String()
+		if statusTUI.mode == 2 {
+			label = tagKeyword(a.Tag)
+		}
+		lines = append(lines, panelLine{text: label + " " + fmt.Sprintf("%v", a.Value), typ: a.Type})
 	}
 
 	plain := make([]string, len(lines))
@@ -211,10 +258,17 @@ func (statusTUI *StatusTUI) Init() {
 	}
 	statusTUI.config = conf
 
+	// default display mode: tag shown as "(group,tag)", panel 30 wide
+	statusTUI.mode = 1
+	// the inner flex lays the summary (left) and the viewer (right) out side by
+	// side; keep a reference so the summary's width can be re-sized on a mode
+	// change (mode 2 doubles it). The outer flex stacks that row above the
+	// selection tree.
+	statusTUI.topSection = tview.NewFlex().SetDirection(tview.FlexColumn).
+		AddItem(statusTUI.summary, leftPanelWidth(statusTUI.mode), 1, false).
+		AddItem(statusTUI.viewer, 0, 1, true)
 	statusTUI.flex = tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
-			AddItem(statusTUI.summary, 30, 1, false).
-			AddItem(statusTUI.viewer, 0, 1, true), 0, 1, false).
+		AddItem(statusTUI.topSection, 0, 1, false).
 		AddItem(statusTUI.selection, 12, 1, false)
 
 	// start with setting up the list of selected datasets
@@ -442,10 +496,55 @@ func (statusTUI *StatusTUI) captureInput(event *tcell.EventKey) *tcell.EventKey 
 			return nil
 		}
 	}
-	if k == tcell.KeyRune && event.Rune() == rune('c') {
-		statusTUI.stopAnimation = !statusTUI.stopAnimation
+	if k == tcell.KeyRune {
+		switch event.Rune() {
+		case rune('1'):
+			// switch to mode 1: tag as "(group,tag)", panel 30 wide
+			statusTUI.setMode(1)
+			return nil // consume the key; tview redraws with the new layout
+		case rune('2'):
+			// switch to mode 2: tag as its camel-case name, panel 60 wide
+			statusTUI.setMode(2)
+			return nil // consume the key; tview redraws with the new layout
+		case rune('c'):
+			statusTUI.stopAnimation = !statusTUI.stopAnimation
+		}
 	}
 	return event
+}
+
+// setMode switches the "DICOM Meta Data" panel between mode 1 (default: tag as
+// "(group,tag)", panel 30 wide) and mode 2 (tag as its camel-case name, panel
+// 60 wide). It runs inside tview's event loop, so it must not call app.Draw();
+// it does the resize and re-render synchronously, and tview redraws right
+// after the key handler returns.
+func (statusTUI *StatusTUI) setMode(mode int) {
+	if mode == statusTUI.mode {
+		return // already in this mode
+	}
+	oldMode := statusTUI.mode
+	statusTUI.mode = mode
+
+	// (a) re-size the left panel. The viewer sits to its right in the same
+	// row, so it absorbs the width change on the next layout pass.
+	statusTUI.topSection.ResizeItem(statusTUI.summary, leftPanelWidth(mode), 1)
+
+	// The viewer's on-screen rect is only updated when the flex is drawn, but
+	// we want to re-render the image at its new width right now (and we are in
+	// the event loop, so we cannot request a draw). The row's total width is
+	// unchanged, so the viewer simply shifts by the summary's width delta.
+	if x, y, w, h := statusTUI.viewer.GetRect(); w > 0 {
+		delta := leftPanelWidth(mode) - leftPanelWidth(oldMode)
+		statusTUI.viewer.SetRect(x+delta, y, w-delta, h)
+	}
+
+	// (b) re-render the current image and the panel in the new format. The
+	// first render after the switch is not marked as changed (like a newly
+	// selected series).
+	statusTUI.summaryLines = nil
+	if len(statusTUI.selectedDatasets) > 0 {
+		showImageNow(statusTUI, statusTUI.currentImage)
+	}
 }
 
 func (statusTUI *StatusTUI) Run() {
