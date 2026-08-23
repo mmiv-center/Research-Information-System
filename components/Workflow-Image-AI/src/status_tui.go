@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -40,15 +39,38 @@ func findSeriesInfo(dataSets map[string]map[string]SeriesInfo, SeriesInstanceUID
 	return SeriesInfo{}, fmt.Errorf("SeriesInstanceUID %s not found", SeriesInstanceUID)
 }
 
+// typeToColor maps the type of a variable (TagAndValue) to a tview color tag
+// for the "Current selection" panel. The type is shown as a color of the line
+// instead of as trailing text. Unknown or empty types keep the default color.
+func typeToColor(t string) string {
+	switch t {
+	case "numeric":
+		return "[aqua]"
+	case "categorical":
+		return "[lime]"
+	case "time":
+		return "[yellow]"
+	case "datetime":
+		return "[olive]"
+	case "uid":
+		return "[silver]"
+	default:
+		return ""
+	}
+}
+
 func addDataset(statusTUI *StatusTUI, dataset dicom.Dataset) {
 	if len((*statusTUI).selectedDatasets) == 0 {
 		// this is the first time we add a dataset, show the
 		// meta-data if we have an app
 		if (*statusTUI).app != nil {
 			var sAllInfo string
-			removeBraces := regexp.MustCompile("(^{)|(}$)")
 			for _, a := range (*statusTUI).selectedSeriesInformation.All {
-				sAllInfo += " " + removeBraces.ReplaceAllString(fmt.Sprintf("%v", a), "") + "\n"
+				line := a.Tag.String() + " " + fmt.Sprintf("%v", a.Value)
+				if color := typeToColor(a.Type); color != "" {
+					line = color + line + "[-]"
+				}
+				sAllInfo += " " + line + "\n"
 			}
 			//fmt.Printf("IN FIRST DATASET! %s", sAllInfo)
 
@@ -73,7 +95,7 @@ func (statusTUI *StatusTUI) Init() {
 			SetTextAlign(tview.AlignLeft).
 			SetText(text)
 	}
-	statusTUI.summary = newPrimitive("")
+	statusTUI.summary = newPrimitive("").SetDynamicColors(true)
 	// keep lines on a single row: the window is narrow, so wrapping makes
 	// the text hard to read. Long lines are clipped at the border instead
 	// and can be scrolled sideways (left/right arrow or h/l) while vertical

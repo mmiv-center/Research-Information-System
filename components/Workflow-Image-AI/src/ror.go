@@ -1110,6 +1110,31 @@ func printImage2RunesHalfBlocks(g16 *image.Gray16, clip []float32, padVal int) s
 	return buf.String()
 }
 
+// fitImageGrid returns the terminal cell grid (twidth, cells) that displays a
+// 4:3 image inside a viewer of width vw cells and printable height
+// printableHeight cells, letting the tighter constraint win on BOTH dimensions.
+//
+// Terminal cells are roughly twice as tall as they are wide, so an image looks
+// correct when the cell grid has an 8:3 width:height ratio (8:3 cells -> 4:3
+// visual). In a narrow window the width limits the height; in a wide window the
+// height limits the width (rather than stretching the image to the full width,
+// which happened before).
+func fitImageGrid(vw, printableHeight int) (twidth, cells int) {
+	gridH := float64(vw) * 30.0 / 80.0
+	if float64(printableHeight) < gridH {
+		gridH = float64(printableHeight)
+	}
+	cells = int(math.Round(gridH))
+	twidth = int(math.Round(gridH * 80.0 / 30.0))
+	if cells < 1 {
+		cells = 1
+	}
+	if twidth < 1 {
+		twidth = 1
+	}
+	return twidth, cells
+}
+
 // Scale uses a different package for rescaling the image
 func Scale(src image.Image, rect image.Rectangle, scale draw.Scaler) image.Image {
 	dst := image.NewRGBA(rect)
@@ -1220,17 +1245,10 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 			// escapes, so we use its own "[#rrggbb:#rrggbb]" syntax instead.
 			_, _, vw, _ := viewer.GetInnerRect()
 			_, _, _, printableHeight := viewer.Box.GetInnerRect()
-			// Keep the original 80:30 cell aspect ratio, capped to the rows the
-			// viewer can actually show. Half-blocks give two pixels of vertical
-			// detail per cell, so the pixel grid is twice as tall.
-			cells := int(math.Round(float64(vw) / (80.0 / 30.0)))
-			if printableHeight < cells {
-				cells = printableHeight
-			}
-			if cells < 1 {
-				cells = 1
-			}
-			twidth := vw
+			// Fit a 4:3 image into the viewer, keeping the aspect ratio in both
+			// directions (see fitImageGrid). Half-blocks give two pixels of
+			// vertical detail per cell, so the pixel grid is twice as tall.
+			twidth, cells := fitImageGrid(vw, printableHeight)
 			theight := cells * 2
 			newImage := image.NewGray16(image.Rect(0, 0, twidth, theight))
 			// Catmull-Rom keeps edges sharper than ApproxBiLinear on high-contrast
@@ -1238,6 +1256,12 @@ func showDataset(dataset dicom.Dataset, counter int, path string, info string, v
 			draw.CatmullRom.Scale(newImage, newImage.Bounds(), img, origbounds, draw.Over, nil)
 
 			p := printImage2RunesHalfBlocks(newImage, clip, PixelPaddingValue)
+			// tview always renders text from the top of the pane (no vertical
+			// alignment), so pad the top with blank lines to center the image
+			// vertically when it is shorter than the printable area.
+			if topPad := (printableHeight - cells) / 2; topPad > 0 {
+				p = strings.Repeat("\n", topPad) + p
+			}
 			viewer.Clear()
 			viewer.SetText(p)
 			return orig_width, orig_height
@@ -4641,6 +4665,11 @@ func main() {
 					footer.SetBorder(false)
 					footer.SetTitle("File")
 					viewer.SetBorder(true).SetTitle("DICOM")
+					// The rendered image is fit to the viewer (and can be narrower
+					// and shorter than the pane), so center it instead of hugging
+					// the left, and never wrap its lines.
+					viewer.SetTextAlign(tview.AlignCenter)
+					viewer.SetWrap(false)
 
 					flex := tview.NewFlex().SetDirection(tview.FlexRow).
 						AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
