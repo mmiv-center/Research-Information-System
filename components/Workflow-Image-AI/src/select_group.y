@@ -1004,7 +1004,7 @@ func (x *exprLex) word(c rune, yylval *yySymType, delimiter rune) int {
         return ALSO
     } else if strings.ToLower(b.String()) == "regexp" {
         return REGEXP
-    } else if strings.ToLower(b.String()) == "everything" {
+    } else if strings.ToLower(b.String()) == "everything" || strings.ToLower(b.String()) == "anything" {
         return EVERYTHING
     } else if strings.ToLower(b.String()) == "not" {
         return NOT
