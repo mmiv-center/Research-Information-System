@@ -192,7 +192,7 @@ func (statusTUI *StatusTUI) Init() {
 	// and can be scrolled sideways (left/right arrow or h/l) while vertical
 	// scrolling works as before (up/down arrow or j/k).
 	statusTUI.summary.SetWrap(false)
-	statusTUI.summary.SetBorder(true).SetTitle("Current selection")
+	statusTUI.summary.SetBorder(true).SetTitle("DICOM Meta Data")
 	statusTUI.viewer = newPrimitive("").SetDynamicColors(true)
 	statusTUI.selection = tview.NewTreeView()
 	statusTUI.selection.SetBorder(true)
@@ -370,7 +370,17 @@ func doEvery(d time.Duration, statusTUI *StatusTUI, f func(*StatusTUI, time.Time
 	}
 }
 
-func showImage(statusTUI *StatusTUI, idx int) {
+// showImageNow renders image idx into the DICOM pane and the "Current
+// selection" panel and remembers it as the current image. It deliberately
+// does not request a redraw: it must run inside tview's event loop (from the
+// input capture or a queued update), where tview draws right after the handler
+// returns — and where calling app.Draw() would deadlock the application,
+// because app.Draw() queues the draw on that very loop and blocks until the
+// loop processes it.
+func showImageNow(statusTUI *StatusTUI, idx int) {
+	if len(statusTUI.selectedDatasets) == 0 {
+		return
+	}
 	if idx >= len(statusTUI.selectedDatasets) {
 		idx = len(statusTUI.selectedDatasets) - 1
 	}
@@ -383,10 +393,8 @@ func showImage(statusTUI *StatusTUI, idx int) {
 		// update the "Current selection" panel for the new image before the
 		// redraw so both are visible in the same frame
 		updateSummary(statusTUI, statusTUI.selectedDatasets[idx])
-		statusTUI.app.Draw()
 		statusTUI.viewer.SetTitle(fmt.Sprintf("DICOM image %d/%d", statusTUI.currentImage+1, len(statusTUI.selectedDatasets)))
 	}
-
 }
 
 // nextImage displays one image from the currently selected image series in the viewer
@@ -400,7 +408,44 @@ func nextImage(statusTUI *StatusTUI, t time.Time) {
 	}
 
 	idx := ((statusTUI.currentImage) + 1) % len(statusTUI.selectedDatasets)
-	showImage(statusTUI, idx)
+	// QueueUpdateDraw runs the render inside tview's event loop, so it can
+	// never interleave with the key handler (which runs in the same loop) or
+	// with a draw. This is the safe way to update the UI from this goroutine.
+	if statusTUI.app != nil {
+		statusTUI.app.QueueUpdateDraw(func() {
+			showImageNow(statusTUI, idx)
+		})
+	} else {
+		showImageNow(statusTUI, idx)
+	}
+}
+
+// captureInput is the global key handler. It runs inside tview's event loop,
+// so it must not call app.Draw() — app.Draw() queues the draw on that very
+// loop and blocks until the loop processes it, which would make the loop wait
+// for itself and deadlock the application (the reason the earlier slice
+// navigation attempt crashed). Instead: render the new image, return nil to
+// consume the key, and let tview redraw right after the handler returns.
+func (statusTUI *StatusTUI) captureInput(event *tcell.EventKey) *tcell.EventKey {
+	k := event.Key()
+	// with the animation stopped, the cursor keys step through the slices of
+	// the selected series while the DICOM pane has the focus: down/right
+	// shows the next slice, up/left the previous one. The index is clamped in
+	// showImageNow, so holding a key at the end of the series is harmless.
+	if statusTUI.stopAnimation && statusTUI.app.GetFocus() == statusTUI.viewer && len(statusTUI.selectedDatasets) > 0 {
+		switch k {
+		case tcell.KeyDown, tcell.KeyRight:
+			showImageNow(statusTUI, statusTUI.currentImage+1)
+			return nil
+		case tcell.KeyUp, tcell.KeyLeft:
+			showImageNow(statusTUI, statusTUI.currentImage-1)
+			return nil
+		}
+	}
+	if k == tcell.KeyRune && event.Rune() == rune('c') {
+		statusTUI.stopAnimation = !statusTUI.stopAnimation
+	}
+	return event
 }
 
 func (statusTUI *StatusTUI) Run() {
@@ -410,34 +455,7 @@ func (statusTUI *StatusTUI) Run() {
 
 	statusTUI.app = tview.NewApplication()
 
-	statusTUI.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		k := event.Key()
-		prim := statusTUI.app.GetFocus()
-		ch := rune(0)
-		//if statusTUI.app.GetFocus() == statusTUI.viewer {
-		if statusTUI.stopAnimation && prim == statusTUI.viewer {
-			if k == tcell.KeyDown {
-				// what window is active?
-				//fmt.Println("Down KEY")
-				statusTUI.currentImage++
-				// this seems to crash the program
-				//showImage(statusTUI, statusTUI.currentImage)
-
-			} else if k == tcell.KeyUp {
-				//fmt.Println("Up KEY")
-				statusTUI.currentImage--
-				//showImage(statusTUI, statusTUI.currentImage)
-			}
-		}
-		//}
-		if k == tcell.KeyRune {
-			ch = event.Rune()
-			if ch == rune('c') {
-				statusTUI.stopAnimation = !statusTUI.stopAnimation
-			}
-		}
-		return event
-	})
+	statusTUI.app.SetInputCapture(statusTUI.captureInput)
 
 	if err := statusTUI.app.SetRoot(statusTUI.flex, true).SetFocus(statusTUI.selection).EnableMouse(true).Run(); err != nil {
 		fmt.Println("Error: The --tui mode is only available in a propper terminal.")
