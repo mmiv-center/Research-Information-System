@@ -209,7 +209,7 @@ func sortDatasets(datasets []dicom.Dataset) {
 			distinct[sl] = struct{}{}
 		}
 	}
-	useSliceLocation := numWithSlice == len(datasets) && len(distinct) > 1
+	useSliceLocation := len(distinct) > 1
 	sort.SliceStable(datasets, func(i, j int) bool {
 		if useSliceLocation {
 			if keys[i].sliceLocation != keys[j].sliceLocation {
