@@ -186,39 +186,44 @@ func sliceSortKey(dataset dicom.Dataset) (instanceNumber int, sliceLocation floa
 	return
 }
 
-// sortDatasets orders the images of a series for the animation. When every
-// image carries a Slice Location and those values actually differ across the
-// series, the anatomical order is used (Slice Location ascending, with Instance
-// Number as a tie-breaker). Otherwise we fall back to acquisition order
-// (Instance Number ascending). This mirrors how DICOM viewers order slices for
-// display, and keeps the animation a clean sweep through the anatomy.
+// sortDatasets orders the images of a series for the animation. When the
+// series carries more than one distinct Slice Location, the anatomical order is
+// used (Slice Location ascending, with Instance Number as a tie-breaker).
+// Otherwise we fall back to acquisition order (Instance Number ascending). This
+// mirrors how DICOM viewers order slices for display, and keeps the animation a
+// clean sweep through the anatomy.
 func sortDatasets(datasets []dicom.Dataset) {
-	type key struct {
+	// Pair each dataset with its sort key so the two move together while
+	// sorting. (Sorting the datasets with a comparator that reads a separate,
+	// unsorted key slice is wrong: the sort only permutes the datasets, so the
+	// keys fall out of step with them and the result is an arbitrary order.)
+	type item struct {
+		dataset        dicom.Dataset
 		instanceNumber int
 		sliceLocation  float64
-		hasSliceLoc    bool
 	}
-	keys := make([]key, len(datasets))
-	numWithSlice := 0
+	items := make([]item, len(datasets))
 	distinct := map[float64]struct{}{}
 	for i, d := range datasets {
 		in, sl, has := sliceSortKey(d)
-		keys[i] = key{in, sl, has}
+		items[i] = item{d, in, sl}
 		if has {
-			numWithSlice++
 			distinct[sl] = struct{}{}
 		}
 	}
 	useSliceLocation := len(distinct) > 1
-	sort.SliceStable(datasets, func(i, j int) bool {
+	sort.SliceStable(items, func(i, j int) bool {
 		if useSliceLocation {
-			if keys[i].sliceLocation != keys[j].sliceLocation {
-				return keys[i].sliceLocation < keys[j].sliceLocation
+			if items[i].sliceLocation != items[j].sliceLocation {
+				return items[i].sliceLocation < items[j].sliceLocation
 			}
-			return keys[i].instanceNumber < keys[j].instanceNumber
+			return items[i].instanceNumber < items[j].instanceNumber
 		}
-		return keys[i].instanceNumber < keys[j].instanceNumber
+		return items[i].instanceNumber < items[j].instanceNumber
 	})
+	for i := range items {
+		datasets[i] = items[i].dataset
+	}
 }
 
 func (statusTUI *StatusTUI) Init() {
