@@ -511,6 +511,12 @@ func (statusTUI *StatusTUI) captureInput(event *tcell.EventKey) *tcell.EventKey 
 			// switch to mode 2: tag as its camel-case name, panel 60 wide
 			statusTUI.setMode(2)
 			return nil // consume the key; tview redraws with the new layout
+		case rune('q'):
+			statusTUI.stopAnimation = !statusTUI.stopAnimation
+			if app := statusTUI.app; app != nil {
+				app.Stop()
+			}
+			return nil // quit the application
 		case rune('c'):
 			statusTUI.stopAnimation = !statusTUI.stopAnimation
 		}
