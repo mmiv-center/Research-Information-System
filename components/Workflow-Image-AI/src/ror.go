@@ -1745,7 +1745,7 @@ type configCheckpointWriter struct {
 
 func newConfigCheckpointWriter() *configCheckpointWriter {
 	return &configCheckpointWriter{
-		wake: make(chan struct{}, 1),
+		wake:   make(chan struct{}, 1),
 		stopCh: make(chan struct{}),
 		done:   make(chan struct{}),
 	}
@@ -2654,7 +2654,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo, processCall
 			if rs.Rs1 == nil {
 				// we have a left leaf
 				if rs.Leaf1 != nil {
-					res = append(res, &(*rs.Leaf1))
+					res = append(res, rs.Leaf1)
 				}
 			} else {
 				erg := traverse(*rs.Rs1)
@@ -2662,7 +2662,7 @@ func (ast AST) improveAST(datasets map[string]map[string]SeriesInfo, processCall
 			}
 			if rs.Rs2 == nil {
 				if rs.Leaf2 != nil {
-					res = append(res, &(*rs.Leaf2))
+					res = append(res, rs.Leaf2)
 				}
 			} else {
 				erg := traverse(*rs.Rs2)

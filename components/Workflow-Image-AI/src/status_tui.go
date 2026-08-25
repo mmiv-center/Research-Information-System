@@ -34,6 +34,12 @@ type StatusTUI struct {
 	stopAnimation             bool
 	lastSelectedSeries        string
 	summaryLines              []string
+	// tagVaries reports, for the currently selected series, which tags have a
+	// value that is not constant across the series (i.e. the tag changes at
+	// some point). Such tags get a gray star in the "DICOM Meta Data" panel so
+	// the interesting (variable) tags stand out even while their value is
+	// currently stable; a nil map simply means none are marked.
+	tagVaries map[tag.Tag]bool
 	// mode selects how the "DICOM Meta Data" panel is rendered:
 	//   1 (default) tag shown as "(group,tag)", panel 30 wide
 	//   2           tag shown as its camel-case name, panel 60 wide
@@ -47,6 +53,20 @@ func leftPanelWidth(mode int) int {
 		return 60
 	}
 	return 30
+}
+
+// summaryTitle builds the "DICOM Meta Data" panel title. Besides naming the
+// panel it carries a hint of the shortcut that switches to the *other* display
+// mode: the inactive mode's number is shown in gray so it reads as "press this
+// key to switch" (press '2' while in mode 1, '1' while in mode 2). The gray is
+// applied with tview style tags, which the border-title renderer honors; "[-]"
+// resets back to the title's own color. Any mode value other than 2 is treated
+// as mode 1 (the default).
+func summaryTitle(mode int) string {
+	if mode == 2 {
+		return "DICOM Meta Data [[gray]1[-]|2]"
+	}
+	return "DICOM Meta Data [1|[gray]2[-]]"
 }
 
 // maxTagKeywordLen is the maximum width of the human-readable tag keyword
@@ -108,11 +128,13 @@ func addDataset(statusTUI *StatusTUI, dataset dicom.Dataset) {
 
 // updateSummary re-renders the "Current selection" panel with the metadata of
 // the displayed image, so the panel follows the animation instead of only
-// showing the series information. Lines whose content differs from the
-// previously displayed image are marked with a leading '*' so the changes
-// stand out. Replacing the text of the TextView preserves its scroll
-// position (tview keeps the line offset and the track-end state), so the
-// panel does not jump back to the top with every new image.
+// showing the series information. Each tag line can carry a leading star: a
+// bright '*' when the value differs from the previously displayed image, or a
+// gray '*' when the value is unchanged right now but the tag changes at some
+// point in the series (see tagVaries), so the interesting tags stay visible.
+// Replacing the text of the TextView preserves its scroll position (tview
+// keeps the line offset and the track-end state), so the panel does not jump
+// back to the top with every new image.
 func updateSummary(statusTUI *StatusTUI, dataset dicom.Dataset) {
 	if statusTUI.app == nil {
 		return
@@ -121,8 +143,10 @@ func updateSummary(statusTUI *StatusTUI, dataset dicom.Dataset) {
 	all := allTagAndValues(dataset)
 
 	// the plain-text lines of the panel; they are remembered (in
-	// summaryLines) so the next image can be compared line by line
+	// summaryLines) so the next image can be compared line by line. The tag is
+	// kept too so the "varies across the series" star can be looked up per tag.
 	type panelLine struct {
+		tag  tag.Tag
 		text string
 		typ  string
 	}
@@ -137,25 +161,38 @@ func updateSummary(statusTUI *StatusTUI, dataset dicom.Dataset) {
 		if statusTUI.mode == 2 {
 			label = tagKeyword(a.Tag)
 		}
-		lines = append(lines, panelLine{text: label + " " + fmt.Sprintf("%v", a.Value), typ: a.Type})
+		lines = append(lines, panelLine{tag: a.Tag, text: label + " " + fmt.Sprintf("%v", a.Value), typ: a.Type})
 	}
 
 	plain := make([]string, len(lines))
 	var out strings.Builder
 	for i, l := range lines {
 		plain[i] = l.text
-		// mark lines that changed compared to the previously displayed
-		// image; the first rendering of a series (summaryLines is nil) is
-		// not marked
-		mark := " "
-		if statusTUI.summaryLines != nil && (i >= len(statusTUI.summaryLines) || statusTUI.summaryLines[i] != l.text) {
-			mark = "*"
+		// A line carries a single star, colored by what is special about it:
+		//   bright '*'  the value differs from the previously displayed image
+		//                (the current behaviour; takes priority)
+		//   gray   '*'  the value is unchanged right now but this tag changes
+		//                at some point in the series, so the interesting tags
+		//                stay visible. It is set per series (tagVaries) and is
+		//                independent of the first-render check below.
+		// Header lines have no tag, so tagVaries looks them up as false and
+		// they only ever get the bright star.
+		changed := statusTUI.summaryLines != nil &&
+			(i >= len(statusTUI.summaryLines) || statusTUI.summaryLines[i] != l.text)
+		var mark string
+		switch {
+		case changed:
+			mark = "*" // default (bright) color
+		case statusTUI.tagVaries[l.tag]:
+			mark = "[gray]*[-]"
+		default:
+			mark = " "
 		}
-		line := mark + l.text
+		content := l.text
 		if color := typeToColor(l.typ); color != "" {
-			line = mark + color + l.text + "[-]"
+			content = color + l.text + "[-]"
 		}
-		out.WriteString(line)
+		out.WriteString(mark + content)
 		out.WriteByte('\n')
 	}
 
@@ -226,6 +263,35 @@ func sortDatasets(datasets []dicom.Dataset) {
 	}
 }
 
+// computeTagVaries examines every image of a series and reports the tags whose
+// value is not constant across it — i.e. the tags that "change at some point".
+// A tag is present in the returned map only if it takes more than one distinct
+// value, so a lookup is a simple boolean test (and a missing tag, or a lookup
+// against a nil map, reads as false). The value strings are compared the same
+// way the panel renders them (fmt.Sprintf("%v", value)), so this matches what
+// the user sees change.
+func computeTagVaries(datasets []dicom.Dataset) map[tag.Tag]bool {
+	values := make(map[tag.Tag]map[string]struct{})
+	for _, d := range datasets {
+		for _, a := range allTagAndValues(d) {
+			v := fmt.Sprintf("%v", a.Value)
+			set := values[a.Tag]
+			if set == nil {
+				set = make(map[string]struct{})
+				values[a.Tag] = set
+			}
+			set[v] = struct{}{}
+		}
+	}
+	varies := make(map[tag.Tag]bool)
+	for t, set := range values {
+		if len(set) > 1 {
+			varies[t] = true
+		}
+	}
+	return varies
+}
+
 func (statusTUI *StatusTUI) Init() {
 	if len(statusTUI.dataSets) == 0 {
 		fmt.Println("Warning: there are no datasets to visualize")
@@ -244,7 +310,7 @@ func (statusTUI *StatusTUI) Init() {
 	// and can be scrolled sideways (left/right arrow or h/l) while vertical
 	// scrolling works as before (up/down arrow or j/k).
 	statusTUI.summary.SetWrap(false)
-	statusTUI.summary.SetBorder(true).SetTitle("DICOM Meta Data")
+	statusTUI.summary.SetBorder(true).SetTitle(summaryTitle(statusTUI.mode))
 	statusTUI.viewer = newPrimitive("").SetDynamicColors(true)
 	statusTUI.selection = tview.NewTreeView()
 	statusTUI.selection.SetBorder(true)
@@ -375,8 +441,11 @@ func (statusTUI *StatusTUI) Init() {
 		SelectedSeriesInstanceUID := SeriesInstanceUID
 		statusTUI.selectedDatasets = nil
 		// the first image of the new series is not marked as changed, only
-		// the differences between the images of the series get the '*'
+		// the differences between the images of the series get the bright '*'
 		statusTUI.summaryLines = nil
+		// the gray "varies in series" stars are recomputed for the new series
+		// below (after the images are loaded); clear the previous series' set
+		statusTUI.tagVaries = nil
 		statusTUI.currentImage = 0
 		statusTUI.stopAnimation = false
 		filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
@@ -408,6 +477,9 @@ func (statusTUI *StatusTUI) Init() {
 		// animation starts so it sweeps through the anatomy in a sensible order
 		// instead of following the file-system walk order
 		sortDatasets(statusTUI.selectedDatasets)
+		// work out which tags vary across the series so the panel can gray-star
+		// them; this is independent of the per-frame bright-star comparison
+		statusTUI.tagVaries = computeTagVaries(statusTUI.selectedDatasets)
 
 		children := node.GetChildren()
 		if len(children) == 0 {
@@ -479,6 +551,117 @@ func nextImage(statusTUI *StatusTUI, t time.Time) {
 	}
 }
 
+// isSeriesNode reports whether node represents an actual image series, i.e. its
+// reference is a non-empty SeriesInstanceUID. The "Selections" root and the
+// job/group nodes are not series (their reference is empty or nil) and are
+// excluded so scrolling never lands the highlight on them.
+func isSeriesNode(node *tview.TreeNode) bool {
+	ref, ok := node.GetReference().(string)
+	return ok && len(ref) > 0
+}
+
+// flattenSelection returns the nodes of the selection tree in the same
+// top-to-bottom order tview renders them: a preorder walk from the root that
+// only descends into expanded nodes. This mirrors the TreeView's internal row
+// list (its top level is 0), so a row index here lines up with a visible row
+// there.
+func flattenSelection(root *tview.TreeNode) []*tview.TreeNode {
+	var nodes []*tview.TreeNode
+	var walk func(n *tview.TreeNode)
+	walk = func(n *tview.TreeNode) {
+		nodes = append(nodes, n)
+		if n.IsExpanded() {
+			for _, c := range n.GetChildren() {
+				walk(c)
+			}
+		}
+	}
+	if root != nil {
+		walk(root)
+	}
+	return nodes
+}
+
+// captureMouse is the global mouse handler, invoked by tview before it routes a
+// mouse action to the focused primitive. When the user scrolls over the
+// selection tree (the bottom window), the touch-pad scroll moves the visible
+// rows but leaves the highlighted series where it was. Here we move the
+// highlight to the series at the edge the scroll is heading toward — the
+// topmost visible one for a scroll up, the bottommost for a scroll down — so
+// the highlight follows the scroll. The event is returned unchanged so tview
+// still performs its own one-row scroll; we only re-point the highlight. Other
+// actions, and scrolls over other windows, pass through untouched.
+func (statusTUI *StatusTUI) captureMouse(event *tcell.EventMouse, action tview.MouseAction) (*tcell.EventMouse, tview.MouseAction) {
+	if statusTUI.selection == nil ||
+		(action != tview.MouseScrollUp && action != tview.MouseScrollDown) {
+		return event, action
+	}
+	x, y := event.Position()
+	if !statusTUI.selection.InRect(x, y) {
+		return event, action // scroll is not over the series tree; leave it alone
+	}
+
+	// tview applies the scroll on the next draw as (offset += ±1, clamped), so
+	// the new first visible row is at most one away from the current offset.
+	offset := statusTUI.selection.GetScrollOffset()
+	rowCount := statusTUI.selection.GetRowCount()
+	_, _, _, height := statusTUI.selection.GetInnerRect()
+	if height <= 0 || rowCount <= 0 {
+		return event, action
+	}
+	switch action {
+	case tview.MouseScrollUp:
+		offset--
+	case tview.MouseScrollDown:
+		offset++
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if maxOffset := rowCount - height; maxOffset < 0 {
+		return event, action // fewer rows than the window; nothing to highlight
+	} else if offset > maxOffset {
+		offset = maxOffset
+	}
+
+	// The visible rows after this scroll are [offset, offset+height). Pick the
+	// series at the edge the scroll is moving toward.
+	target := selectionScrollTarget(flattenSelection(statusTUI.selection.GetRoot()), offset, height, action)
+	if target != nil && target != statusTUI.selection.GetCurrentNode() {
+		statusTUI.selection.SetCurrentNode(target)
+	}
+	return event, action
+}
+
+// selectionScrollTarget returns the series node to highlight after scrolling in
+// the given direction, within the visible rows [offset, offset+height) of the
+// flattened tree: the first series for a scroll up, the last for a scroll
+// down. It returns nil when that range holds no series node.
+func selectionScrollTarget(nodes []*tview.TreeNode, offset, height int, action tview.MouseAction) *tview.TreeNode {
+	end := offset + height
+	if end > len(nodes) {
+		end = len(nodes)
+	}
+	if end <= offset {
+		return nil
+	}
+	switch action {
+	case tview.MouseScrollUp:
+		for _, n := range nodes[offset:end] {
+			if isSeriesNode(n) {
+				return n
+			}
+		}
+	case tview.MouseScrollDown:
+		for i := end - 1; i >= offset; i-- {
+			if isSeriesNode(nodes[i]) {
+				return nodes[i]
+			}
+		}
+	}
+	return nil
+}
+
 // captureInput is the global key handler. It runs inside tview's event loop,
 // so it must not call app.Draw() — app.Draw() queues the draw on that very
 // loop and blocks until the loop processes it, which would make the loop wait
@@ -536,7 +719,11 @@ func (statusTUI *StatusTUI) setMode(mode int) {
 	oldMode := statusTUI.mode
 	statusTUI.mode = mode
 
-	// (a) re-size the left panel. The viewer sits to its right in the same
+	// (a) update the panel title so it hints the shortcut to switch back: the
+	// now-inactive mode's number is shown in gray.
+	statusTUI.summary.SetTitle(summaryTitle(mode))
+
+	// (b) re-size the left panel. The viewer sits to its right in the same
 	// row, so it absorbs the width change on the next layout pass.
 	statusTUI.topSection.ResizeItem(statusTUI.summary, leftPanelWidth(mode), 1)
 
@@ -549,7 +736,7 @@ func (statusTUI *StatusTUI) setMode(mode int) {
 		statusTUI.viewer.SetRect(x+delta, y, w-delta, h)
 	}
 
-	// (b) re-render the current image and the panel in the new format. The
+	// (c) re-render the current image and the panel in the new format. The
 	// first render after the switch is not marked as changed (like a newly
 	// selected series).
 	statusTUI.summaryLines = nil
@@ -566,6 +753,9 @@ func (statusTUI *StatusTUI) Run() {
 	statusTUI.app = tview.NewApplication()
 
 	statusTUI.app.SetInputCapture(statusTUI.captureInput)
+	// route mouse actions through our handler too, so a touch-pad scroll over
+	// the series tree can move the highlight (see captureMouse)
+	statusTUI.app.SetMouseCapture(statusTUI.captureMouse)
 
 	if err := statusTUI.app.SetRoot(statusTUI.flex, true).SetFocus(statusTUI.selection).EnableMouse(true).Run(); err != nil {
 		fmt.Println("Error: The --tui mode is only available in a propper terminal.")
