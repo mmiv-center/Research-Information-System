@@ -201,11 +201,24 @@ func updateSummary(statusTUI *StatusTUI, dataset dicom.Dataset) {
 	statusTUI.summaryLines = plain
 }
 
-// sliceSortKey extracts the two ordering keys from a single image: the
-// Instance Number (0020,0013, VR IS) and the Slice Location (0020,1041, VR DS).
-// The dicom library stores both as strings (they map to VRStringList), so we
-// parse them here. hasSliceLoc reports whether a Slice Location was present and
-// could be parsed as a number.
+// sequenceNameOf returns the Sequence Name (0018,0050) of a single image, or
+// the empty string when the tag is absent or empty. It is the primary sort key,
+// so images belonging to different sequences are grouped together before the
+// per-sequence (Slice Location / Instance Number) ordering is applied.
+func sequenceNameOf(dataset dicom.Dataset) string {
+	if v, err := dataset.FindElementByTag(tag.SequenceName); err == nil {
+		if strs := dicom.MustGetStrings(v.Value); len(strs) > 0 {
+			return strs[0]
+		}
+	}
+	return ""
+}
+
+// sliceSortKey extracts the two per-sequence ordering keys from a single image:
+// the Instance Number (0020,0013, VR IS) and the Slice Location (0020,1041, VR
+// DS). The dicom library stores both as strings (they map to VRStringList), so
+// we parse them here. hasSliceLoc reports whether a Slice Location was present
+// and could be parsed as a number.
 func sliceSortKey(dataset dicom.Dataset) (instanceNumber int, sliceLocation float64, hasSliceLoc bool) {
 	if v, err := dataset.FindElementByTag(tag.InstanceNumber); err == nil {
 		if strs := dicom.MustGetStrings(v.Value); len(strs) > 0 {
@@ -223,40 +236,56 @@ func sliceSortKey(dataset dicom.Dataset) (instanceNumber int, sliceLocation floa
 	return
 }
 
-// sortDatasets orders the images of a series for the animation. When the
-// series carries more than one distinct Slice Location, the anatomical order is
-// used (Slice Location ascending, with Instance Number as a tie-breaker).
-// Otherwise we fall back to acquisition order (Instance Number ascending). This
-// mirrors how DICOM viewers order slices for display, and keeps the animation a
-// clean sweep through the anatomy.
+// sortDatasets orders the images of a series for the animation. The primary
+// key is the Sequence Name (0018,0050), so images of different sequences are
+// grouped together in name order. Within a sequence, when it carries more than
+// one distinct Slice Location the anatomical order is used (Slice Location
+// ascending, with Instance Number as a tie-breaker); otherwise it falls back
+// to acquisition order (Instance Number ascending). This mirrors how DICOM
+// viewers order slices for display, and keeps the animation a clean sweep
+// through each sequence's anatomy.
 func sortDatasets(datasets []dicom.Dataset) {
-	// Pair each dataset with its sort key so the two move together while
+	// Pair each dataset with its sort keys so the keys move together while
 	// sorting. (Sorting the datasets with a comparator that reads a separate,
 	// unsorted key slice is wrong: the sort only permutes the datasets, so the
 	// keys fall out of step with them and the result is an arbitrary order.)
 	type item struct {
 		dataset        dicom.Dataset
+		sequenceName   string
 		instanceNumber int
 		sliceLocation  float64
+		hasSliceLoc    bool
 	}
 	items := make([]item, len(datasets))
-	distinct := map[float64]struct{}{}
 	for i, d := range datasets {
 		in, sl, has := sliceSortKey(d)
-		items[i] = item{d, in, sl}
-		if has {
-			distinct[sl] = struct{}{}
-		}
+		items[i] = item{d, sequenceNameOf(d), in, sl, has}
 	}
-	useSliceLocation := len(distinct) > 1
-	sort.SliceStable(items, func(i, j int) bool {
-		if useSliceLocation {
-			if items[i].sliceLocation != items[j].sliceLocation {
-				return items[i].sliceLocation < items[j].sliceLocation
-			}
-			return items[i].instanceNumber < items[j].instanceNumber
+	// Within a Sequence Name, Slice Location is the ordering key only when the
+	// sequence carries more than one distinct value; a single (or absent) Slice
+	// Location carries no order, so Instance Number drives the sequence instead.
+	distinct := map[string]map[float64]struct{}{}
+	for _, it := range items {
+		if !it.hasSliceLoc {
+			continue
 		}
-		return items[i].instanceNumber < items[j].instanceNumber
+		set := distinct[it.sequenceName]
+		if set == nil {
+			set = map[float64]struct{}{}
+			distinct[it.sequenceName] = set
+		}
+		set[it.sliceLocation] = struct{}{}
+	}
+	useSliceLoc := func(name string) bool { return len(distinct[name]) > 1 }
+	sort.SliceStable(items, func(i, j int) bool {
+		a, b := items[i], items[j]
+		if a.sequenceName != b.sequenceName {
+			return a.sequenceName < b.sequenceName
+		}
+		if useSliceLoc(a.sequenceName) && a.sliceLocation != b.sliceLocation {
+			return a.sliceLocation < b.sliceLocation
+		}
+		return a.instanceNumber < b.instanceNumber
 	})
 	for i := range items {
 		datasets[i] = items[i].dataset
@@ -524,7 +553,7 @@ func showImageNow(statusTUI *StatusTUI, idx int) {
 		// update the "Current selection" panel for the new image before the
 		// redraw so both are visible in the same frame
 		updateSummary(statusTUI, statusTUI.selectedDatasets[idx])
-		statusTUI.viewer.SetTitle(fmt.Sprintf("DICOM image %d/%d", statusTUI.currentImage+1, len(statusTUI.selectedDatasets)))
+		statusTUI.viewer.SetTitle(fmt.Sprintf("DICOM image %d/%d [c-ine, ▲⏷-scroll]", statusTUI.currentImage+1, len(statusTUI.selectedDatasets)))
 	}
 }
 

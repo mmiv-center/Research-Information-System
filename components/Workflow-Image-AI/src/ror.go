@@ -802,7 +802,7 @@ func printImage2Runes(img image.Image, PhotometricInterpretation string, PixelPa
 		sum += histogram[i]
 	}
 	if len(clip) != 2 {
-		clip = []float32{5, 99}
+		clip = []float32{5, 99.5}
 	}
 	//fmt.Println("clip: ", clip)
 
