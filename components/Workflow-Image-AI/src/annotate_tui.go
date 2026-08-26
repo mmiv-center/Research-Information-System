@@ -211,15 +211,15 @@ func (annotateTUI *AnnotateTUI) Init() {
 
 	var annotations []string
 	if annotateTUI.ontology != nil {
-		annotations = getAnnotations(annotateTUI, annotateTUI.ontology)
-		printAnnotations(annotations, annotateTUI, annotateTUI.summary)
+		annotations = getAnnotations(annotateTUI.ontology)
+		printAnnotations(annotations, annotateTUI)
 	}
 
 	annotateTUI.Run(annotations)
 }
 
 // add the list of annotation to the summary viewport
-func printAnnotations(annotations []string, annotateTUI *AnnotateTUI, viewer *tview.TreeView) {
+func printAnnotations(annotations []string, annotateTUI *AnnotateTUI) {
 	var an []string
 	an = append(an, annotations...)
 	sort.Strings(an)
@@ -271,7 +271,7 @@ func updateMarkers(annotateTUI *AnnotateTUI) {
 	}
 }
 
-func getAnnotations(annotateTUI *AnnotateTUI, ontology interface{}) []string {
+func getAnnotations(ontology interface{}) []string {
 	var annotations []string
 	for key := range ontology.(map[string]interface{}) {
 		//fmt.Fprintf(annotateTUI.example1, "found a key %s and value %s\n", key, entry)
