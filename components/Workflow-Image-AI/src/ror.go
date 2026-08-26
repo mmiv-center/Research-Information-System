@@ -1229,22 +1229,56 @@ func printImage2RunesHalfBlocks(g16 *image.Gray16, clip []float32, padVal int) s
 	return buf.String()
 }
 
+// defaultCellAspect is the assumed height:width ratio of a single terminal
+// cell (the classic 1:2 width:height monospaced font), used when the real
+// aspect cannot be measured.
+const defaultCellAspect = 2.0
+
+// cellAspect measures the height:width ratio of a single cell of the current
+// terminal: TIOCGWINSZ reports the window in pixels and in cells, so the pixel
+// size of one character (and thus the font's aspect) follows by division (see
+// terminalCellPixelSize). When stdout is not a terminal, the emulator does not
+// report pixel sizes, or the result is implausible, the classic 1:2 assumption
+// is used.
+func cellAspect() float64 {
+	w, h, ok := terminalCellPixelSize(os.Stdout.Fd())
+	if !ok || w <= 0 {
+		return defaultCellAspect
+	}
+	aspect := float64(h) / float64(w)
+	if aspect < 0.5 || aspect > 4.0 {
+		return defaultCellAspect
+	}
+	return aspect
+}
+
 // fitImageGrid returns the terminal cell grid (twidth, cells) that displays a
 // 4:3 image inside a viewer of width vw cells and printable height
 // printableHeight cells, letting the tighter constraint win on BOTH dimensions.
 //
-// Terminal cells are roughly twice as tall as they are wide, so an image looks
-// correct when the cell grid has an 8:3 width:height ratio (8:3 cells -> 4:3
-// visual). In a narrow window the width limits the height; in a wide window the
-// height limits the width (rather than stretching the image to the full width,
-// which happened before).
+// A 4:3 image looks correct when the cell grid has the ratio
+// twidth/cells = 4/3 * cellHeight/cellWidth, where cellHeight/cellWidth is the
+// measured aspect of one terminal cell (cellAspect; the classic 1:2 font gives
+// the old 8:3 ratio). Using the measured aspect fixes the image appearing
+// squished vertically when the font is not exactly 1:2. In a narrow window the
+// width limits the height; in a wide window the height limits the width
+// (rather than stretching the image to the full width, which happened before).
 func fitImageGrid(vw, printableHeight int) (twidth, cells int) {
-	gridH := float64(vw) * 30.0 / 80.0
+	return fitImageGridAspect(vw, printableHeight, cellAspect())
+}
+
+// fitImageGridAspect is the aspect-parameterized computation behind
+// fitImageGrid, factored out so it can be tested with a fixed aspect.
+func fitImageGridAspect(vw, printableHeight int, aspect float64) (twidth, cells int) {
+	if aspect <= 0 {
+		aspect = defaultCellAspect
+	}
+	gridH := float64(vw) * 3.0 / (4.0 * aspect)
 	if float64(printableHeight) < gridH {
 		gridH = float64(printableHeight)
 	}
 	cells = int(math.Round(gridH))
-	twidth = int(math.Round(gridH * 80.0 / 30.0))
+	twidth = int(math.Round(gridH * 4.0 * aspect / 3.0))
 	if cells < 1 {
 		cells = 1
 	}
