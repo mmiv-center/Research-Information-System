@@ -1050,7 +1050,7 @@ type serverStatus struct {
 // contentTool is a tool that returns unstructured content.
 //
 // Since its output type is 'any', no output schema is created.
-func contentTool(ctx context.Context, req *mcp.CallToolRequest, args args) (*mcp.CallToolResult, any, error) {
+func contentTool(ctx context.Context, args args) (*mcp.CallToolResult, any, error) {
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			&mcp.TextContent{Text: "Hi " + args.Name},
