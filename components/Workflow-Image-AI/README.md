@@ -469,13 +469,13 @@ The above structure corresponds to REDCap's data model for longitudinal event-re
 
 ## MCP server functionality
 
-This tool can (partially) be used from an LLM. It can work as a Model Context Protocol server (mcp server). Test the interface / schema using
+This tool can (partially) be used from an LLM. It can work as a Model Context Protocol server (mcp server with state-less protocol). Test the interface / schema
 
 ```bash
 npx @modelcontextprotocol/inspector ror mcp --working_directory <folder>
 ```
 
-To integrate the mcp server with Visual Studio Code add the following to your <workspace>/.vscode/mcp.json configuration file:
+To integrate the mcp server with Visual Studio Code add the following to your <workspace>/.vscode/mcp.json configuration file (change /tmp/bla to your working folder):
 
 ```bash
 {
@@ -505,7 +505,7 @@ For LM Studio you can add this mcp server in mcp.json with:
     }
 ```
 
-For claude code (pwd is the current working directory):
+For claude code (pwd is the current working directory) you can enable the ror-mcp server by directory:
 
 ```bash
 claude mcp add ror -- ror mcp --working_directory `pwd`
